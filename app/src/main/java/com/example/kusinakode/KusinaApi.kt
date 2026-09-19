@@ -32,6 +32,16 @@ data class RegisterResponse(
 @Serializable
 data class LoginRequest(val email: String, val password: String)
 
+/**
+ * The Google ID token, on its way to be verified.
+ *
+ * Only the token travels. The server reads the email, name and account id
+ * out of the signed claims rather than out of anything this app says about
+ * them - an APK can be decompiled, so nothing it asserts is evidence.
+ */
+@Serializable
+data class GoogleSignInRequest(val id_token: String, val create: Boolean = false)
+
 @Serializable
 data class LoginResponse(
     val status: String,
@@ -41,7 +51,11 @@ data class LoginResponse(
     val display_name: String? = null,
     val nickname: String? = null,
     val email: String? = null,
-    val message: String? = null
+    val message: String? = null,
+    /** Google sign-in only: true when that call created the account. */
+    val is_new: Boolean? = null,
+    /** Google sign-in only: the display name the token carried. */
+    val name: String? = null
 )
 
 @Serializable
@@ -526,6 +540,22 @@ object KusinaApi {
         KtorClient.client.post("${BASE}login.php") {
             contentType(ContentType.Application.Json)
             setBody(LoginRequest(email, password))
+        }.body()
+
+    /**
+     * Signs in with Google, creating the account on first use.
+     *
+     * Answers the same shape as login.php - the same bearer token, the same
+     * fields - so everything after this point is identical whichever way the
+     * player got in.
+     */
+    suspend fun googleSignIn(idToken: String, create: Boolean = false): LoginResponse =
+        KtorClient.client.post("${BASE}auth/google.php") {
+            contentType(ContentType.Application.Json)
+            setBody(GoogleSignInRequest(idToken, create))
+            // 404 "no_account" is an answer, not a transport failure - it
+            // carries the email the app needs in order to ask.
+            expectSuccess = false
         }.body()
 
     suspend fun getLevels(): GenericListResponse<LevelData> =

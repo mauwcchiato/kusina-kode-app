@@ -94,6 +94,16 @@ dependencies {
     // level seen once still renders offline.
     implementation("io.coil-kt:coil-compose:2.6.0")
 
+    // --- Google Sign-In (Credential Manager) ---
+    // Credential Manager, not the old Google Sign-In SDK: that one is
+    // deprecated, and this is the API Google now supports on Android 14+.
+    // credentials-play-services-auth is the piece that actually talks to
+    // Play Services, so both are needed - the base artifact alone compiles
+    // and then finds no provider at runtime.
+    implementation("androidx.credentials:credentials:1.3.0")
+    implementation("androidx.credentials:credentials-play-services-auth:1.3.0")
+    implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
+
     // --- Unit testing ---
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")

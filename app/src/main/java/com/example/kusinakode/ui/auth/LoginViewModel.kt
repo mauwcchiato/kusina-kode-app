@@ -1,11 +1,15 @@
 package com.example.kusinakode.ui.auth
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.kusinakode.data.auth.GoogleSignInCancelled
+import com.example.kusinakode.data.auth.GoogleSignInClient
 import com.example.kusinakode.data.repository.AppException
 import com.example.kusinakode.data.repository.RemoteAuthRepository
 import com.example.kusinakode.data.repository.toAppError
 import com.example.kusinakode.domain.model.AppError
+import com.example.kusinakode.domain.model.GoogleOutcome
 import com.example.kusinakode.domain.model.UserSession
 import com.example.kusinakode.domain.repository.AuthRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,7 +28,12 @@ data class LoginUiState(
     /** Classified failure — headline, guidance, and the raw text for Details. */
     val error: AppError? = null,
     /** Set once on successful login/sign-up; consume with [LoginViewModel.consumeSuccess]. */
-    val success: UserSession? = null
+    val success: UserSession? = null,
+    /**
+     * Set when Google verified someone this app has never seen. Holds the
+     * prompt the screen shows; nothing has been written server-side yet.
+     */
+    val googlePrompt: GooglePrompt? = null
 ) {
     /** Local validation messages don't come from the network layer. */
     companion object {
@@ -35,6 +44,15 @@ data class LoginUiState(
         )
     }
 }
+
+/**
+ * A pending "shall I create this account?" question.
+ *
+ * The token is kept so answering yes does not need a second trip through the
+ * Google sheet. It stays in memory only, and is dropped the moment the
+ * question is answered either way.
+ */
+data class GooglePrompt(val email: String, val name: String, val idToken: String)
 
 class LoginViewModel(
     private val authRepository: AuthRepository = RemoteAuthRepository()
@@ -93,6 +111,92 @@ class LoginViewModel(
                 .onFailure { e -> _uiState.update { it.copy(isLoading = false, error = (e as? AppException)?.error ?: e.toAppError()) } }
         }
     }
+
+    /**
+     * Google sign-in, which is also Google sign-up - the server creates the
+     * account on first use, so there is nothing for this side to decide.
+     *
+     * Two steps, and the split matters: Credential Manager produces a token,
+     * then the server verifies it. A token in hand is not a session, and
+     * this app never treats it as one.
+     *
+     * A dismissed sheet is not a failure. It leaves no error on screen,
+     * because the player already knows what they did.
+     *
+     * [createDirectly] is what the two screens disagree about. From Sign Up,
+     * tapping "Sign up with Google" has already said what the player wants,
+     * so asking "create an account?" afterwards is asking the same question
+     * twice. From Log in, the intent was to reach an account that already
+     * exists - so finding none is worth stopping for, and that is the one
+     * place the confirmation earns its keep.
+     */
+    fun signInWithGoogle(context: Context, createDirectly: Boolean = false) {
+        _uiState.update { it.copy(isLoading = true, error = null) }
+        viewModelScope.launch {
+            val idToken = try {
+                GoogleSignInClient.getIdToken(context)
+            } catch (e: GoogleSignInCancelled) {
+                // Say so rather than going quiet. Treating this as a
+                // no-op was wrong: when the sheet fails to open - an
+                // unlisted test user, a SHA-1 mismatch - it arrives here
+                // too, and the player is left tapping a button that
+                // appears to do nothing at all.
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        error = LoginUiState.validation(
+                            "Google sign-in did not complete. If you did not close it yourself, " +
+                                "check Logcat for KKGoogleSignIn."
+                        )
+                    )
+                }
+                return@launch
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        error = LoginUiState.validation(e.message ?: "Google sign-in failed")
+                    )
+                }
+                return@launch
+            }
+
+            finishGoogle(idToken, create = createDirectly)
+        }
+    }
+
+    /** The player said yes to the prompt. Same token, now with consent. */
+    fun confirmGoogleSignUp() {
+        val prompt = _uiState.value.googlePrompt ?: return
+        _uiState.update { it.copy(isLoading = true, error = null, googlePrompt = null) }
+        viewModelScope.launch { finishGoogle(prompt.idToken, create = true) }
+    }
+
+    /** The player said no. Nothing was created, so there is nothing to undo. */
+    fun dismissGooglePrompt() = _uiState.update { it.copy(googlePrompt = null) }
+
+    private suspend fun finishGoogle(idToken: String, create: Boolean) {
+        authRepository.signInWithGoogle(idToken, create)
+            .onSuccess { outcome ->
+                when (outcome) {
+                    is GoogleOutcome.SignedIn -> _uiState.update {
+                        it.copy(isLoading = false, success = outcome.session)
+                    }
+                    is GoogleOutcome.NeedsSignUp -> _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            googlePrompt = GooglePrompt(outcome.email, outcome.name, idToken)
+                        )
+                    }
+                }
+            }
+            .onFailure { e ->
+                _uiState.update {
+                    it.copy(isLoading = false, error = (e as? AppException)?.error ?: e.toAppError())
+                }
+            }
+    }
+
 
     // USERNAME RULES: required, 3+ chars, letters/numbers/underscore only.
     private fun validateUsername(username: String): String? {

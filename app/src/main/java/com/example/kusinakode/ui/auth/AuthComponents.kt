@@ -1,7 +1,6 @@
 package com.example.kusinakode.ui.auth
 
 import com.example.kusinakode.ui.components.clickSfx
-import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -11,6 +10,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
+import android.content.Context
+import android.widget.Toast
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -30,6 +31,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.kusinakode.R
+import com.example.kusinakode.data.auth.GoogleSignInClient
 import com.example.kusinakode.ui.theme.BeVietnamPro
 import com.example.kusinakode.ui.theme.CardSurface
 import com.example.kusinakode.ui.theme.DarkBrown
@@ -189,10 +191,29 @@ fun AuthPrimaryButton(
     }
 }
 
-/** "OR CONTINUE WITH" divider + Google pill, per the mockup. */
+/**
+ * "OR CONTINUE WITH" divider + Google pill, per the mockup.
+ *
+ * Always rendered, configured or not. An earlier version of this hid itself
+ * when no web client ID was set, which was wrong twice over: it took the
+ * divider and its spacing with it, so both auth screens stopped matching the
+ * mockup, and a button quietly disappearing is a worse thing to debug than a
+ * button that explains itself. The server-side kk_google_configured() check
+ * is what actually prevents a half-working sign-in; this only decides what
+ * the tap does.
+ *
+ * Takes the Context to the caller's handler rather than making each screen
+ * reach for LocalContext: Credential Manager needs an Activity context to
+ * put its sheet on screen, and this composable already has one.
+ */
 @Composable
-fun GoogleAuthSection(label: String) {
+fun GoogleAuthSection(
+    label: String,
+    onSignIn: (Context) -> Unit,
+    enabled: Boolean = true
+) {
     val ctx = LocalContext.current
+    val configured = GoogleSignInClient.isConfigured(ctx)
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
             HorizontalDivider(Modifier.weight(1f), color = OutlineDefault)
@@ -209,8 +230,22 @@ fun GoogleAuthSection(label: String) {
         }
         Spacer(Modifier.height(16.dp))
         OutlinedButton(
-            // Google Sign-In lands with the Azure AD B2C auth work (Module 6).
-            onClick = clickSfx { Toast.makeText(ctx, "Google sign-in is coming soon!", Toast.LENGTH_SHORT).show() },
+            onClick = clickSfx {
+                if (configured) {
+                    onSignIn(ctx)
+                } else {
+                    // Says which of the two setup steps is missing, rather
+                    // than "coming soon" - this is a build-configuration
+                    // gap, and whoever taps it is the person who can close
+                    // it. See res/values/google_signin.xml.
+                    Toast.makeText(
+                        ctx,
+                        "Google sign-in needs a web client ID in google_signin.xml.",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            },
+            enabled = enabled,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(50.dp),

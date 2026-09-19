@@ -119,7 +119,20 @@ fun SignUpScreen(
             )
 
             Spacer(Modifier.height(20.dp))
-            GoogleAuthSection(label = "Sign up with Google")
+            ui.googlePrompt?.let { prompt ->
+                GoogleSignUpDialog(
+                    email = prompt.email,
+                    onConfirm = { viewModel.confirmGoogleSignUp() },
+                    onDismiss = { viewModel.dismissGooglePrompt() }
+                )
+            }
+
+            GoogleAuthSection(
+                label = "Sign up with Google",
+                // Sign up: the tap was the answer. Create it.
+                onSignIn = { viewModel.signInWithGoogle(it, createDirectly = true) },
+                enabled = !ui.isLoading
+            )
             Spacer(Modifier.height(14.dp))
             AuthSwitchLink(
                 prompt = "Have an account?",

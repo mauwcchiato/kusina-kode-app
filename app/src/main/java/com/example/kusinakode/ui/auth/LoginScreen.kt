@@ -99,7 +99,20 @@ fun LoginScreen(
             )
 
             Spacer(Modifier.height(24.dp))
-            GoogleAuthSection(label = "Log in with Google")
+            ui.googlePrompt?.let { prompt ->
+                GoogleSignUpDialog(
+                    email = prompt.email,
+                    onConfirm = { viewModel.confirmGoogleSignUp() },
+                    onDismiss = { viewModel.dismissGooglePrompt() }
+                )
+            }
+
+            GoogleAuthSection(
+                label = "Log in with Google",
+                // Log in: ask first if there is no account yet.
+                onSignIn = { viewModel.signInWithGoogle(it) },
+                enabled = !ui.isLoading
+            )
             Spacer(Modifier.height(18.dp))
             AuthSwitchLink(
                 prompt = "Don't have an account?",

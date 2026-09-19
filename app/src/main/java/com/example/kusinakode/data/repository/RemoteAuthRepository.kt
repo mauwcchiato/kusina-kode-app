@@ -2,6 +2,7 @@ package com.example.kusinakode.data.repository
 
 import com.example.kusinakode.Session
 import com.example.kusinakode.api.KusinaApi
+import com.example.kusinakode.domain.model.GoogleOutcome
 import com.example.kusinakode.domain.model.ResetCodeResult
 import com.example.kusinakode.domain.model.UserSession
 import com.example.kusinakode.domain.repository.AuthRepository
@@ -46,6 +47,37 @@ class RemoteAuthRepository : AuthRepository {
         },
         onFailure = { Result.failure(it) }
     )
+
+    override suspend fun signInWithGoogle(idToken: String, create: Boolean): Result<GoogleOutcome> = runCatching {
+        val resp = KusinaApi.googleSignIn(idToken, create)
+
+        // Not an error: the server checked, found nobody, and wrote nothing.
+        // It hands back the email so the app can name the account it is
+        // offering to create.
+        if (resp.status == "no_account") {
+            return@runCatching GoogleOutcome.NeedsSignUp(
+                email = resp.email ?: "",
+                name = resp.name ?: resp.display_name ?: ""
+            )
+        }
+
+        if (resp.status == "success" && resp.user_id != null && resp.display_name != null) {
+            val session = UserSession(
+                userId = resp.user_id,
+                displayName = resp.display_name,
+                nickname = resp.nickname ?: resp.display_name,
+                email = resp.email ?: ""
+            )
+            // Same ordering as login(): the token has to be in place before
+            // anything account-scoped runs, or the next call is rejected.
+            Session.token = resp.token
+            Session.nickname = session.nickname
+            Session.email = resp.email
+            GoogleOutcome.SignedIn(session)
+        } else {
+            throw IllegalStateException(resp.message ?: "Google sign-in failed")
+        }
+    }.mapNetworkError()
 
     override suspend fun requestPasswordReset(email: String): Result<ResetCodeResult> = runCatching {
         val resp = KusinaApi.requestPasswordReset(email.trim())

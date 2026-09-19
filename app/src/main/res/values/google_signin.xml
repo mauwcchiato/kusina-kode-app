@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      The OAuth 2.0 *Web application* client ID from Google Cloud Console
+      (APIs & Services -> Credentials). Not the Android one.
+
+      Credential Manager is given this as its serverClientId, and it is what
+      Google puts in the token's "aud" claim - which is what the server
+      checks in kk_google_claims(). The Android client ID never appears in
+      the token; it is what lets Play Services vouch for this app, and it is
+      matched by package name and signing certificate instead.
+
+      Left empty on purpose. GoogleSignInClient.isConfigured reads this, and
+      the Google buttons stay hidden while it is blank, so a build without a
+      Google project simply does not offer sign-in rather than offering it
+      and failing. Same shape as kk_google_configured() on the server.
+
+      Not a secret - a web client ID is public by design and ships in every
+      client. It is safe in version control.
+    -->
+    <string name="google_web_client_id" translatable="false">167811151941-m9uta3oajtv9gpj6lmrk21gbtq60vq30.apps.googleusercontent.com</string>
+</resources>
