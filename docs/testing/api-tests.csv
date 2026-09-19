@@ -1,0 +1,48 @@
+Date,Scenario,Endpoint,Input,Expected,Actual,Result
+2026-08-12,Unauthenticated write is rejected,POST post_progress.php,"no token, body {""user_id"":1,""total_points"":999999}",401,401,PASS
+2026-08-12,Unauthenticated read is rejected,GET get_progress.php,"no token, ?user_id=1",401,401,PASS
+2026-08-12,Unauthenticated read is rejected,GET get_badges.php,no token,401,401,PASS
+2026-08-12,Unauthenticated read is rejected,GET get_attempts.php,no token,401,401,PASS
+2026-08-12,Unauthenticated write is rejected,POST post_badge.php,no token,401,401,PASS
+2026-08-12,Unauthenticated write is rejected,POST update_profile.php,no token,401,401,PASS
+2026-08-12,Forged token is rejected,GET get_badges.php,Authorization: Bearer deadbeef,401,401,PASS
+2026-08-12,Bad credentials give no token,POST login.php,unknown email and wrong password,"error, no token","error, no token",PASS
+2026-08-12,Register issues a token,POST register.php,new account authtest_a,64-char hex token,64-char hex token,PASS
+2026-08-12,Authenticated write succeeds,POST post_progress.php,"valid token, 250 points",success,success,PASS
+2026-08-12,Spoofed user_id in body is ignored,POST post_progress.php,"token = user 49, body user_id 50, 888888 pts",writes to row 49,row 49 = 888888 and row 50 absent,PASS
+2026-08-12,Spoofed user_id in query is ignored,GET get_progress.php,"token = user 49, ?user_id=50",returns user 49 data,returned user 49 data,PASS
+2026-08-12,Public endpoint stays open,GET get_levels.php,no token,200,200,PASS
+2026-08-12,Public endpoint stays open,GET get_leaderboard.php,no token,200,200,PASS
+2026-08-12,Dashboard endpoint unaffected,GET get_unlocks.php,no token (ASP.NET calls this),200,200,PASS
+2026-08-12,Dashboard endpoint unaffected,GET get_profile_stats.php,no token (ASP.NET calls this),200,200,PASS
+2026-08-12,Dashboard endpoint unaffected,POST post_unlock.php,no token (ASP.NET calls this),200,200,PASS
+2026-08-12,Migration applies cleanly,migration 004,mysql < 004_api_tokens_and_roles.sql,users.role and api_tokens exist,both present,PASS
+2026-08-17,Reset OTP is not returned in the response,POST request_password_reset.php,known email address,no debug_code field,no debug_code field,PASS
+2026-08-17,Login locks out after repeated failures,POST login.php,9 wrong passwords in a row,429 on attempt 9,429 on attempt 9,PASS
+2026-08-17,OTP guessing locks out,POST reset_password.php,6 wrong codes in a row,429 on guess 6,429 on guess 6,PASS
+2026-08-17,Register no longer confirms an email exists,POST register.php,sign up with an already-registered email,generic refusal,"""We could not create that account…""",PASS
+2026-08-17,Taken username still reported plainly,POST register.php,sign up with an existing username,"""That username is taken""","""That username is taken""",PASS
+2026-08-17,No database internals in error responses,all endpoints,force a PDO exception,generic message,generic message; detail in server log,PASS
+2026-08-17,Logout revokes the token server-side,POST logout.php,valid token then reuse it,401 afterwards,401; 0 rows left in api_tokens,PASS
+2026-08-17,Migration 005 applies cleanly,migration 005,mysql < 005_auth_attempts_and_wallet.sql,auth_attempts + users.wallet_address,both present,PASS
+2026-08-20,Login issues a bearer token,POST login.php,demo@kusinakode.local / Kusina@123,success + token,success token ff3b9389…,PASS
+2026-08-20,Phase 1 trigger encrypts and hashes,POST reward/trigger.php,"Bearer token, {""event_type"":""round_win"",""level_id"":21}",phase 1 pending payload_hash signature null,"phase=1 pending hash 7c09b5dd… signature null tx_hash null",PASS
+2026-08-20,Phase 2 status poll ECDSA+PoA,GET reward/status.php?tx_ref=kk_afa18649…,Bearer token,phase 2 pending signature set block_ref null,"phase=2 pending signature MEQCIDfp… block_ref null tx_hash null",PASS
+2026-08-20,Phase 3 status poll append+sync,GET reward/status.php?tx_ref=kk_afa18649…,Bearer token,phase 3 pending block_ref set tx_hash null,"phase=3 pending block_ref 8a09a18d… tx_hash null",PASS
+2026-08-21,Phase 4 contract + TxHash receipt,GET reward/status.php?tx_ref=kk_afa18649…,Bearer token,phase 4 confirmed 0x tx_hash,"phase=4 confirmed tx_hash 0xe163f183… amount_kk=10",PASS
+2026-08-21,KKCoin balance after Phase 4 mint,GET wallet/balance.php,Bearer token,balance_kk 10 same wallet_address no keys,"balance_kk=10 address 0xcb2e9f… is_live true",PASS
+2026-08-24,Badge milestone live mint,POST post_badge.php then GET reward/status.php x3,"demo token, badge_id live-mint-20260824",phase 4 confirmed 0x tx_hash NFT minted,"phase=4 confirmed tx_hash 0xae5021b2… amount_kk=25 badges.tx_hash set",PASS
+2026-08-24,Duplicate badge does not re-fire pipeline,POST post_badge.php same badge_id,demo token,awarded false tx_ref null,awarded false tx_ref null,PASS
+2026-08-24,Player cannot read audit log,GET audit/log.php,player bearer token,403 Administrator role required,403,PASS
+2026-08-24,Admin audit log lists badge tx,GET audit/log.php?event_type=badge_milestone,admin bearer token,200 data with badge_milestone,"200 n>=1 tx_ref kk_f5236886…",PASS
+2026-08-24,Admin audit tx by hash,GET audit/tx.php?hash=0xae5021b2…,admin bearer token,200 matching receipt,200 same tx_ref and wallet,PASS
+2026-08-24,KKCoin balance after badge mint,GET wallet/balance.php,demo token,balance_kk 35 same wallet no keys,"balance_kk=35 address 0xcb2e9f… is_live true",PASS
+2026-08-24,Mobile Rewards screen shows live KK balance,GET wallet/balance.php via RewardsViewModel,demo login on emulator,KK Token Balance 35 not stub 0,Rewards screen showed 35,PASS
+2026-08-24,Unauthenticated shop owned is rejected,GET reward/shop.php,no token,401,401,PASS
+2026-08-24,Unauthenticated shop spend is rejected,POST reward/spend.php,"no token, body {""power_up"":""doc_adobo"",""user_id"":1}",401,401,PASS
+2026-08-24,Migration 007 applies cleanly,migration 007,mysql < 007_shop_unlocks.sql,shop_unlocks table,shop_unlocks present,PASS
+2026-08-25,Migration 008 readable phpMyAdmin views,migration 008,mysql < 008_readable_phpmyadmin.sql,"users_readable badges_readable reward_claims_readable shop_unlocks_readable",views present original columns unchanged,PASS
+2026-09-02,Login lockout is per account not per IP,POST login.php,8 fails on account A then login account B from same IP,account B not 429,account B not 429,PASS
+2026-09-16,Unauthenticated pantry snapshot is rejected,GET pantry/snapshot.php,no token,401 JSON,401 Authentication required,PASS
+2026-09-16,Unauthenticated report submit is rejected,POST report/submit.php,no token,401 JSON,401 Authentication required,PASS
+

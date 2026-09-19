@@ -1,0 +1,26 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="96dp"
+    android:height="96dp"
+    android:viewportWidth="100"
+    android:viewportHeight="100">
+    <!-- Kusina Kode brand mark: window/grid symbol only, no wordmark, so it can
+         sit beside the KUSINA KODE tile lettering without repeating the name. -->
+    <path
+        android:fillColor="#74421F"
+        android:pathData="M22,2 H78 A20,20 0 0 1 98,22 V78 A20,20 0 0 1 78,98 H22 A20,20 0 0 1 2,78 V22 A20,20 0 0 1 22,2 Z" />
+    <path
+        android:fillColor="#F2E4C0"
+        android:pathData="M24,12 H76 A12,12 0 0 1 88,24 V76 A12,12 0 0 1 76,88 H24 A12,12 0 0 1 12,76 V24 A12,12 0 0 1 24,12 Z" />
+    <path
+        android:fillColor="#7F8A4A"
+        android:pathData="M26,20 H42 A6,6 0 0 1 48,26 V42 A6,6 0 0 1 42,48 H26 A6,6 0 0 1 20,42 V26 A6,6 0 0 1 26,20 Z" />
+    <path
+        android:fillColor="#7F8A4A"
+        android:pathData="M58,20 H74 A6,6 0 0 1 80,26 V42 A6,6 0 0 1 74,48 H58 A6,6 0 0 1 52,42 V26 A6,6 0 0 1 58,20 Z" />
+    <path
+        android:fillColor="#7F8A4A"
+        android:pathData="M26,52 H42 A6,6 0 0 1 48,58 V74 A6,6 0 0 1 42,80 H26 A6,6 0 0 1 20,74 V58 A6,6 0 0 1 26,52 Z" />
+    <path
+        android:fillColor="#7F8A4A"
+        android:pathData="M58,52 H74 A6,6 0 0 1 80,58 V74 A6,6 0 0 1 74,80 H58 A6,6 0 0 1 52,74 V58 A6,6 0 0 1 58,52 Z" />
+</vector>

@@ -1,0 +1,20 @@
+---
+description: Heritage card and equipment PNG export — crop tight, keep 0.5649 card ratio
+globs: "**/drawable/card_*.png,**/drawable/equip_*.png,**/HeritageCardReveal.kt,**/EquipmentArt.kt,**/DishCatalog.kt"
+alwaysApply: false
+---
+
+# Heritage card export
+
+New `card_*.png` files must be cropped **tight to the card** — no 1920×1080
+canvas with a small card in the middle.
+
+- Ratio **0.5649** (width ÷ height), about 9:16. Exact 522×924 is optional.
+- PNG; transparent if corners are rounded.
+- Minimum **522 px** wide (larger is OK; the app downscales).
+- In-app: `HeritageCardReveal` shows the card at **82% width** locked to
+  `522:924`. Extra canvas around the art becomes empty padding.
+
+The same canvas problem applies to `equip_*.png` — crop tight to the tool.
+
+Full spec: `docs/heritage-card-export.md`.

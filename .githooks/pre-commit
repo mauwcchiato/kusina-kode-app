@@ -1,0 +1,61 @@
+#!/bin/sh
+# Keeps the tracking artefacts honest.
+#
+# 1. Rebuilds the timetable + STATUS.md so they never lag the CSVs.
+# 2. Warns when source changed but features.csv did not — a nudge, not a block,
+#    because only a person can judge whether a feature is actually done.
+#
+# Enabled per clone with:  git config core.hooksPath .githooks
+
+ROOT=$(git rev-parse --show-toplevel)
+TESTING="$ROOT/docs/testing"
+
+# Locate a Python that can actually run a FILE with openpyxl available.
+# `python` is a Microsoft Store stub on some Windows boxes, and `py` can pass
+# a -c check while still failing on a script, so probe with a real temp file.
+PY=""
+probe=$(mktemp 2>/dev/null || echo "${TMPDIR:-/tmp}/kk_probe.py")
+mv "$probe" "$probe.py" 2>/dev/null && probe="$probe.py"
+printf 'import openpyxl\n' > "$probe"
+for cand in py python3 python; do
+    command -v "$cand" >/dev/null 2>&1 || continue
+    if "$cand" "$probe" >/dev/null 2>&1; then PY="$cand"; break; fi
+done
+rm -f "$probe"
+
+staged=$(git diff --cached --name-only)
+
+# ---- rebuild the timetable if its inputs moved
+if printf '%s\n' "$staged" | grep -qE 'docs/testing/(features|api-tests)\.csv|docs/testing/build_timetable\.py'; then
+    if [ -n "$PY" ]; then
+        echo "pre-commit: rebuilding timetable and STATUS.md"
+        ( cd "$TESTING" && "$PY" build_timetable.py >/dev/null ) \
+            && git add "$TESTING/KusinaKode_Timetable.xlsx" "$ROOT/docs/STATUS.md" 2>/dev/null
+    else
+        echo "pre-commit: WARNING - no Python with openpyxl found; timetable not rebuilt."
+        echo "            run: py -m pip install openpyxl"
+    fi
+fi
+
+# ---- nudge when code moved but the feature log did not
+code_changed=$(printf '%s\n' "$staged" | grep -E '^app/src/.*\.(kt|xml)$' | head -1)
+features_changed=$(printf '%s\n' "$staged" | grep -c 'docs/testing/features\.csv')
+defects_changed=$(printf '%s\n' "$staged" | grep -c 'docs/testing/defects\.csv')
+
+if [ -n "$code_changed" ] && [ "$features_changed" -eq 0 ] && [ "$defects_changed" -eq 0 ]; then
+    echo ""
+    echo "  ┌─────────────────────────────────────────────────────────────┐"
+    echo "  │ Source changed but no tracking was updated.                 │"
+    echo "  │                                                             │"
+    echo "  │ If this finished or advanced a feature, or fixed a bug:      │"
+    echo "  │   docs/testing/features.csv   status / date / remarks        │"
+    echo "  │   docs/testing/defects.csv    one row per defect             │"
+    echo "  │                                                             │"
+    echo "  │ Then:  cd docs/testing && py build_timetable.py             │"
+    echo "  │                                                             │"
+    echo "  │ Refactors and work-in-progress commits can ignore this.     │"
+    echo "  └─────────────────────────────────────────────────────────────┘"
+    echo ""
+fi
+
+exit 0

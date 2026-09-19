@@ -1,0 +1,32 @@
+# core.autocrlf is true on this machine, which rewrites line endings on
+# checkout. That is fine for Kotlin and XML and wrong for two things, so they
+# are pinned here rather than left to a per-machine setting.
+
+* text=auto
+
+# gradlew is a shell script. Checked out with CRLF it fails with a "bad
+# interpreter" error on Linux and macOS and in any CI container - the classic
+# way an Android repo builds on Windows and nowhere else.
+gradlew      text eol=lf
+*.sh         text eol=lf
+
+# The Windows launcher is the opposite case.
+gradlew.bat  text eol=crlf
+*.bat        text eol=crlf
+
+# Binary. Never line-ending converted, never diffed as text.
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.webp binary
+*.gif  binary
+*.mp3  binary
+*.mp4  binary
+*.ogg  binary
+*.wav  binary
+*.ttf  binary
+*.otf  binary
+*.jar  binary
+*.keystore binary
+*.jks  binary
+*.xlsx binary

@@ -1,0 +1,6 @@
+# Restored by `npm install`; the CSVs and the script are the record, not this.
+node_modules/
+package-lock.json
+
+# Excel's lock file while the workbook is open.
+~$*.xlsx

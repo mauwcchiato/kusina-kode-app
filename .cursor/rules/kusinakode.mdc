@@ -1,0 +1,59 @@
+---
+description: Kusina Kode project rules — always applies
+alwaysApply: true
+---
+
+# Kusina Kode
+
+**Read `AGENTS.md` at the repo root before doing anything.** It holds the full
+rules; this file is the always-on summary so nothing important is missed.
+
+**Read `docs/STATUS.md` to see where the work currently stands.** It is
+generated from the project, so trust it over any assumption about progress.
+
+## Standing instruction — the tracking is a graded deliverable
+
+After any substantive change, update the matching CSV in `docs/testing/` and
+rebuild both workbooks:
+
+- feature finished / started / scope changed → `features.csv`
+- bug found or fixed → `defects.csv` (log it when **found**, not when fixed)
+- endpoint or security property tested by hand → `api-tests.csv`
+- something has no test coverage → `gaps.csv`
+
+```bash
+cd docs/testing && npm run build:log && py build_timetable.py
+```
+
+`features.csv` Status must be exactly `OK`, `In Progress`, `Not Started`, or
+`Scope Change`. Never renumber existing IDs.
+
+Never edit `IAN-RG_TIMETABLE_CHECKING*.xlsx` — it is the adviser's shared file
+holding another group's work.
+
+## Non-negotiables
+
+- MVVM + Clean Architecture: `StateFlow` from ViewModels, stateless
+  composables, no network or DB calls from a composable.
+- The puzzle grid supports variable word length (5, 6, 8+). Never a fixed 6×6.
+- Attempts are a flat 6 per dish, by team decision.
+- API endpoints derive the user from the bearer token and **ignore any
+  `user_id` in the request body**. Reversing that re-opens a critical
+  vulnerability.
+- Players never see keys, seed phrases, gas fees, or wallet prompts. Wallets
+  are custodial and server-side; blockchain UI is read-only.
+- The relational DB holds only pointers (`wallet_address`, `tx_hash`,
+  `badge_id`) — never blockchain internals.
+- No hardcoded secrets or hosts. Backend config comes from `api/config.php`
+  reading the environment.
+
+## Build
+
+```bash
+JAVA_HOME="/c/Program Files/Android/Android Studio/jbr" ./gradlew :app:testDebugUnitTest
+```
+
+`python` hits a Microsoft Store stub on this machine — use `py`.
+
+Explore the real code before changing it; file names don't always match the
+design docs.

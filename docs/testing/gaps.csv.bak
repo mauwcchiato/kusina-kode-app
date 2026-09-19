@@ -1,0 +1,11 @@
+ID,Area,Status,Method needed,Note
+G-01,Navigation and back stack,No automated coverage,Espresso or Compose UI instrumentation tests,D-11 was found by hand and could regress unnoticed
+G-02,Compose UI rendering,No automated coverage,Compose UI tests,"All UI defects (D-08, D-12, D-13) were found by eye"
+G-03,PHP endpoints,No automated coverage,PHPUnit is not installed; 2026-08-12 used manual curl,"The API results here are a one-off run, not repeatable CI"
+G-04,On-device verification of the 2026-08-12 fixes,Not yet done,Manual run on emulator or phone,"Compile and unit verified only: D-09, D-10, D-11, D-14, D-16"
+G-05,Stress: REST API response time under load,Not started,k6 or JMeter,Blocked on Module 6 (Azure plus Application Insights)
+G-06,Stress: database query performance under load,Not started,Slow query log and EXPLAIN while under load,Blocked on Module 6
+G-07,Stress: blockchain node transaction speed,Not started,Concurrent transaction submission to the local PoA store or Hardhat,Module 3 pipeline exists; stress pass is still Yow's later run.
+G-08,Stress: mobile rendering under sustained play,Not started,Macrobenchmark or dumpsys gfxinfo,NOT BLOCKED — can be run today
+G-09,"Module 3 unit tests (AES-256, SHA-256, ECDSA, contract execution)",Executed 2026-08-24,php api/tests/run.php,51 passed 0 failed including Instant Solve 50 KK. Hardhat suite still needs npm.
+G-10,Module 4 and Module 5 unit tests,Not started,Per the manuscript's unit testing breakdown,Modules owned by other members

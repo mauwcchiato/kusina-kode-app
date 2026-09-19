@@ -1,0 +1,12 @@
+{
+  "name": "kusinakode-test-log",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Builds the Module 7 test log workbook from Gradle's JUnit XML and the CSV logs beside it.",
+  "scripts": {
+    "build:log": "node build-test-log.js"
+  },
+  "dependencies": {
+    "exceljs": "^4.4.0"
+  }
+}
