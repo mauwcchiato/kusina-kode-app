@@ -1,6 +1,7 @@
 package com.example.kusinakode
 
 import android.app.Application
+import com.example.kusinakode.data.net.NetworkStatus
 import com.example.kusinakode.data.repository.ChainRewardCoordinator
 import com.example.kusinakode.data.repository.LocalGamificationRepository
 import com.example.kusinakode.data.repository.RemoteGamificationSync
@@ -24,6 +25,11 @@ class KusinaKodeApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+
+        // Before anything that can make a request, so the very first failure
+        // is already classified correctly rather than guessed at.
+        NetworkStatus.warm(this)
+
         gamification = LocalGamificationRepository(this)
 
         gamificationCoordinator = GamificationCoordinator(

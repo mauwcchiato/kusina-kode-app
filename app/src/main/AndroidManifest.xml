@@ -2,6 +2,13 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- if you need Internet for your REST calls -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!--
+      Lets NetworkStatus ask whether the device is actually online, so a
+      failed sign-in can say "no internet" instead of blaming the server.
+      A normal permission: granted at install, no runtime prompt, and it
+      reads connectivity state only.
+    -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
     <!-- Runtime permission from Android 13; posting is guarded either way. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <uses-permission android:name="android.permission.VIBRATE"/>

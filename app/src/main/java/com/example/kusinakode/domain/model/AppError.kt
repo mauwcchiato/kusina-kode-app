@@ -22,7 +22,7 @@ data class AppError(
         /** The device itself has no usable connection. */
         OFFLINE,
 
-        /** Connection is fine, the server didn't answer. Usually the LAN address. */
+        /** Connection is fine, the server didn't answer. */
         UNREACHABLE,
 
         /** Reached the server but it failed. */
