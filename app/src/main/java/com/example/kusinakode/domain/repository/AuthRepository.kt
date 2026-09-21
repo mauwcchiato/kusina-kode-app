@@ -24,6 +24,14 @@ interface AuthRepository {
 
     suspend fun requestPasswordReset(email: String): Result<ResetCodeResult>
 
+    /**
+     * Checks the emailed code on its own screen, without consuming it.
+     *
+     * Separate from [resetPassword] so a wrong code is reported where it
+     * was typed, rather than after the player has composed a new one.
+     */
+    suspend fun verifyResetCode(email: String, code: String): Result<Unit>
+
     /** Returns the confirmation message on success. */
     suspend fun resetPassword(email: String, code: String, newPassword: String): Result<String>
 }

@@ -31,9 +31,16 @@ data class AppError(
         /** The request was understood and refused — bad password, taken email. */
         REJECTED,
 
+        /**
+         * Refused because the account is locked after too many sign-in
+         * attempts. Separate from [REJECTED] because there is something to
+         * do about it: recover by email rather than guess again.
+         */
+        LOCKED,
+
         UNKNOWN
     }
 
     /** Whether offering a retry makes sense; a refusal won't fix itself. */
-    val isRetryable: Boolean get() = kind != Kind.REJECTED
+    val isRetryable: Boolean get() = kind != Kind.REJECTED && kind != Kind.LOCKED
 }

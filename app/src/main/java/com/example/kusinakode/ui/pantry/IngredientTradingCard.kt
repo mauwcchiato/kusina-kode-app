@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
@@ -128,7 +129,17 @@ internal fun IngredientTradingCard(
     modifier: Modifier = Modifier
 ) {
     val face = cardFaceFor(ingredient.rarity)
-    BoxWithConstraints(modifier.aspectRatio(CARD_ASPECT)) {
+    // Sized to fit the space on BOTH axes.
+    //
+    // Callers hand this fillMaxWidth(), and a fixed aspect ratio then makes
+    // height purely a function of width — 1.43x it. That is fine on a phone,
+    // where there is always more height than width, and wrong on anything
+    // wide and short: an unfolded foldable is 841x701dp, so the card was
+    // computed about 1200dp tall and ran off the top and bottom of the
+    // screen with its title and lore cut in half.
+    BoxWithConstraints(modifier, contentAlignment = Alignment.Center) {
+      val cardWidth = minOf(maxWidth, maxHeight * CARD_ASPECT)
+      BoxWithConstraints(Modifier.width(cardWidth).aspectRatio(CARD_ASPECT)) {
         val w = maxWidth
         val h = maxHeight
 
@@ -209,18 +220,25 @@ internal fun IngredientTradingCard(
                 maxLines = 1
             )
         }
+      }
     }
 }
 
 /** The frame alone — for the cards stacked behind the one being read. */
 @Composable
 internal fun IngredientCardBack(rarity: Rarity, modifier: Modifier = Modifier) {
-    Image(
-        painter = painterResource(cardFaceFor(rarity).frame),
-        contentDescription = null,
-        modifier = modifier.aspectRatio(CARD_ASPECT),
-        contentScale = ContentScale.FillBounds
-    )
+    // Fitted on both axes for the same reason as the face above: these sit
+    // in the same stack and must not be the one thing that overflows.
+    BoxWithConstraints(modifier, contentAlignment = Alignment.Center) {
+        Image(
+            painter = painterResource(cardFaceFor(rarity).frame),
+            contentDescription = null,
+            modifier = Modifier
+                .width(minOf(maxWidth, maxHeight * CARD_ASPECT))
+                .aspectRatio(CARD_ASPECT),
+            contentScale = ContentScale.FillBounds
+        )
+    }
 }
 
 @Composable

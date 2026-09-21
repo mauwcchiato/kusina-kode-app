@@ -1,5 +1,6 @@
 package com.example.kusinakode.ui.learn
 
+import com.example.kusinakode.ui.components.readableWidth
 import com.example.kusinakode.ui.components.clickSfx
 import androidx.annotation.DrawableRes
 import androidx.compose.animation.animateColorAsState
@@ -264,6 +265,10 @@ fun KodexHubScreen(
                     )
                 }
             }
+            // Header spans the screen; the content below is capped so a tablet
+            // gets a readable column rather than full-width rows.
+            Column(Modifier.align(Alignment.CenterHorizontally).readableWidth()) {
+
 
             Column(Modifier.padding(16.dp)) {
                 SectionLabel("FEATURED INGREDIENTS")
@@ -322,6 +327,8 @@ fun KodexHubScreen(
                 Spacer(Modifier.height(10.dp))
                 HubTileRow(rares, onTile = onOpenRareIngredients)
                 Spacer(Modifier.height(12.dp))
+            }
+        
             }
         }
     }

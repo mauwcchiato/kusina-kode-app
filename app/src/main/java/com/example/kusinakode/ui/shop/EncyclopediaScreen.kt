@@ -1,5 +1,6 @@
 package com.example.kusinakode.ui.shop
 
+import com.example.kusinakode.ui.components.readableWidth
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -575,6 +576,8 @@ fun EncyclopediaScreen(
                 },
                 asDialog = false,
                 drawingAll = ui.drawingAll,
+                drawnSoFar = ui.drawnSoFar,
+                drawTarget = ui.drawTarget,
                 onOpenAll = viewModel::drawAll,
                 onSellNow = { drawn -> drawn.ingredient?.let { viewModel.sell(it.id, 1) } },
                 sellingNow = ui.sellingId != null,
@@ -624,6 +627,9 @@ private fun PantryHelpDialog(onClose: () -> Unit) {
                         .weight(1f, fill = false)
                         .verticalScroll(rememberScrollState())
                 ) {
+                    // No full-bleed header on this one, so the whole body is capped.
+                    Column(Modifier.align(Alignment.CenterHorizontally).readableWidth()) {
+
                     HelpSectionTitle("How the Pantry Works")
                     HelpBodyText("Win dishes, open palayoks, keep what you like and sell the rest.")
                     Spacer(Modifier.height(12.dp))
@@ -647,7 +653,9 @@ private fun PantryHelpDialog(onClose: () -> Unit) {
                             RarityHelpChip(rarity, Modifier.weight(1f))
                         }
                     }
-                }
+                
+                    }
+}
                 Spacer(Modifier.height(16.dp))
                 PauseMenuButton(
                     "OK",

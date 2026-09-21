@@ -10,6 +10,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.systemBarsPadding
@@ -72,9 +73,18 @@ import com.example.kusinakode.ui.pantry.PantryScreen
 import com.example.kusinakode.ui.shop.EncyclopediaScreen
 import com.example.kusinakode.ui.game.GameRoute
 import com.example.kusinakode.ui.leaderboard.LeaderboardRoute
+import com.example.kusinakode.ui.components.DesignScaled
+import com.example.kusinakode.ui.theme.Brown
 import com.example.kusinakode.ui.theme.KusinaKodeTheme
 import com.example.kusinakode.MyProfileScreen
 import com.example.kusinakode.ui.splash.SplashScreen
+
+/**
+ * Handed from the reset flow back to login on its saved state handle, so
+ * login can drop the password it was holding. A one-shot: login flips it
+ * back to false once it has acted.
+ */
+private const val PASSWORD_RESET_DONE = "password_reset_done"
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -95,7 +105,11 @@ class MainActivity : ComponentActivity() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
         setContent {
             KusinaKodeTheme {
-                AppNavigator()
+                // Outside the navigator so every screen, dialog and overlay
+                // is measured against the same reference width.
+                DesignScaled {
+                    AppNavigator()
+                }
             }
         }
     }
@@ -112,6 +126,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        PlayNudgeScheduler.markOpened(this)
         SoundFx.resumeBgm()
     }
 }
@@ -177,11 +192,15 @@ private fun AppNavigator() {
         }
     }
 
-    // Cold start still shows the feature intro once. Create Account also
-    // routes through it so a new cook on a returning device is not dumped
-    // straight into story mode.
-    // Where the splash hands over once its sequence finishes.
-    val afterSplash = if (OnboardingManager.isDone(ctx)) "welcome" else "onboarding/welcome"
+    // Cold start: a saved session skips welcome/login and goes straight
+    // home. SessionStore.load already ran in onCreate. No session still
+    // shows onboarding once, then the welcome poster.
+    val hasSession = (Session.userId ?: 0) > 0 && !Session.token.isNullOrBlank()
+    val afterSplash = when {
+        hasSession -> "home"
+        OnboardingManager.isDone(ctx) -> "welcome"
+        else -> "onboarding/welcome"
+    }
     val startDestination = "splash"
     var sawOnboardingThisSession by remember { mutableStateOf(false) }
 
@@ -224,7 +243,20 @@ private fun AppNavigator() {
         nav.navigate("welcome") { popUpTo("home") { inclusive = true } }
     }
 
-    Box(Modifier.fillMaxSize().systemBarsPadding()) {
+    // No width cap here any more. There was one briefly — a single bound on
+    // the whole shell — but every screen now caps its own content while its
+    // background still runs edge to edge, and the two fight: a shell cap
+    // stops those backgrounds reaching the sides of a tablet and puts the
+    // app back in a letterbox. The backdrop stays as a floor colour for any
+    // gap an inset leaves behind.
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(Brown)
+            .systemBarsPadding(),
+        contentAlignment = Alignment.TopCenter
+    ) {
+      Box(Modifier.fillMaxSize()) {
         // navigation-compose defaults to a crossfade on every destination
         // change. Switched off: screens cut straight over, the way they did
         // before the library bump.
@@ -331,13 +363,21 @@ private fun AppNavigator() {
             }
 
             // 1a) LOG IN
-            composable("login") {
+            composable("login") { entry ->
+                // Set by the reset flow on its way out. Login stays on the
+                // back stack throughout, so this is how it hears that the
+                // password in its own state is no longer the right one.
+                val justReset by entry.savedStateHandle
+                    .getStateFlow(PASSWORD_RESET_DONE, false)
+                    .collectAsState()
                 LoginScreen(
                     onLoginSuccess = onLoggedIn,
                     onForgotPassword = { nav.navigate("forgot_password") },
                     onGoToSignUp = {
                         nav.navigate("signup") { popUpTo("welcome") }
-                    }
+                    },
+                    justResetPassword = justReset,
+                    onResetHandled = { entry.savedStateHandle[PASSWORD_RESET_DONE] = false }
                 )
             }
 
@@ -352,7 +392,14 @@ private fun AppNavigator() {
             }
 
             composable("forgot_password") {
-                ForgotPasswordScreen(onBack = { nav.popBackStack() })
+                ForgotPasswordScreen(
+                    onBack = { nav.popBackStack() },
+                    onDone = {
+                        nav.previousBackStackEntry
+                            ?.savedStateHandle?.set(PASSWORD_RESET_DONE, true)
+                        nav.popBackStack()
+                    }
+                )
             }
 
             // 2) HOME
@@ -634,6 +681,7 @@ private fun AppNavigator() {
                 nav.navigate("shop_pantry/all") { launchSingleTop = true }
             }
         )
+      }
     }
 }
 

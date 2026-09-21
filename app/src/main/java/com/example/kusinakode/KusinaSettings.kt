@@ -92,6 +92,7 @@ object KusinaSettings {
 
     fun setNotifications(context: Context, on: Boolean) {
         write(context, K_NOTIF, on); _prefs.value = _prefs.value.copy(notifications = on)
+        PlayNudgeScheduler.sync(context)
     }
 
     fun setReduceMotion(context: Context, on: Boolean) {

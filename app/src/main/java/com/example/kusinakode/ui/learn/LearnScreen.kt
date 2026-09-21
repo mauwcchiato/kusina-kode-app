@@ -1,5 +1,6 @@
 package com.example.kusinakode.ui.learn
 
+import com.example.kusinakode.ui.components.readableWidth
 import com.example.kusinakode.ui.components.clickSfx
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
@@ -200,6 +201,10 @@ fun LearnScreen(
                     )
                 }
             }
+            // Header spans the screen; the content below is capped so a tablet
+            // gets a readable column rather than full-width rows.
+            Column(Modifier.align(Alignment.CenterHorizontally).readableWidth()) {
+
 
             Column(Modifier.padding(16.dp)) {
                 OutlinedTextField(
@@ -295,6 +300,8 @@ fun LearnScreen(
                     }
                 }
                 Spacer(Modifier.height(12.dp))
+            }
+        
             }
         }
     }

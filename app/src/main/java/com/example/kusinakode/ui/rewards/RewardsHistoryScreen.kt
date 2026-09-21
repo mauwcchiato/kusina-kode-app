@@ -1,5 +1,7 @@
 package com.example.kusinakode.ui.rewards
 
+import com.example.kusinakode.ui.components.readableWidth
+
 import com.example.kusinakode.ui.components.clickSfx
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -157,6 +159,7 @@ fun RewardsHistoryScreen(
                 EmptyLedger(filtered = ui.history.isNotEmpty())
             } else {
                 LazyColumn(
+                    modifier = Modifier.align(Alignment.CenterHorizontally).readableWidth(),
                     contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 20.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {

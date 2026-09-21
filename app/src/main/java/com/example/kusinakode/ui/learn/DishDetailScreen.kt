@@ -1,5 +1,6 @@
 package com.example.kusinakode.ui.learn
 
+import com.example.kusinakode.ui.components.readableWidth
 import com.example.kusinakode.R
 import com.example.kusinakode.data.levels.EquipmentSync
 import com.example.kusinakode.ui.components.clickSfx
@@ -209,6 +210,9 @@ fun DishDetailScreen(
             .background(CreamBg)
             .verticalScroll(rememberScrollState())
     ) {
+        // No full-bleed header on this one, so the whole body is capped.
+        Column(Modifier.align(Alignment.CenterHorizontally).readableWidth()) {
+
         // ---- Hero (proportional so short phones keep content visible) ----
         val heroHeight = (LocalConfiguration.current.screenHeightDp * 0.34f).dp
             .coerceIn(200.dp, 320.dp)
@@ -534,7 +538,9 @@ fun DishDetailScreen(
             }
             Spacer(Modifier.height(20.dp))
         }
-    }
+    
+        }
+}
 
     // ---- Full-bleed dish photo ----
     if (showPhoto) {

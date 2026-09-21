@@ -19,7 +19,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CloudOff
+import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.RestaurantMenu
 import androidx.compose.material.icons.filled.WifiOff
@@ -54,7 +56,14 @@ private val Muted = Color(0xFF7A6A5B)
 fun ErrorNotice(
     error: AppError,
     modifier: Modifier = Modifier,
-    onRetry: (() -> Unit)? = null
+    onRetry: (() -> Unit)? = null,
+    /**
+     * A way forward for a failure that retrying cannot fix — a locked
+     * account offering password recovery, for example. Shown in place of
+     * "Try again", since for those errors there is nothing to try again.
+     */
+    actionLabel: String? = null,
+    onAction: (() -> Unit)? = null
 ) {
     var showDetails by remember(error) { mutableStateOf(false) }
 
@@ -64,7 +73,7 @@ fun ErrorNotice(
         border = BorderStroke(1.dp, Amber.copy(alpha = 0.35f)),
         modifier = modifier.fillMaxWidth()
     ) {
-        Column(Modifier.padding(14.dp)) {
+        Column(Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
             Row(verticalAlignment = Alignment.Top) {
                 ErrorGlyph(error.kind)
                 Spacer(Modifier.width(12.dp))
@@ -85,12 +94,33 @@ fun ErrorNotice(
                 }
             }
 
-            if (onRetry != null || error.technical != null) {
-                Spacer(Modifier.height(10.dp))
+            val hasAction = onAction != null && actionLabel != null
+            val showRetry = onRetry != null && error.isRetryable
+            // With nothing beside it, a natural-width button leaves a wide
+            // gap on the right and reads as misaligned against the card.
+            val soloAction = hasAction && !showRetry && error.technical == null
+            if (showRetry || hasAction || error.technical != null) {
+                Spacer(Modifier.height(if (soloAction) 12.dp else 10.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (onRetry != null && error.isRetryable) {
+                    if (hasAction) {
                         FilledTonalButton(
-                            onClick = onRetry,
+                            onClick = clickSfx(onAction!!),
+                            modifier = if (soloAction) Modifier.fillMaxWidth() else Modifier,
+                            colors = ButtonDefaults.filledTonalButtonColors(
+                                containerColor = Amber.copy(alpha = 0.16f),
+                                contentColor = Color(0xFF8A5A16)
+                            ),
+                            shape = RoundedCornerShape(14.dp),
+                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 4.dp)
+                        ) {
+                            Icon(Icons.Default.Email, null, Modifier.size(15.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text(actionLabel!!, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                    if (showRetry) {
+                        FilledTonalButton(
+                            onClick = onRetry!!,
                             colors = ButtonDefaults.filledTonalButtonColors(
                                 containerColor = Amber.copy(alpha = 0.16f),
                                 contentColor = Color(0xFF8A5A16)
@@ -103,7 +133,7 @@ fun ErrorNotice(
                             Text("Try again", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                         }
                     }
-                    Spacer(Modifier.weight(1f))
+                    if (!soloAction) Spacer(Modifier.weight(1f))
                     error.technical?.let {
                         Text(
                             if (showDetails) "Hide details" else "Details",
@@ -153,6 +183,7 @@ private fun ErrorGlyph(kind: AppError.Kind) {
         AppError.Kind.OFFLINE -> Icons.Default.WifiOff
         AppError.Kind.UNREACHABLE -> Icons.Default.CloudOff
         AppError.Kind.SERVER -> Icons.Default.RestaurantMenu
+        AppError.Kind.LOCKED -> Icons.Default.Lock
         AppError.Kind.REJECTED, AppError.Kind.UNKNOWN -> Icons.Default.ErrorOutline
     }
 

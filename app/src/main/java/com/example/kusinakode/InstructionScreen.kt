@@ -1,5 +1,6 @@
 package com.example.kusinakode
 
+import com.example.kusinakode.ui.components.readableWidth
 import com.example.kusinakode.ui.components.clickSfx
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -112,6 +113,10 @@ fun InstructionScreen(
                     }
                 }
             }
+            // Header spans the screen; the content below is capped so a tablet
+            // gets a readable column rather than full-width rows.
+            Column(Modifier.align(Alignment.CenterHorizontally).readableWidth()) {
+
 
             Column(Modifier.padding(16.dp)) {
                 Surface(
@@ -160,6 +165,8 @@ fun InstructionScreen(
                     Text("Start Cooking", fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
                 }
                 Spacer(Modifier.height(12.dp))
+            }
+        
             }
         }
     }

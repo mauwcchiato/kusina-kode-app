@@ -1,5 +1,6 @@
 package com.example.kusinakode
 
+import com.example.kusinakode.ui.components.readableWidth
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Spacer
@@ -77,6 +78,7 @@ fun LeadershipScreen(
     /** Which period is showing, so the board can label its numbers. */
     window: LeaderboardWindow = LeaderboardWindow.AllTime,
     onSelectWindow: (LeaderboardWindow) -> Unit = {},
+    isLoading: Boolean = false,
     onBack: () -> Unit,
     onHome: () -> Unit,
     onProfile: () -> Unit,
@@ -188,6 +190,10 @@ fun LeadershipScreen(
                     }
                 }
             }
+            // Header spans the screen; the content below is capped so a tablet
+            // gets a readable column rather than full-width rows.
+            Column(Modifier.align(Alignment.CenterHorizontally).readableWidth()) {
+
 
             Column(
                 Modifier
@@ -196,7 +202,20 @@ fun LeadershipScreen(
                     .background(CreamBg)
                     .padding(horizontal = 16.dp, vertical = 18.dp)
             ) {
-                if (entries.isEmpty()) {
+                if (entries.isEmpty() && isLoading) {
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(24.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(
+                            Modifier.size(28.dp),
+                            color = TextDark,
+                            strokeWidth = 2.dp
+                        )
+                    }
+                } else if (entries.isEmpty()) {
                     Surface(
                         shape = RoundedCornerShape(18.dp),
                         color = CardCream,
@@ -285,6 +304,8 @@ fun LeadershipScreen(
                     )
                 }
                 Spacer(Modifier.height(20.dp))
+            }
+        
             }
         }
     }

@@ -1,5 +1,7 @@
 package com.example.kusinakode.ui.auth
 
+import com.example.kusinakode.ui.components.readableWidth
+
 import com.example.kusinakode.ui.components.clickSfx
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
@@ -102,10 +104,13 @@ internal fun PosterBody(
     onCreateAccount: () -> Unit,
     alpha: Float = 1f
 ) {
+    // This screen does not go through AuthSheetScaffold, so it needs the cap
+    // of its own — without it the two buttons ran 650dp wide on a tablet
+    // while the same buttons on the login sheet behind it stopped at 440.
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
-            .fillMaxWidth()
+            .readableWidth(440.dp)
             .graphicsLayer { this.alpha = alpha }
     ) {
             Text(

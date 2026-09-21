@@ -1,5 +1,6 @@
 package com.example.kusinakode.ui.pantry
 
+import com.example.kusinakode.ui.components.readableWidth
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -333,6 +334,8 @@ fun PantryScreen(
                 },
                 asDialog = true,
                 drawingAll = ui.drawingAll,
+                drawnSoFar = ui.drawnSoFar,
+                drawTarget = ui.drawTarget,
                 onOpenAll = viewModel::drawAll,
                 onSellNow = { drawn -> drawn.ingredient?.let { viewModel.sell(it.id, 1) } },
                 sellingNow = ui.sellingId != null,
@@ -629,6 +632,10 @@ internal fun IngredientSheet(
                 ) {
                     IngredientPhoto(entry.ingredient, Modifier.fillMaxSize())
                 }
+                // Header spans the screen; the content below is capped so a tablet
+                // gets a readable column rather than full-width rows.
+                Column(Modifier.align(Alignment.CenterHorizontally).readableWidth()) {
+
                 Spacer(Modifier.height(12.dp))
                 Text(
                     entry.ingredient.name,
@@ -661,6 +668,8 @@ internal fun IngredientSheet(
                     fontWeight = FontWeight.Bold,
                     fontSize = 11.sp
                 )
+            
+                }
             }
         }
     }

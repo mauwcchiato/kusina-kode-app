@@ -1,5 +1,6 @@
 package com.example.kusinakode.ui.shop
 
+import com.example.kusinakode.ui.components.readableWidth
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -89,6 +90,7 @@ fun AvatarMarketScreen(
             visual = { ShopItemVisual(item) }
         )
     }
+    ShopPurchaseLoading(ui.busyId)
 
     Column(
         Modifier
@@ -97,6 +99,10 @@ fun AvatarMarketScreen(
             .verticalScroll(rememberScrollState())
     ) {
         ShopHeader("Chef's Atelier", "A chef and a frame — wear both", ui.balanceKk, onBack)
+        // Header spans the screen; the content below is capped so a tablet
+        // gets a readable column rather than full-width rows.
+        Column(Modifier.align(Alignment.CenterHorizontally).readableWidth()) {
+
 
         Column(
             Modifier.padding(16.dp),
@@ -211,6 +217,8 @@ fun AvatarMarketScreen(
                 textAlign = TextAlign.Center
             )
             Spacer(Modifier.height(16.dp))
+        }
+    
         }
     }
 }

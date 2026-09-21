@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -5,26 +7,62 @@ plugins {
     id("org.jetbrains.kotlin.plugin.serialization") version "1.9.23"
 }
 
+// Release signing, read from keystore.properties, which is gitignored.
+//
+// The debug key is per-machine: an APK built on one laptop cannot install
+// over one built on another, so a tester has to uninstall first and loses
+// their progress. A single shared release key is what makes an update an
+// update. Absent the file the release build simply falls back to the debug
+// key, so a fresh clone still builds.
+val keystorePropsFile = rootProject.file("keystore.properties")
+val keystoreProps = Properties().apply {
+    if (keystorePropsFile.exists()) keystorePropsFile.inputStream().use { load(it) }
+}
+
 android {
     namespace = "com.example.kusinakode"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.example.kusinakode"
+        // The install identity, and deliberately not com.example.*.
+        //
+        // Play Protect treats the Android Studio template package as a
+        // signal in its own right — sideloading com.example.kusinakode
+        // produced "App blocked to protect your device" on a clean phone
+        // even though the build is properly signed and asks for nothing
+        // beyond Internet, notifications and vibrate.
+        //
+        // Only applicationId changes. `namespace` below stays as it was, so
+        // the R class, every Kotlin package and every import are untouched:
+        // the two are independent, and moving the source would be a large
+        // diff for no benefit.
+        applicationId = "ph.kusinakode.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.1"
+    }
+
+    signingConfigs {
+        if (keystoreProps.isNotEmpty()) {
+            create("release") {
+                storeFile = rootProject.file(keystoreProps.getProperty("storeFile"))
+                storePassword = keystoreProps.getProperty("storePassword")
+                keyAlias = keystoreProps.getProperty("keyAlias")
+                keyPassword = keystoreProps.getProperty("keyPassword")
+            }
+        }
     }
 
     buildTypes {
         release {
-            // Signed with the debug key so the release APK can actually be
-            // installed for testing and the defence. That is fine for a build
-            // handed round on a cable and NOT fine for Play Store distribution,
-            // which needs a real upload key - see the release notes before
-            // publishing anywhere.
-            signingConfig = signingConfigs.getByName("debug")
+            // The real release key when keystore.properties is present, and
+            // the debug key otherwise so a fresh clone still builds. Anything
+            // handed to another person should come from a release build: the
+            // debug key differs per machine, so two people's builds cannot
+            // update each other.
+            signingConfig = signingConfigs.findByName("release")
+                ?: signingConfigs.getByName("debug")
 
             // R8 left off deliberately. The app leans on kotlinx.serialization
             // and Compose, both of which need keep rules to survive shrinking,
@@ -88,6 +126,7 @@ dependencies {
 
     // --- Notifications (NotificationCompat) ---
     implementation("androidx.core:core-ktx:1.13.1")
+    implementation("androidx.work:work-runtime-ktx:2.9.1")
 
     // Level art for dishes added from the admin panel: those have no compiled
     // drawable, only a URL on the XAMPP host. Coil also caches to disk, so a

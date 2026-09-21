@@ -35,8 +35,29 @@ data class LoginUiState(
      */
     val googlePrompt: GooglePrompt? = null
 ) {
+    /**
+     * Whether LOG IN should be pressable.
+     *
+     * Not merely "both boxes have something in them". Usernames are 3+
+     * characters and every password is 8+ (register.php and
+     * reset_password.php both enforce it), so shorter input cannot match
+     * any account. That used to cost nothing; now that three failures lock
+     * the account, letting someone spend an attempt on a half-typed
+     * password is the difference between a typo and a lockout.
+     */
+    val canSubmitLogin: Boolean
+        get() = !isLoading &&
+            email.trim().length >= MIN_IDENTIFIER &&
+            password.length >= MIN_PASSWORD
+
     /** Local validation messages don't come from the network layer. */
     companion object {
+        /** Mirrors validateUsername(); an email is always longer anyway. */
+        const val MIN_IDENTIFIER = 3
+
+        /** Mirrors the strong-password rule shared with the API. */
+        const val MIN_PASSWORD = 8
+
         fun validation(message: String) = AppError(
             kind = AppError.Kind.REJECTED,
             headline = message,
@@ -67,6 +88,18 @@ class LoginViewModel(
     fun onPasswordChange(v: String) = _uiState.update { it.copy(password = v) }
     fun clearError() = _uiState.update { it.copy(error = null) }
     fun consumeSuccess() = _uiState.update { it.copy(success = null) }
+
+    /**
+     * Called when the player comes back from finishing a password reset.
+     *
+     * The old password is now wrong, and the lockout card that sent them
+     * to reset in the first place is stale — leaving either on screen
+     * invites them to press LOG IN on a credential that cannot work. The
+     * email stays: they just proved it is theirs.
+     */
+    fun onReturnFromPasswordReset() = _uiState.update {
+        it.copy(password = "", error = null)
+    }
 
     fun login() {
         val s = _uiState.value

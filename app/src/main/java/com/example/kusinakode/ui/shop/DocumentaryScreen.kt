@@ -1,7 +1,7 @@
 package com.example.kusinakode.ui.shop
 
+import com.example.kusinakode.ui.components.readableWidth
 import com.example.kusinakode.ui.components.clickSfx
-import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -34,6 +34,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.kusinakode.KusinaToast
 import com.example.kusinakode.LevelProvider
 import com.example.kusinakode.domain.shop.KusinaShop
 import com.example.kusinakode.domain.shop.ShopItem
@@ -66,6 +67,7 @@ fun DocumentaryScreen(
             visual = { ShopItemVisual(item) }
         )
     }
+    ShopPurchaseLoading(ui.busyId)
 
     Column(
         Modifier
@@ -74,6 +76,10 @@ fun DocumentaryScreen(
             .verticalScroll(rememberScrollState())
     ) {
         ShopHeader("Kusina Reel", "Heritage films, unlocked with KK", ui.balanceKk, onBack)
+        // Header spans the screen; the content below is capped so a tablet
+        // gets a readable column rather than full-width rows.
+        Column(Modifier.align(Alignment.CenterHorizontally).readableWidth()) {
+
 
         Column(Modifier.padding(16.dp)) {
             Text(
@@ -101,11 +107,7 @@ fun DocumentaryScreen(
                             busy = ui.busyId == item.id,
                             onClick = {
                                 if (!unveiled) {
-                                    Toast.makeText(
-                                        ctx,
-                                        "Solve this dish first to unveil the reel.",
-                                        Toast.LENGTH_SHORT
-                                    ).show()
+                                    KusinaToast.show(ctx, "Solve this dish first to unveil the reel.")
                                 } else if (item.id in ui.owned) {
                                     openWatchLink(ctx, item)
                                 } else {
@@ -127,6 +129,8 @@ fun DocumentaryScreen(
                 fontSize = 10.sp,
                 modifier = Modifier.padding(top = 4.dp)
             )
+        }
+    
         }
     }
 }

@@ -16,3 +16,12 @@ local.properties
 CLAUDE.md
 .claude/
 .mcp.json
+
+# Release signing. keystore.properties holds the store and key passwords in
+# plaintext, and build.gradle.kts already claimed this file was ignored when
+# it was not - one `git add -A` away from publishing the signing password.
+# The .jks itself lives outside this repo, but cover it here too in case a
+# copy is ever dropped in.
+keystore.properties
+*.jks
+*.keystore

@@ -52,6 +52,12 @@ data class LoginResponse(
     val nickname: String? = null,
     val email: String? = null,
     val message: String? = null,
+    /**
+     * Machine-readable refusal reason. "account_locked" means the throttle
+     * shut the account after too many failed sign-ins; match on this rather
+     * than on [message], which is copy and will change.
+     */
+    val code: String? = null,
     /** Google sign-in only: true when that call created the account. */
     val is_new: Boolean? = null,
     /** Google sign-in only: the display name the token carried. */
@@ -259,6 +265,10 @@ data class ResetPasswordRequest(
 
 @Serializable
 data class ResetPasswordResponse(val status: String, val message: String? = null)
+
+/** Checking the OTP on the code screen, before a password is composed. */
+@Serializable
+data class VerifyResetCodeRequest(val email: String, val code: String)
 
 @Serializable
 data class WalletBalanceData(
@@ -635,6 +645,14 @@ object KusinaApi {
         KtorClient.client.post("${BASE}reset_password.php") {
             contentType(ContentType.Application.Json)
             setBody(ResetPasswordRequest(email.trim(), code.trim(), newPassword))
+        }.body()
+
+    /** Checks the OTP without spending it, so the code screen can judge it. */
+    suspend fun verifyResetCode(email: String, code: String): ResetPasswordResponse =
+        KtorClient.client.post("${BASE}verify_reset_code.php") {
+            contentType(ContentType.Application.Json)
+            setBody(VerifyResetCodeRequest(email.trim(), code.trim()))
+            expectSuccess = false
         }.body()
 
     /**

@@ -6,6 +6,8 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
@@ -14,10 +16,8 @@ import androidx.core.content.ContextCompat
 /**
  * System notifications for things that happen to a player's rewards.
  *
- * Kept deliberately small: two channels, no background scheduling. Rewards
- * announces a completed mint, Reminders nudges an unclaimed daily. Anything
- * that needs to fire while the app is closed would need WorkManager, which
- * this does not pull in.
+ * Kept small: rewards, claim reminders, and a 12-hour play/trade nudge
+ * via WorkManager so the phone can still ping after the app is closed.
  *
  * Every post is guarded — on Android 13+ notifications are a runtime
  * permission, and a denied permission must never crash a round.
@@ -31,6 +31,8 @@ object KusinaNotifications {
     private const val ID_DAILY = 1002
     private const val ID_ISLAND_READY = 1003
     private const val ID_ISLAND_CLAIMED = 1100
+    private const val ID_PLAY_NUDGE = 1201
+    private const val ID_TRADE_NUDGE = 1202
 
     fun ensureChannels(context: Context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
@@ -51,7 +53,7 @@ object KusinaNotifications {
                 "Reminders",
                 NotificationManager.IMPORTANCE_LOW
             ).apply {
-                description = "Daily claim and streak nudges."
+                description = "Daily claim, streak, and play reminders."
             }
         )
     }
@@ -108,6 +110,28 @@ object KusinaNotifications {
         )
     }
 
+    /** Quiet nudge to come back and play a round. */
+    fun playNudge(context: Context) {
+        post(
+            context,
+            channel = CHANNEL_REMINDERS,
+            id = ID_PLAY_NUDGE,
+            title = "Your dish is waiting",
+            body = "Your dish is waiting to be plated. Play now."
+        )
+    }
+
+    /** Quiet nudge toward the pantry when KK is the bottleneck. */
+    fun tradeNudge(context: Context) {
+        post(
+            context,
+            channel = CHANNEL_REMINDERS,
+            id = ID_TRADE_NUDGE,
+            title = "Need more KK?",
+            body = "Don't have enough KK? Trade spare ingredients in the pantry."
+        )
+    }
+
     private fun post(
         context: Context,
         channel: String,
@@ -131,18 +155,31 @@ object KusinaNotifications {
         )
 
         val notification = NotificationCompat.Builder(context, channel)
-            .setSmallIcon(android.R.drawable.stat_notify_more)
+            .setSmallIcon(R.drawable.kk_logo)
+            .setLargeIcon(brandBitmap(context))
             .setContentTitle(title)
             .setContentText(body)
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))
             .setContentIntent(pending)
             .setAutoCancel(true)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setColor(0xFF8E4B31.toInt())
             .build()
 
         // Permission can be revoked between the check above and the post.
         runCatching {
             NotificationManagerCompat.from(context).notify(id, notification)
         }
+    }
+
+    private fun brandBitmap(context: Context): Bitmap {
+        val drawable = ContextCompat.getDrawable(context, R.drawable.kk_logo)
+            ?: ContextCompat.getDrawable(context, R.mipmap.ic_launcher)!!
+        val size = (48 * context.resources.displayMetrics.density).toInt().coerceAtLeast(96)
+        val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        drawable.setBounds(0, 0, canvas.width, canvas.height)
+        drawable.draw(canvas)
+        return bitmap
     }
 }

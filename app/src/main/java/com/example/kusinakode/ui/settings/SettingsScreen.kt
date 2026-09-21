@@ -1,8 +1,8 @@
 package com.example.kusinakode.ui.settings
 
+import com.example.kusinakode.ui.components.readableWidth
 import android.content.Intent
 import android.provider.Settings as AndroidSettings
-import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -41,6 +41,7 @@ import androidx.compose.material.icons.filled.Dns
 import androidx.compose.ui.text.input.ImeAction
 import com.example.kusinakode.BuildConfig
 import com.example.kusinakode.CoachMarkManager
+import com.example.kusinakode.KusinaToast
 import com.example.kusinakode.KusinaSettings
 import com.example.kusinakode.data.net.ServerConfig
 import com.example.kusinakode.PlayNowBrown
@@ -119,6 +120,10 @@ fun SettingsScreen(
                 }
             }
         }
+        // Header spans the screen; the content below is capped so a tablet
+        // gets a readable column rather than full-width rows.
+        Column(Modifier.align(Alignment.CenterHorizontally).readableWidth()) {
+
 
         Column(Modifier.padding(16.dp)) {
 
@@ -171,7 +176,7 @@ fun SettingsScreen(
             SettingCard {
                 ToggleRow(
                     Icons.Default.NotificationsActive, "Reward notifications",
-                    "A badge finishing its mint, and your daily claim",
+                    "A badge finishing its mint, daily claims, and play reminders",
                     prefs.notifications
                 ) { KusinaSettings.setNotifications(ctx, it) }
                 Divider()
@@ -203,7 +208,7 @@ fun SettingsScreen(
                     "The guided pop-ups on Home"
                 ) {
                     CoachMarkManager.reset(ctx, CoachMarkManager.TOUR_HOME)
-                    Toast.makeText(ctx, "Tour will run next time you open Home", Toast.LENGTH_SHORT).show()
+                    KusinaToast.show(ctx, "Tour will run next time you open Home")
                 }
             }
 
@@ -229,6 +234,8 @@ fun SettingsScreen(
                 )
             }
             Spacer(Modifier.height(24.dp))
+        }
+    
         }
     }
 }
@@ -266,7 +273,7 @@ private fun ServerHostRow() {
             keyboardActions = KeyboardActions(onDone = {
                 ServerConfig.setHost(ctx, text)
                 text = ServerConfig.savedOverride().orEmpty()
-                Toast.makeText(ctx, "API host: ${ServerConfig.host}", Toast.LENGTH_SHORT).show()
+                KusinaToast.show(ctx, "API host: ${ServerConfig.host}")
             }),
             modifier = Modifier.fillMaxWidth()
         )

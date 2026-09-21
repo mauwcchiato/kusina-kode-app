@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.kusinakode.Session
+import com.example.kusinakode.SoundFx
 import com.example.kusinakode.data.repository.RemotePantryRepository
 import com.example.kusinakode.domain.pantry.DrawResult
 import com.example.kusinakode.domain.pantry.Ingredient
@@ -31,6 +32,15 @@ data class PantryUiState(
     val spinWon: Int? = null,
     /** Set while the whole stack of bauls is being emptied in one go. */
     val drawingAll: Boolean = false,
+    /**
+     * Progress through an OPEN ALL run.
+     *
+     * The run is one network round-trip per jar, so with a full shelf it is
+     * a genuinely long wait. Without a count the pot just rattles and the
+     * player cannot tell working from stuck.
+     */
+    val drawnSoFar: Int = 0,
+    val drawTarget: Int = 0,
     val reveal: DrawResult? = null,
     /** Every jar from OPEN ALL, shown as a swipeable haul. */
     val haul: List<DrawResult> = emptyList(),
@@ -159,6 +169,7 @@ class PantryViewModel(
             _uiState.update { it.copy(buyingSpin = true, notice = null) }
             repository.buySpin()
                 .onSuccess { (snap, balance) ->
+                    SoundFx.coin()
                     // Balance too: the charge has cleared by the time this
                     // returns, and a wallet still showing the old figure while
                     // the wheel turns is the app telling a small lie.
@@ -220,7 +231,16 @@ class PantryViewModel(
         if (state.drawing || state.drawingAll || state.isGuest) return
         if (state.snapshot.drawsAvailable <= 0) return
         viewModelScope.launch {
-            _uiState.update { it.copy(drawingAll = true, reveal = null, haul = emptyList(), notice = null) }
+            _uiState.update {
+                it.copy(
+                    drawingAll = true,
+                    reveal = null,
+                    haul = emptyList(),
+                    notice = null,
+                    drawnSoFar = 0,
+                    drawTarget = state.snapshot.drawsAvailable
+                )
+            }
             val haul = mutableListOf<DrawResult>()
             val fresh = mutableSetOf<String>()
             var failure: String? = null
@@ -237,11 +257,17 @@ class PantryViewModel(
                 draw.ingredient?.id?.let { fresh += it }
                 remaining = minOf(remaining - 1, draw.drawsLeft)
                 PantrySnapshotBus.publish(snap, balance)
-                _uiState.update { it.copy(snapshot = snap, balanceKk = balance) }
+                // Published per jar, not at the end: this is the only signal
+                // the overlay has that the wait is moving.
+                _uiState.update {
+                    it.copy(snapshot = snap, balanceKk = balance, drawnSoFar = haul.size)
+                }
             }
             _uiState.update {
                 it.copy(
                     drawingAll = false,
+                    drawnSoFar = 0,
+                    drawTarget = 0,
                     haul = haul,
                     newIngredientIds = it.newIngredientIds + fresh,
                     notice = when {

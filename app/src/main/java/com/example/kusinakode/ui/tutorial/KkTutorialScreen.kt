@@ -1,5 +1,6 @@
 package com.example.kusinakode.ui.tutorial
 
+import androidx.annotation.DrawableRes
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -25,20 +26,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Bolt
-import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material.icons.filled.Face
-import androidx.compose.material.icons.filled.Movie
-import androidx.compose.material.icons.filled.Public
-import androidx.compose.material.icons.filled.Restaurant
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.filled.Storefront
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.WorkspacePremium
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -49,7 +38,6 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -60,6 +48,7 @@ import com.example.kusinakode.PlayNowBrown
 import com.example.kusinakode.R
 import com.example.kusinakode.domain.gamification.PowerUp
 import com.example.kusinakode.ui.components.clickSfx
+import com.example.kusinakode.ui.components.readableWidth
 import com.example.kusinakode.ui.game.TileCorrectGreen
 import com.example.kusinakode.ui.game.TileSemiYellow
 import com.example.kusinakode.ui.game.TileWrongBrown
@@ -98,6 +87,9 @@ fun KkTutorialScreen(onFinish: () -> Unit) {
         label = "kkBobY"
     )
 
+    // The gradient stays edge to edge; only the content column is capped, so
+    // on a tablet the page still fills the screen but the reward rows do not
+    // stretch into 800dp-wide slivers.
     Column(
         Modifier
             .fillMaxSize()
@@ -107,7 +99,12 @@ fun KkTutorialScreen(onFinish: () -> Unit) {
                 )
             )
             .statusBarsPadding()
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(rememberScrollState()),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+      Column(
+        Modifier
+            .readableWidth()
             .padding(horizontal = 18.dp, vertical = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -148,46 +145,66 @@ fun KkTutorialScreen(onFinish: () -> Unit) {
         Spacer(Modifier.height(22.dp))
         SectionBanner("QUEST REWARDS", "HOW YOU EARN IT")
         Spacer(Modifier.height(10.dp))
-        RewardRow(Icons.Default.Star, "Solve a new dish", "+10", "FIRST CLEAR", TileCorrectGreen)
-        RewardRow(Icons.Default.WorkspacePremium, "Earn a badge", "+25", accent = GoldDeep)
-        RewardRow(Icons.Default.Public, "Finish an island", "+15", accent = TileCorrectGreen)
-        RewardRow(Icons.Default.CalendarMonth, "Daily login", "+5", "DAILY", TileSemiYellow)
-        RewardRow(Icons.Default.Storefront, "Sell spare ingredients", "VARIES", accent = GoldDeep)
+        // Same art the wallet and the notification feed already use for
+        // these events, so the primer is teaching the icons a player will
+        // actually meet rather than a parallel set of generic glyphs.
+        RewardRow(
+            "Solve a new dish", "+10",
+            art = R.drawable.dishes_locked, accent = TileCorrectGreen
+        )
+        RewardRow(
+            "Earn a badge", "+25",
+            art = R.drawable.badge_rounds_1, accent = GoldDeep
+        )
+        RewardRow(
+            "Finish an island", "+15",
+            art = R.drawable.earn_philippines, accent = TileCorrectGreen
+        )
+        RewardRow(
+            "Daily login", "+5",
+            art = R.drawable.earn_daily, note = "DAILY", accent = TileSemiYellow
+        )
+        RewardRow(
+            "Sell spare ingredients", "VARIES",
+            art = R.drawable.earn_sell_ingredients, accent = GoldDeep
+        )
 
         Spacer(Modifier.height(22.dp))
         SectionBanner("THE MARKET", "WHERE IT GOES")
         Spacer(Modifier.height(10.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            StallTile(Icons.Default.Restaurant, "Pantry", "INGREDIENTS", Modifier.weight(1f))
-            StallTile(Icons.Default.Movie, "Reel", "FILMS", Modifier.weight(1f))
-            StallTile(Icons.Default.Face, "Atelier", "LOOKS", Modifier.weight(1f))
+            // vault_art_* rather than vault_*: the plain subjects on clear
+            // ground, with no wooden tile baked in to fight the plate.
+            StallTile(R.drawable.vault_art_pantry, "Pantry", "INGREDIENTS", Modifier.weight(1f))
+            StallTile(R.drawable.vault_art_docs, "Reel", "FILMS", Modifier.weight(1f))
+            StallTile(R.drawable.vault_art_atelier, "Atelier", "LOOKS", Modifier.weight(1f))
         }
 
         Spacer(Modifier.height(22.dp))
         SectionBanner("IN-ROUND POWER-UPS", "SPEND MID-COOK")
         Spacer(Modifier.height(10.dp))
         RewardRow(
-            Icons.Default.Visibility,
             "Reveal",
             "-${PowerUp.REVEAL_LETTER.coinCost}",
-            "LOCKS ONE LETTER",
-            TileCorrectGreen,
+            art = R.drawable.powerup_reveal,
+            note = "LOCKS ONE LETTER",
+            accent = TileCorrectGreen,
             debit = true
         )
         RewardRow(
-            Icons.Default.Bolt,
             "Bomb",
             "-${PowerUp.BOMB.coinCost}",
-            "CLEARS WRONG KEYS",
-            TileSemiYellow,
+            art = R.drawable.powerup_bomb,
+            note = "CLEARS WRONG KEYS",
+            accent = TileSemiYellow,
             debit = true
         )
         RewardRow(
-            Icons.Default.Star,
             "Instant Solve",
             "-${PowerUp.INSTANT_SOLVE.coinCost}",
-            "FINISHES THE DISH",
-            TileWrongBrown,
+            art = R.drawable.powerup_solve,
+            note = "FINISHES THE DISH",
+            accent = TileWrongBrown,
             debit = true
         )
         Spacer(Modifier.height(10.dp))
@@ -215,6 +232,7 @@ fun KkTutorialScreen(onFinish: () -> Unit) {
             Text("Enter the kitchen", fontWeight = FontWeight.Bold, fontSize = 15.sp)
         }
         Spacer(Modifier.height(12.dp))
+      }
     }
 }
 
@@ -263,9 +281,14 @@ private fun SectionBanner(kicker: String, title: String) {
 
 @Composable
 private fun RewardRow(
-    icon: ImageVector,
     title: String,
     amount: String,
+    /**
+     * The real thing being described — the wallet's own art for the earn
+     * rows, and the pixel-art pieces for the three power-ups. Every row has
+     * one, so there is no glyph fallback left.
+     */
+    @DrawableRes art: Int,
     note: String? = null,
     accent: Color = GoldDeep,
     debit: Boolean = false
@@ -287,16 +310,15 @@ private fun RewardRow(
                 .background(accent)
         )
         Spacer(Modifier.width(10.dp))
-        Box(
-            Modifier
-                .size(34.dp)
-                .clip(RoundedCornerShape(10.dp))
-                .background(accent.copy(alpha = 0.22f))
-                .border(1.dp, accent.copy(alpha = 0.6f), RoundedCornerShape(10.dp)),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(icon, contentDescription = null, tint = accent, modifier = Modifier.size(18.dp))
-        }
+        // Bare, with no well behind it. Each of these drawings carries its
+        // own edge already, so a tinted box would be a container inside a
+        // container.
+        Image(
+            painter = painterResource(art),
+            contentDescription = null,
+            contentScale = ContentScale.Fit,
+            modifier = Modifier.size(44.dp)
+        )
         Spacer(Modifier.width(10.dp))
         Column(Modifier.weight(1f)) {
             Text(
@@ -351,7 +373,7 @@ private fun AmountChip(amount: String, debit: Boolean) {
 
 @Composable
 private fun StallTile(
-    icon: ImageVector,
+    @DrawableRes art: Int,
     name: String,
     tag: String,
     modifier: Modifier = Modifier
@@ -364,16 +386,13 @@ private fun StallTile(
             .padding(vertical = 14.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Box(
-            Modifier
-                .size(40.dp)
-                .clip(CircleShape)
-                .background(PlateFace)
-                .border(1.5.dp, Gold.copy(alpha = 0.7f), CircleShape),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(icon, contentDescription = null, tint = Gold, modifier = Modifier.size(20.dp))
-        }
+        // No disc behind it: the subject stands on the plate directly.
+        Image(
+            painter = painterResource(art),
+            contentDescription = null,
+            contentScale = ContentScale.Fit,
+            modifier = Modifier.size(56.dp)
+        )
         Spacer(Modifier.height(8.dp))
         Text(
             name,

@@ -1,6 +1,12 @@
 package com.example.kusinakode.ui.shop
 
 import com.example.kusinakode.ui.components.clickSfx
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -8,6 +14,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -18,15 +25,19 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -35,6 +46,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import com.example.kusinakode.domain.shop.KusinaShop
+import kotlin.math.roundToInt
 import com.example.kusinakode.ui.components.KusinaButton
 import com.example.kusinakode.ui.components.KusinaButtonTone
 import com.example.kusinakode.ui.components.ParchmentCard
@@ -131,7 +145,11 @@ fun ShopBuyDialog(
                             else -> "Unlock"
                         },
                         onClick = {
-                            SoundFx.play(ctx, SoundFx.Cue.Coin)
+                            // No coin here: the chime belongs to the debit
+                            // clearing, which ShopViewModel.buy fires on
+                            // success. Ringing it on the tap would also ring
+                            // for a purchase that then fails on balance.
+                            SoundFx.tap(ctx)
                             onConfirm()
                         },
                         tone = KusinaButtonTone.Terracotta,
@@ -290,6 +308,84 @@ fun ShopItemVisual(item: ShopItem) {
                 )
             } else {
                 Text(item.emoji.ifBlank { "🎞" }, fontSize = 36.sp)
+            }
+        }
+    }
+}
+
+/**
+ * Full-screen wait while KK spend settles on the chain. The confirm sheet
+ * closes on tap, so without this the atelier / reel just sits frozen.
+ */
+@Composable
+fun ShopPurchaseLoading(busyId: String?) {
+    val item = busyId?.let { KusinaShop.item(it) } ?: return
+    val headline = when {
+        item.kind == ShopKind.DOCUMENTARY -> "UNLOCKING REEL"
+        item.slot == AvatarSlot.FRAME -> "BUYING FRAME"
+        item.kind == ShopKind.AVATAR -> "BUYING CHEF"
+        else -> "UNLOCKING"
+    }
+    val motion = rememberInfiniteTransition(label = "shop_buy_wait")
+    val dots by motion.animateFloat(
+        initialValue = 0f,
+        targetValue = 3.99f,
+        animationSpec = infiniteRepeatable(tween(1100, easing = LinearEasing), RepeatMode.Restart),
+        label = "wait_dots"
+    )
+    Dialog(
+        onDismissRequest = {},
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            dismissOnBackPress = false,
+            dismissOnClickOutside = false
+        )
+    ) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .pointerInput(Unit) {
+                    awaitPointerEventScope {
+                        while (true) {
+                            awaitPointerEvent(PointerEventPass.Initial).changes
+                                .forEach { it.consume() }
+                        }
+                    }
+                }
+                .background(Color(0xE6100806)),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.padding(horizontal = 32.dp)
+            ) {
+                CircularProgressIndicator(
+                    color = Color(0xFFFFD24A),
+                    strokeWidth = 3.dp,
+                    modifier = Modifier.size(42.dp)
+                )
+                Spacer(Modifier.height(22.dp))
+                Text(
+                    headline,
+                    color = Color(0xFFFFD24A),
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 14.sp,
+                    letterSpacing = 3.sp
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    item.title,
+                    color = Color(0xFFF6E6C8),
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp,
+                    textAlign = TextAlign.Center
+                )
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    "Please wait" + ".".repeat(dots.roundToInt().coerceIn(1, 3)),
+                    color = Color(0xFFE8C9A0),
+                    fontSize = 14.sp
+                )
             }
         }
     }

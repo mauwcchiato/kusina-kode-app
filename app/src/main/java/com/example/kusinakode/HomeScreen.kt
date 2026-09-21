@@ -1,5 +1,7 @@
 package com.example.kusinakode
 
+import com.example.kusinakode.ui.components.readableWidth
+
 import com.example.kusinakode.ui.components.clickSfx
 import androidx.annotation.DrawableRes
 
@@ -269,6 +271,11 @@ fun HomeScreen(
                     )
                 }
 
+                // Hero and header keep the full width — they are artwork and
+                // want the room. Everything below is a column of rows, so it
+                // is capped rather than stretched across a tablet.
+                Column(Modifier.align(Alignment.CenterHorizontally).readableWidth()) {
+
                 Spacer(Modifier.height(18.dp))
 
                 Column(Modifier.padding(horizontal = 20.dp)) {
@@ -321,6 +328,7 @@ fun HomeScreen(
                         GuideCard(R.drawable.guide_kk, "KK Guide", "Earn & Spend", cell, go(onKkGuide))
                     }
                     Spacer(Modifier.height(24.dp))
+                }
                 }
             }
         }

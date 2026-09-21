@@ -82,14 +82,43 @@ class PasswordResetViewModel(
         it.copy(step = ResetStep.Verify, error = null, message = null)
     }
 
+    /**
+     * Checks the code with the server before moving on.
+     *
+     * This used to advance on six digits alone, so any typo sailed through
+     * and only surfaced after the player had chosen a new password — the
+     * flow appeared to accept the code and then called it invalid. The
+     * check happens where the code is typed, and does not consume it;
+     * [submitNewPassword] still verifies and spends it for real.
+     */
     fun confirmCode() {
         val s = _uiState.value
         if (!s.codeComplete) {
             _uiState.update { it.copy(error = "Enter the 6-digit code from your email") }
             return
         }
-        _uiState.update {
-            it.copy(step = ResetStep.NewPassword, error = null, message = null)
+        if (s.isLoading) return
+        _uiState.update { it.copy(isLoading = true, error = null, message = null) }
+        viewModelScope.launch {
+            authRepository.verifyResetCode(s.email, s.code)
+                .onSuccess {
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            step = ResetStep.NewPassword,
+                            error = null,
+                            message = null
+                        )
+                    }
+                }
+                .onFailure { e ->
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            error = e.message ?: "That code didn't work. Try again or resend."
+                        )
+                    }
+                }
         }
     }
 

@@ -1,5 +1,7 @@
 package com.example.kusinakode.ui.auth
 
+import com.example.kusinakode.ui.components.readableWidth
+
 import com.example.kusinakode.ui.components.clickSfx
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
@@ -11,7 +13,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import android.content.Context
-import android.widget.Toast
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -30,6 +31,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.kusinakode.KusinaToast
 import com.example.kusinakode.R
 import com.example.kusinakode.data.auth.GoogleSignInClient
 import com.example.kusinakode.ui.theme.BeVietnamPro
@@ -238,11 +240,11 @@ fun GoogleAuthSection(
                     // than "coming soon" - this is a build-configuration
                     // gap, and whoever taps it is the person who can close
                     // it. See res/values/google_signin.xml.
-                    Toast.makeText(
+                    KusinaToast.show(
                         ctx,
                         "Google sign-in needs a web client ID in google_signin.xml.",
-                        Toast.LENGTH_LONG
-                    ).show()
+                        long = true
+                    )
                 }
             },
             enabled = enabled,
@@ -354,9 +356,18 @@ fun AuthSheetScaffold(
                             } else Modifier
                         )
                         .padding(horizontal = 24.dp, vertical = 24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    content = content
-                )
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    // One cap here covers log in, sign up, the reset flow and
+                    // the welcome poster. The cream sheet and its glow still
+                    // fill the screen; only the form is held to a width where
+                    // a text field is not a metre wide on a tablet.
+                    Column(
+                        Modifier.readableWidth(440.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        content = content
+                    )
+                }
             }
         }
     }

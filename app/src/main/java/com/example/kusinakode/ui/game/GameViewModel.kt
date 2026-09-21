@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.kusinakode.KusinaKodeApp
 import com.example.kusinakode.Session
+import com.example.kusinakode.SoundFx
 import com.example.kusinakode.data.repository.DefaultProgressRepository
 import com.example.kusinakode.data.repository.LocalLevelRepository
 import com.example.kusinakode.data.repository.LocalRoundStateRepository
@@ -338,7 +339,11 @@ class GameViewModel(
         coachJob?.cancel()
         powerUpsUsedThisRound = 0
         roundStore?.clear(levelNumber)
-        _uiState.value = freshState()
+        // Wallet Flow only emits when the figure changes, so wiping the
+        // board with freshState() would leave YOUR KK at 0 until the next
+        // spend. Carry the last known balance across, then refresh.
+        _uiState.value = freshState().copy(pointsBalance = _uiState.value.pointsBalance)
+        viewModelScope.launch { wallet?.refresh() }
     }
 
     fun dismissPowerUpMessage() {
@@ -454,6 +459,7 @@ class GameViewModel(
         }
         val paid = wallet?.spend(powerUp) ?: false
         if (paid) {
+            SoundFx.coin()
             powerUpsUsedThisRound++
             _uiState.update { it.copy(powerUpsUsed = it.powerUpsUsed + 1) }
         }

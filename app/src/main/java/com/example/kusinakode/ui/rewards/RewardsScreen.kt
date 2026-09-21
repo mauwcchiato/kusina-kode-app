@@ -1,5 +1,6 @@
 package com.example.kusinakode.ui.rewards
 
+import com.example.kusinakode.ui.components.readableWidth
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -175,6 +176,10 @@ fun RewardsScreen(
                     )
                 }
             }
+            // Header spans the screen; the content below is capped so a tablet
+            // gets a readable column rather than full-width rows.
+            Column(Modifier.align(Alignment.CenterHorizontally).readableWidth()) {
+
 
             Column(Modifier.padding(16.dp)) {
                 Surface(
@@ -332,6 +337,8 @@ fun RewardsScreen(
                     }
                 }
                 Spacer(Modifier.height(12.dp))
+            }
+        
             }
         }
     }

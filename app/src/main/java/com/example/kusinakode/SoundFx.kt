@@ -15,10 +15,18 @@ import com.example.kusinakode.domain.model.Region
 /**
  * Recorded kitchen SFX, voicelines and BGM from the Sfx pack.
  *
- * One-shots use [MediaPlayer] rather than SoundPool — short MP3 clicks
- * (key, coin, bomb) lose their attack in SoundPool's decoder and play
- * as silence, which is why delete could be heard while letters could not.
- * Looping beds share a separate player and the same Settings toggle.
+ * One-shots use [MediaPlayer] rather than SoundPool.
+ *
+ * Note on levels: the pack shipped mastered unevenly, and that — not the
+ * decoder — is why some cues seemed silent. sfx_key arrived at -25.7 dB
+ * peak against backspace's 0.0 dB, so letters were inaudible while delete
+ * was not; it has since been normalised to -6.0 dB, kept under backspace
+ * on purpose because a letter tap fires on every keypress. sfx_nav is
+ * still -28.0 dB and is the last one left.
+ *
+ * A cue below roughly -15 dB peak does not survive a phone speaker, so
+ * normalise anything added here to -6 dB peak or louder. Looping beds
+ * share a separate player and the same Settings toggle.
  */
 object SoundFx {
 
@@ -50,7 +58,9 @@ object SoundFx {
         Reveal(R.raw.sfx_reveal),
         Backspace(R.raw.sfx_backspace),
         Bomb(R.raw.sfx_bomb),
-        Solve(R.raw.sfx_badge),
+        Solve(R.raw.sfx_solve),
+        PowerUpOpen(R.raw.sfx_powerup),
+        Shake(R.raw.sfx_shake),
         Invalid(R.raw.sfx_invalid),
         Nav(R.raw.sfx_nav),
         Submit(R.raw.sfx_submit),
@@ -74,6 +84,7 @@ object SoundFx {
         GamePhilippines(R.raw.bg_game_philippines, true),
         Win(R.raw.bg_win, true),
         WinFirst(R.raw.bg_win_first, true),
+        GameOver(R.raw.bg_gameover, true),
         Learn(R.raw.bg_learn, true),
         Wallet(R.raw.bg_wallet, true),
         Profile(R.raw.bg_profile, true);
@@ -109,15 +120,90 @@ object SoundFx {
         }
     }
 
-    @Suppress("UNUSED_PARAMETER")
+    /** Application Context, kept so [coin] can fire from a ViewModel. */
+    private var appContext: Context? = null
+
     fun warm(context: Context) {
         // MediaPlayer one-shots are created on demand; nothing to preload.
+        // What this does hold onto is the application Context — never an
+        // Activity — so a debit confirmed in a ViewModel can be heard
+        // without threading a Context down into the domain layer.
+        appContext = context.applicationContext
+    }
+
+    /**
+     * The coin chime for KK actually leaving the wallet.
+     *
+     * Call this where a spend is *confirmed*, not where the button is
+     * pressed — a purchase that fails for want of balance should stay
+     * silent. Every KK debit funnels through one of three places:
+     * GameViewModel.charge (power-ups), ShopViewModel.buy (avatars and
+     * encyclopedia) and PantryViewModel.buySpin (palayok spins).
+     */
+    fun coin() {
+        val ctx = appContext ?: return
+        play(ctx, Cue.Coin)
     }
 
     fun play(context: Context, cue: Cue) {
         if (sfxGain() <= 0f) return
         val app = context.applicationContext
         main.post { playRes(app, cue.res) }
+    }
+
+    /** A sound that is still going, and can be told to stop. */
+    class Handle internal constructor() {
+        @Volatile internal var player: MediaPlayer? = null
+        @Volatile internal var cancelled = false
+
+        fun stop() {
+            cancelled = true
+            val p = player ?: return
+            player = null
+            main.post {
+                runCatching { p.stop() }
+                runCatching { p.release() }
+            }
+        }
+    }
+
+    /**
+     * Plays a cue on repeat until the caller stops it.
+     *
+     * For a sound that describes something ongoing rather than something that
+     * happened. [play] is fire-and-forget: once started it runs to the end of
+     * the clip whatever the screen does, so a one-shot used for a wait either
+     * falls silent early or is still going after the thing it described has
+     * finished — and can stack on itself if the moment is re-entered.
+     *
+     * Stop it from the same place that started it, usually an onDispose.
+     */
+    fun loop(context: Context, cue: Cue): Handle {
+        val handle = Handle()
+        if (sfxGain() <= 0f) return handle
+        val app = context.applicationContext
+        main.post {
+            if (handle.cancelled) return@post
+            runCatching {
+                val player = MediaPlayer()
+                player.setAudioAttributes(sfxAttrs)
+                app.resources.openRawResourceFd(cue.res).use { fd ->
+                    player.setDataSource(fd.fileDescriptor, fd.startOffset, fd.length)
+                }
+                val gain = sfxGain()
+                player.setVolume(gain, gain)
+                player.isLooping = true
+                player.prepare()
+                // stop() may have run while this was preparing.
+                if (handle.cancelled) {
+                    runCatching { player.release() }
+                    return@runCatching
+                }
+                handle.player = player
+                player.start()
+            }
+        }
+        return handle
     }
 
     /** Live gain 0..1 from Settings. Mute is 0, not a separate flag. */

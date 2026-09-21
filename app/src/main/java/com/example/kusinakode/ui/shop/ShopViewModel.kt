@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.kusinakode.Session
+import com.example.kusinakode.SoundFx
 import com.example.kusinakode.api.KusinaApi
 import com.example.kusinakode.domain.ChainQueue
 import com.example.kusinakode.domain.shop.AvatarSlot
@@ -89,6 +90,7 @@ class ShopViewModel(app: Application) : AndroidViewModel(app) {
             }
             _uiState.update { it.copy(busyId = null) }
             ok.onSuccess {
+                SoundFx.coin()
                 val next = _uiState.value.owned + item.id
                 saveOwned(next)
                 var equipped = _uiState.value.equipped

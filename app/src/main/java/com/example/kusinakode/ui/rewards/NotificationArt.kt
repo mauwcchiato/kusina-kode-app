@@ -1,11 +1,6 @@
 package com.example.kusinakode.ui.rewards
 
 import androidx.annotation.DrawableRes
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Paid
-import androidx.compose.material.icons.filled.Verified
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.Whatshot
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.example.kusinakode.LevelProvider
 import com.example.kusinakode.R
@@ -43,7 +38,11 @@ sealed interface NotificationGlyph {
         val fill: Boolean = true
     ) : NotificationGlyph
 
-    /** For the few events with no drawing of their own — the power-ups. */
+    /**
+     * For the few events with no drawing of their own. Once that meant the
+     * power-ups too; now only signing in and signing up, which are moments
+     * rather than things and have nothing to picture.
+     */
     data class Vector(val icon: ImageVector) : NotificationGlyph
 }
 
@@ -66,14 +65,15 @@ object NotificationArt {
     fun forEvent(eventType: String?, rawTitle: String?): NotificationGlyph {
         val key = rawTitle?.trim()?.lowercase().orEmpty()
 
-        // Power-ups have icons rather than art — the same three the deck above
-        // the keyboard wears, so the receipt matches the card that was tapped.
+        // The same three the deck above the keyboard wears, so the receipt
+        // matches the card that was tapped. They were Material glyphs until
+        // the pixel art existed; the rule is unchanged, the art is not.
         PowerUp.entries.firstOrNull { it.spendKey.equals(key, ignoreCase = true) }?.let {
-            return NotificationGlyph.Vector(
+            return NotificationGlyph.Art(
                 when (it) {
-                    PowerUp.REVEAL_LETTER -> Icons.Default.Visibility
-                    PowerUp.BOMB -> Icons.Default.Whatshot
-                    PowerUp.INSTANT_SOLVE -> Icons.Default.Paid
+                    PowerUp.REVEAL_LETTER -> R.drawable.powerup_reveal
+                    PowerUp.BOMB -> R.drawable.powerup_bomb
+                    PowerUp.INSTANT_SOLVE -> R.drawable.powerup_solve
                 }
             )
         }
@@ -125,7 +125,7 @@ object NotificationArt {
         }
 
         if (eventType == "account_signup" || eventType == "account_login") {
-            return NotificationGlyph.Vector(Icons.Default.Verified)
+            return NotificationGlyph.Art(R.drawable.kk_logo)
         }
 
         // Daily claims and anything unrecognised are simply KK moving. The

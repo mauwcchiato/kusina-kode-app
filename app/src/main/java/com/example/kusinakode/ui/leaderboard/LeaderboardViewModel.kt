@@ -31,7 +31,14 @@ class LeaderboardViewModel(
     }
 
     fun loadLeaderboard(window: LeaderboardWindow = _uiState.value.window) {
-        _uiState.update { it.copy(isLoading = true, errorMessage = null, window = window) }
+        _uiState.update {
+            it.copy(
+                isLoading = true,
+                errorMessage = null,
+                window = window,
+                entries = if (window == it.window) it.entries else emptyList()
+            )
+        }
         viewModelScope.launch {
             leaderboardRepository.topPlayers(window = window)
                 .onSuccess { rows -> _uiState.update { it.copy(isLoading = false, entries = rows) } }

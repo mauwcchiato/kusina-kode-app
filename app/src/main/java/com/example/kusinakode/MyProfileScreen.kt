@@ -1,5 +1,6 @@
 package com.example.kusinakode
 
+import com.example.kusinakode.ui.components.readableWidth
 import com.example.kusinakode.ui.components.KusinaButton
 import com.example.kusinakode.ui.components.KusinaButtonTone
 import com.example.kusinakode.ui.components.ParchmentCard
@@ -195,6 +196,9 @@ fun MyProfileScreen(
                 .padding(bottom = inner.calculateBottomPadding())
                 .verticalScroll(rememberScrollState())
         ) {
+            // No full-bleed header on this one, so the whole body is capped.
+            Column(Modifier.align(Alignment.CenterHorizontally).readableWidth()) {
+
             Box {
                 Column(
                     Modifier
@@ -516,7 +520,9 @@ fun MyProfileScreen(
 
                 Spacer(Modifier.height(16.dp))
             }
-        }
+        
+            }
+}
     }
 
     if (showBadgePicker) {

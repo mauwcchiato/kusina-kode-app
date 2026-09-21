@@ -1,5 +1,6 @@
 package com.example.kusinakode.ui.explore
 
+import com.example.kusinakode.ui.components.readableWidth
 import com.example.kusinakode.ui.components.clickSfx
 import androidx.annotation.DrawableRes
 import androidx.activity.compose.BackHandler
@@ -261,6 +262,9 @@ fun ExploreScreen(
                     .verticalScroll(rememberScrollState())
                     .padding(16.dp)
             ) {
+                // No full-bleed header on this one, so the whole body is capped.
+                Column(Modifier.align(Alignment.CenterHorizontally).readableWidth()) {
+
                 // ---- Search (matches solved dishes only — no spoilers) ----
                 OutlinedTextField(
                     value = query,
@@ -554,7 +558,9 @@ fun ExploreScreen(
                     )
                 }
                 Spacer(Modifier.height(12.dp))
-            }
+            
+                }
+}
         }
     }
 

@@ -2,6 +2,7 @@ package com.example.kusinakode.data.repository
 
 import com.example.kusinakode.Session
 import com.example.kusinakode.api.KusinaApi
+import com.example.kusinakode.domain.model.AppError
 import com.example.kusinakode.domain.model.GoogleOutcome
 import com.example.kusinakode.domain.model.ResetCodeResult
 import com.example.kusinakode.domain.model.UserSession
@@ -24,6 +25,18 @@ class RemoteAuthRepository : AuthRepository {
             Session.nickname = session.nickname
             Session.email = resp.email
             session
+        } else if (resp.code == "account_locked") {
+            // Not a rejection the player can fix by typing more carefully,
+            // so it carries its own kind and the screen offers recovery
+            // instead of a retry button.
+            throw AppException(
+                AppError(
+                    kind = AppError.Kind.LOCKED,
+                    headline = "Account locked",
+                    guidance = resp.message
+                        ?: "Too many sign-in attempts. Reset your password to get back in."
+                )
+            )
         } else {
             throw IllegalStateException(resp.message ?: "Login failed")
         }
@@ -90,6 +103,14 @@ class RemoteAuthRepository : AuthRepository {
             throw IllegalStateException(resp.message ?: "Request failed")
         }
     }.mapNetworkError()
+
+    override suspend fun verifyResetCode(email: String, code: String): Result<Unit> =
+        runCatching {
+            val resp = KusinaApi.verifyResetCode(email.trim(), code.trim())
+            if (resp.status != "success") {
+                throw IllegalStateException(resp.message ?: "Invalid code or expired")
+            }
+        }.mapNetworkError()
 
     override suspend fun resetPassword(email: String, code: String, newPassword: String): Result<String> =
         runCatching {

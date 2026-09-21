@@ -1,5 +1,7 @@
 package com.example.kusinakode.ui.gamification
 
+import com.example.kusinakode.ui.components.readableWidth
+
 import com.example.kusinakode.ui.components.FilterPillRow
 import com.example.kusinakode.ui.components.clickSfx
 import com.example.kusinakode.ui.rewards.HeaderCircleButton
@@ -146,6 +148,7 @@ fun RoundsHistoryScreen(
                 }
 
                 else -> LazyColumn(
+                    modifier = Modifier.align(Alignment.CenterHorizontally).readableWidth(),
                     contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 20.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {

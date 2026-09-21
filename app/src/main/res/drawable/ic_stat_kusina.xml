@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="100"
+    android:viewportHeight="100">
+    <!-- White silhouette of the brand mark for the status bar. -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M22,2 H78 A20,20 0 0 1 98,22 V78 A20,20 0 0 1 78,98 H22 A20,20 0 0 1 2,78 V22 A20,20 0 0 1 22,2 Z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M26,20 H42 A6,6 0 0 1 48,26 V42 A6,6 0 0 1 42,48 H26 A6,6 0 0 1 20,42 V26 A6,6 0 0 1 26,20 Z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M58,20 H74 A6,6 0 0 1 80,26 V42 A6,6 0 0 1 74,48 H58 A6,6 0 0 1 52,42 V26 A6,6 0 0 1 58,20 Z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M26,52 H42 A6,6 0 0 1 48,58 V74 A6,6 0 0 1 42,80 H26 A6,6 0 0 1 20,74 V58 A6,6 0 0 1 26,52 Z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M58,52 H74 A6,6 0 0 1 80,58 V74 A6,6 0 0 1 74,80 H58 A6,6 0 0 1 52,74 V58 A6,6 0 0 1 58,52 Z" />
+</vector>

@@ -20,36 +20,29 @@ class LevelsViewModel(application: Application) : AndroidViewModel(application) 
     val uiState: StateFlow<LevelsUiState> = _uiState.asStateFlow()
 
     init {
+        _uiState.value = LevelsUiState(unlockedUpTo = localUnlocks())
         loadUnlocks()
     }
 
+    private fun localUnlocks(): Int =
+        unlockRepository.localHighestUnlocked(Session.userId?.takeIf { it > 0 })
+
     fun loadUnlocks() {
-        _uiState.update { it.copy(isLoading = true, error = null) }
         viewModelScope.launch {
             val uid = Session.userId
             if (uid == null || uid <= 0) {
                 _uiState.update {
-                    it.copy(
-                        isLoading = false,
-                        error = "Not logged in",
-                        unlockedUpTo = unlockRepository.localHighestUnlocked(null)
-                    )
+                    it.copy(unlockedUpTo = unlockRepository.localHighestUnlocked(null), error = null)
                 }
                 return@launch
             }
             unlockRepository.syncFromServer(uid)
                 .onSuccess { merged ->
-                    _uiState.update { it.copy(isLoading = false, unlockedUpTo = merged) }
+                    _uiState.update { it.copy(unlockedUpTo = merged, error = null) }
                 }
-                .onFailure { e ->
-                    // Offline: fall back to local progress so play can continue.
-                    _uiState.update {
-                        it.copy(
-                            isLoading = false,
-                            error = e.message,
-                            unlockedUpTo = unlockRepository.localHighestUnlocked(uid)
-                        )
-                    }
+                .onFailure {
+                    // Offline: keep whatever this phone already unlocked.
+                    _uiState.update { it.copy(unlockedUpTo = unlockRepository.localHighestUnlocked(uid)) }
                 }
         }
     }

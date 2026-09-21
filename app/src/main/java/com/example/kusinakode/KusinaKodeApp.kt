@@ -45,6 +45,7 @@ class KusinaKodeApp : Application() {
         // layer is minted straight away rather than waiting for the player to
         // find a CLAIM button.
         KusinaNotifications.ensureChannels(this)
+        PlayNudgeScheduler.sync(this)
 
         SoundFx.warm(this)
 

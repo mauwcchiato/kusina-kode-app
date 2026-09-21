@@ -432,7 +432,7 @@ fun TutorialGameScreen(
                 keyStates = keyStates,
                 pulseEnter = rowFull && !reduceMotion,
                 onKeyClick = { ch ->
-                    SoundFx.play(context, SoundFx.Cue.Backspace)
+                    SoundFx.play(context, SoundFx.Cue.Key)
                     if (current.length < answer.length) current += ch
                 },
                 onBackspace = {

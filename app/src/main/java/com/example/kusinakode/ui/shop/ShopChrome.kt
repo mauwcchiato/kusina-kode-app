@@ -3,7 +3,6 @@ package com.example.kusinakode.ui.shop
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -31,6 +30,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.kusinakode.KusinaToast
 import com.example.kusinakode.R
 import com.example.kusinakode.SoundFx
 import com.example.kusinakode.domain.shop.ShopItem
@@ -51,7 +51,7 @@ internal fun ShopNotices(notice: String?, onDismiss: () -> Unit) {
     val ctx = LocalContext.current
     LaunchedEffect(notice) {
         notice?.let {
-            Toast.makeText(ctx, it, Toast.LENGTH_SHORT).show()
+            KusinaToast.show(ctx, it)
             onDismiss()
         }
     }
@@ -182,7 +182,7 @@ internal fun openWatchLink(context: Context, item: ShopItem) {
     runCatching {
         context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
     }.onFailure {
-        Toast.makeText(context, "Could not open the reel", Toast.LENGTH_SHORT).show()
+        KusinaToast.show(context, "Could not open the reel")
     }
 }
 

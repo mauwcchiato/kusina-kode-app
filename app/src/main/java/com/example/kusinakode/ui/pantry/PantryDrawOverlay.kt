@@ -40,6 +40,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -118,6 +119,9 @@ fun PantryDrawOverlay(
     asDialog: Boolean = false,
     oneShot: Boolean = false,
     drawingAll: Boolean = false,
+    /** Jars fetched so far, and how many the OPEN ALL run is fetching. */
+    drawnSoFar: Int = 0,
+    drawTarget: Int = 0,
     onOpenAll: (() -> Unit)? = null,
     /** How many bauls this win granted. Shown on the post-game ritual. */
     earnedBauls: Int = drawsAvailable,
@@ -216,6 +220,9 @@ fun PantryDrawOverlay(
                 ingredient = if (openingAll) null else reveal?.ingredient,
                 haul = if (openingAll) haul.mapNotNull { it.ingredient } else emptyList(),
                 solo = !oneShot,
+                // Only an OPEN ALL run has anything to count.
+                drawnSoFar = if (openingAll) drawnSoFar else 0,
+                drawTarget = if (openingAll) drawTarget else 0,
                 onViewReward = {
                     beat = BaulBeat.Reveal
                 }
@@ -636,6 +643,8 @@ private fun OpeningBeat(
     ingredient: Ingredient?,
     haul: List<Ingredient> = emptyList(),
     solo: Boolean = false,
+    drawnSoFar: Int = 0,
+    drawTarget: Int = 0,
     onViewReward: () -> Unit
 ) {
     val viewReward by rememberUpdatedState(onViewReward)
@@ -671,6 +680,25 @@ private fun OpeningBeat(
             phase = OpenPhase.Shake
         }
     }
+    // The rattle lasts exactly as long as the pot is rattling.
+    //
+    // It used to be a one-shot fired when the phase began, which was wrong in
+    // both directions. OPEN ALL fetches one jar per network round-trip, so the
+    // wait is as long as the player has jars — far longer than any one clip —
+    // and the pot went on shaking in silence after it ended. When the wait was
+    // short instead, the clip outlived the shake and played over the burst.
+    // Re-entering the phase stacked another copy on top, which is the
+    // "it keeps making the sound and never opens" case.
+    //
+    // A loop bound to the phase cannot do any of that: it starts with the
+    // shake and onDispose stops it, however long or short the wait turns out
+    // to be.
+    val shaking = phase == OpenPhase.Shake
+    DisposableEffect(shaking) {
+        val rattle = if (shaking) SoundFx.loop(ctx, SoundFx.Cue.Shake) else null
+        onDispose { rattle?.stop() }
+    }
+
     LaunchedEffect(phase) {
         if (phase != OpenPhase.Shake) return@LaunchedEffect
         var elapsed = 0L
@@ -724,7 +752,6 @@ private fun OpeningBeat(
     val startY = if (solo) 0.dp else step * (row - 1)
     val haulItems = haul.take(6)
     val t = travel.value
-    val shaking = phase == OpenPhase.Shake
     val bursting = phase == OpenPhase.Burst
     val opened = bursting
     val potGone = potFade.value < 0.08f
@@ -862,6 +889,10 @@ private fun OpeningBeat(
         Text(
             when {
                 phase == OpenPhase.Travel -> "Chosen."
+                // A jar at a time, so say which one. The rattle alone cannot
+                // tell the player whether a long OPEN ALL is working or hung.
+                shaking && drawTarget > 1 ->
+                    "Opening ${(drawnSoFar + 1).coerceAtMost(drawTarget)} of $drawTarget…"
                 shaking -> "The palayok is waking up…"
                 opened -> "It's opening…"
                 else -> "The palayok is deciding…"

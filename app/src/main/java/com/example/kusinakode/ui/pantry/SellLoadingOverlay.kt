@@ -99,7 +99,7 @@ internal fun SellLoadingOverlay(
         initialValue = 0f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(
-            tween(2_400, easing = LinearEasing),
+            tween(1_100, easing = LinearEasing),
             RepeatMode.Restart
         ),
         label = "flight"
@@ -107,10 +107,16 @@ internal fun SellLoadingOverlay(
 
     LaunchedEffect(ask) {
         payout.snapTo(0f)
-        delay(2_800)
+        // Stay on TRADING only while the sell is in flight, plus a short
+        // floor so one jar can fly. The old 2.8s wait ran even after the
+        // chain had already settled.
+        val started = System.currentTimeMillis()
         while (busyNow) delay(40)
-        payout.animateTo(1f, tween(1_400, easing = LinearEasing))
-        delay(420)
+        val elapsed = System.currentTimeMillis() - started
+        val minTradeMs = 650L
+        if (elapsed < minTradeMs) delay(minTradeMs - elapsed)
+        payout.animateTo(1f, tween(550, easing = LinearEasing))
+        delay(220)
         finish()
     }
 

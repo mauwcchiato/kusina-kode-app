@@ -1,7 +1,7 @@
 package com.example.kusinakode.ui.game
 
-import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.annotation.DrawableRes
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
@@ -51,8 +51,6 @@ import androidx.compose.material.icons.filled.Paid
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Timer
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.Whatshot
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -70,6 +68,8 @@ import androidx.compose.ui.zIndex
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -81,6 +81,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.example.kusinakode.ui.components.clickSfx
+import com.example.kusinakode.ui.components.byWidth
+import com.example.kusinakode.ui.components.readableWidth
 import com.example.kusinakode.ui.components.DialogueInk
 import com.example.kusinakode.ui.components.dialoguePlate
 import com.example.kusinakode.ui.components.ParchmentCard
@@ -89,6 +91,7 @@ import com.example.kusinakode.ui.components.PauseMenuTone
 import com.example.kusinakode.CustomKeyboard
 import com.example.kusinakode.KusinaSettings
 import com.example.kusinakode.PlayNowBrown
+import com.example.kusinakode.KusinaToast
 import com.example.kusinakode.SoundFx
 import com.example.kusinakode.R
 import com.example.kusinakode.domain.RoundScored
@@ -222,8 +225,17 @@ fun GameScreen(
     }
 
     val soundOn by KusinaSettings.prefs.collectAsState()
-    LaunchedEffect(uiState.level.region, uiState.hasWon, soundOn.soundEffects, soundOn.sfxVolume) {
-        if (!soundOn.soundEffects || uiState.hasWon) return@LaunchedEffect
+    // isGameOver belongs in here as much as hasWon does. Without it, nudging
+    // the volume slider — or anything else that re-runs this — restarted the
+    // island bed on top of the Game Over sheet after it had been stopped.
+    LaunchedEffect(
+        uiState.level.region,
+        uiState.hasWon,
+        uiState.isGameOver,
+        soundOn.soundEffects,
+        soundOn.sfxVolume
+    ) {
+        if (!soundOn.soundEffects || uiState.hasWon || uiState.isGameOver) return@LaunchedEffect
         SoundFx.setBgm(ctx, SoundFx.Bgm.forGame(uiState.level.region))
     }
     LaunchedEffect(uiState.hasWon) {
@@ -252,11 +264,25 @@ fun GameScreen(
     }
     LaunchedEffect(uiState.isGameOver) {
         if (uiState.isGameOver) {
-            SoundFx.play(ctx, SoundFx.Cue.Lose)
+            // The island bed stops the moment the round is lost. Winning
+            // swaps to a win loop, so a win has continuous audio and feels
+            // scored; losing left the same cheerful island music running
+            // underneath the Game Over sheet as though nothing had happened.
+            SoundFx.stopBgm()
+            // The sting used to fire here, at the top of the last row's
+            // flip — competing with the tile sounds, and finished well
+            // before the sheet appeared. It belongs on the sheet.
             delay(rowRevealMs + 250L)
             showGameOver = true
+            SoundFx.setBgm(ctx, SoundFx.Bgm.GameOver)
+            SoundFx.vibrate(ctx, 40)
         } else {
             showGameOver = false
+        }
+    }
+    LaunchedEffect(showGameOver, uiState.isGameOver, soundOn.soundEffects) {
+        if (showGameOver && uiState.isGameOver && soundOn.soundEffects) {
+            SoundFx.setBgm(ctx, SoundFx.Bgm.GameOver)
         }
     }
     var judgedRow by remember { mutableIntStateOf(uiState.currentRow) }
@@ -270,13 +296,16 @@ fun GameScreen(
             val greens = row.count { it == TileState.Correct }
             val ambers = row.count { it == TileState.SemiCorrect }
             delay(rowRevealMs.toLong())
-            when {
-                greens >= 2 -> SoundFx.play(ctx, SoundFx.Cue.Nice)
-                ambers >= 2 -> SoundFx.play(ctx, SoundFx.Cue.Malapit)
-                else -> SoundFx.play(ctx, SoundFx.Cue.KeepGoing)
-            }
+            // Last remaining try is only "Last Taste". The usual coaching
+            // line used to fire on the same beat and talk over it.
             if (uiState.currentRow == uiState.maxAttempts - 1) {
                 SoundFx.play(ctx, SoundFx.Cue.LastTaste)
+            } else {
+                when {
+                    greens >= 2 -> SoundFx.play(ctx, SoundFx.Cue.Nice)
+                    ambers >= 2 -> SoundFx.play(ctx, SoundFx.Cue.Malapit)
+                    else -> SoundFx.play(ctx, SoundFx.Cue.KeepGoing)
+                }
             }
         }
         judgedRow = uiState.currentRow
@@ -300,12 +329,21 @@ fun GameScreen(
                 )
         )
 
+        // The round is one column, capped on a big screen.
+        //
+        // The wood table still fills the display, but the board, dock and
+        // keyboard stay together. Left uncapped on an unfolded foldable the
+        // keyboard stretched the full 841dp while the board sat at phone
+        // size in the middle of it, so the two halves of the same screen
+        // looked unrelated.
         Column(
             Modifier
-                .fillMaxSize()
+                .readableWidth(560.dp)
+                .fillMaxHeight()
                 .statusBarsPadding()
                 .navigationBarsPadding()
-                .padding(horizontal = 14.dp),
+                .padding(horizontal = 14.dp)
+                .align(Alignment.TopCenter),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             // ---- Header. Title is centered on the screen, not on the space
@@ -543,8 +581,21 @@ fun GameScreen(
                     (maxHeight - gridGap * (rows - 1) - rowPad * 2 * rows) / rows
                 // No floor: forcing a minimum is what overflows a short screen,
                 // and a clipped row is worse than a small one.
+                //
+                // The ceiling is per width class. 52dp is right for a phone,
+                // where it is the height that runs out first, but on an
+                // unfolded foldable or a tablet both axes have room to spare
+                // and the board sat at phone size marooned in the middle of
+                // the screen. Still a ceiling rather than "fill": a board
+                // stretched to 800dp would put the keyboard and the grid an
+                // uncomfortable distance apart.
+                val tileCeiling = byWidth(
+                    compact = 52.dp,
+                    medium = 72.dp,
+                    expanded = 88.dp
+                )
                 val tileSize = minOf(tileByWidth, tileByHeight)
-                    .coerceIn(12.dp, 52.dp)
+                    .coerceIn(12.dp, tileCeiling)
                 Column(verticalArrangement = Arrangement.spacedBy(gridGap)) {
                     uiState.grid.forEachIndexed { r, row ->
                         val isActive = r == uiState.currentRow && uiState.isRoundActive
@@ -580,7 +631,8 @@ fun GameScreen(
                 expanded = dockOpen,
                 previewKey = level,
                 onToggle = {
-                    SoundFx.play(ctx, SoundFx.Cue.Nav)
+                    SoundFx.play(ctx, SoundFx.Cue.PowerUpOpen)
+                    SoundFx.vibrate(ctx, 10)
                     dockOpen = !dockOpen
                 },
                 pointsBalance = uiState.pointsBalance,
@@ -618,7 +670,7 @@ fun GameScreen(
                     keyStates = uiState.keyStates,
                     pulseEnter = idle && !reduceMotion,
                     onKeyClick = { ch ->
-                        SoundFx.play(ctx, SoundFx.Cue.Backspace)
+                        SoundFx.play(ctx, SoundFx.Cue.Key)
                         onKey(ch)
                     },
                     onBackspace = {
@@ -643,7 +695,7 @@ fun GameScreen(
         // Power-up feedback, auto-dismissed so it never sits on the board.
         uiState.powerUpMessage?.let { message ->
             LaunchedEffect(message) {
-                Toast.makeText(ctx, message, Toast.LENGTH_SHORT).show()
+                KusinaToast.show(ctx, message)
                 onDismissPowerUpMessage()
             }
         }
@@ -1742,7 +1794,7 @@ private fun PowerUpDock(
     val waitLabel = if (onCooldown) PowerUpRules.formatCooldown(cooldownMs) else null
     val slots = listOf(
         PowerUpSlot(
-            icon = Icons.Default.Visibility,
+            art = R.drawable.powerup_reveal,
             label = PowerUp.REVEAL_LETTER.title,
             costKk = PowerUp.REVEAL_LETTER.coinCost,
             status = when {
@@ -1756,7 +1808,7 @@ private fun PowerUpDock(
             onClick = onReveal
         ),
         PowerUpSlot(
-            icon = Icons.Default.Whatshot,
+            art = R.drawable.powerup_bomb,
             label = PowerUp.BOMB.title,
             costKk = PowerUp.BOMB.coinCost,
             status = when {
@@ -1770,7 +1822,7 @@ private fun PowerUpDock(
             onClick = onBomb
         ),
         PowerUpSlot(
-            icon = Icons.Default.Paid,
+            art = R.drawable.powerup_solve,
             label = PowerUp.INSTANT_SOLVE.title,
             costKk = PowerUp.INSTANT_SOLVE.coinCost,
             status = null,
@@ -1895,7 +1947,8 @@ private fun PowerUpDock(
 }
 
 private data class PowerUpSlot(
-    val icon: ImageVector,
+    /** The power-up's own pixel art, shared with the KK primer. */
+    @DrawableRes val art: Int,
     val label: String,
     /** What the power-up costs. Always on the plate, spent or not. */
     val costKk: Int,
@@ -1955,20 +2008,22 @@ private fun PowerUpCard(
                     ),
                 contentAlignment = Alignment.Center
             ) {
-                Box(
-                    Modifier
-                        .size(26.dp * unit)
-                        .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.9f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        slot.icon,
-                        contentDescription = slot.label,
-                        tint = accent,
-                        modifier = Modifier.size(15.dp * unit)
-                    )
-                }
+                // The art sits straight on the band. It used to be a tinted
+                // glyph needing a white disc to read against the accent;
+                // these carry their own colour and outline, so the disc
+                // would just be a ring around a picture.
+                Image(
+                    painter = painterResource(slot.art),
+                    contentDescription = slot.label,
+                    contentScale = ContentScale.Fit,
+                    // Drained rather than dimmed when it cannot be played,
+                    // so "unavailable" still reads at this size.
+                    colorFilter = if (slot.enabled) null else {
+                        ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(0.15f) })
+                    },
+                    alpha = if (slot.enabled) 1f else 0.6f,
+                    modifier = Modifier.size(28.dp * unit)
+                )
                 if (!slot.enabled) {
                     Icon(
                         Icons.Default.Lock,

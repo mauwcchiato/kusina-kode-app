@@ -61,6 +61,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathOperation
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -81,6 +82,7 @@ import com.example.kusinakode.ui.theme.HintGray
 import com.example.kusinakode.ui.theme.OutlineDefault
 import com.example.kusinakode.ui.theme.OutlineFocused
 import com.example.kusinakode.ui.theme.SuccessGreen
+import kotlinx.coroutines.delay
 
 private val BrandOrange = Color(0xFF8E411C)
 private val SageBlob = Color(0xFFEDE3D4)
@@ -94,11 +96,21 @@ private val LockBlob = Color(0xFFE6D5BE)
 @Composable
 fun ForgotPasswordScreen(
     onBack: () -> Unit,
+    /**
+     * Leaving after the password actually changed, as opposed to backing
+     * out part-way. Login needs to know the difference so it can drop the
+     * password the player just replaced.
+     */
+    onDone: () -> Unit = onBack,
     viewModel: PasswordResetViewModel = viewModel()
 ) {
     val ui by viewModel.uiState.collectAsState()
 
-    BackHandler { viewModel.goBack(onBack) }
+    // goBack() only leaves the flow from the first and last steps; from the
+    // last one the reset has succeeded, so that exit is onDone.
+    val leaveFlow = { if (ui.step == ResetStep.Done) onDone() else onBack() }
+
+    BackHandler { viewModel.goBack(leaveFlow) }
 
     Box(Modifier.fillMaxSize()) {
         AuthSheetScaffold(headerHeightFraction = 0.33f, sheetGradient = true) {
@@ -127,14 +139,14 @@ fun ForgotPasswordScreen(
                             ResetStep.Sent -> SentStep(ui, viewModel)
                             ResetStep.Verify -> VerifyStep(ui, viewModel)
                             ResetStep.NewPassword -> NewPasswordStep(ui, viewModel)
-                            ResetStep.Done -> DoneStep(onBack)
+                            ResetStep.Done -> DoneStep(onDone)
                         }
                     }
                 }
             }
         }
         IconButton(
-            onClick = clickSfx { viewModel.goBack(onBack) },
+            onClick = clickSfx { viewModel.goBack(leaveFlow) },
             modifier = Modifier
                 .statusBarsPadding()
                 .padding(4.dp)
@@ -627,7 +639,22 @@ private fun ResetCodeRow(
     onCodeChange: (String) -> Unit
 ) {
     val focus = remember { FocusRequester() }
-    LaunchedEffect(Unit) { focus.requestFocus() }
+    val keyboard = LocalSoftwareKeyboardController.current
+
+    // Focus and the keyboard are two separate things, which is the whole bug.
+    //
+    // The six boxes are decoration; the real field is transparent and 1sp
+    // tall. Tapping a box called requestFocus() alone — and once the field
+    // already has focus that is a no-op, so after dismissing the keyboard
+    // once there was no way to bring it back and the boxes looked dead.
+    // Asking the IME to show, every tap, is what actually reopens it.
+    LaunchedEffect(Unit) {
+        focus.requestFocus()
+        // The step arrives through an AnimatedContent crossfade; asking
+        // before that settles is ignored, so this waits a frame or two.
+        delay(150)
+        keyboard?.show()
+    }
 
     BasicTextField(
         value = code,
@@ -660,7 +687,10 @@ private fun ResetCodeRow(
                                 if (active) OutlineFocused else OutlineDefault,
                                 RoundedCornerShape(14.dp)
                             )
-                            .clickable { focus.requestFocus() },
+                            .clickable {
+                                focus.requestFocus()
+                                keyboard?.show()
+                            },
                         contentAlignment = Alignment.Center
                     ) {
                         Text(

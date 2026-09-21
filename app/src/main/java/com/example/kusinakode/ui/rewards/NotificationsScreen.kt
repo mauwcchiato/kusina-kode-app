@@ -1,5 +1,6 @@
 package com.example.kusinakode.ui.rewards
 
+import com.example.kusinakode.ui.components.readableWidth
 import com.example.kusinakode.ui.components.LevelImage
 import com.example.kusinakode.ui.components.clickSfx
 import androidx.annotation.DrawableRes
@@ -219,6 +220,10 @@ fun NotificationsScreen(
                 }
             }
         }
+        // Header spans the screen; the content below is capped so a tablet
+        // gets a readable column rather than full-width rows.
+        Column(Modifier.align(Alignment.CenterHorizontally).readableWidth()) {
+
 
         val ctx = LocalContext.current
         LaunchedEffect(Unit) { NotificationStore.load(ctx) }
@@ -492,6 +497,8 @@ fun NotificationsScreen(
                 }
             }
             Spacer(Modifier.height(16.dp))
+        }
+    
         }
     }
 }

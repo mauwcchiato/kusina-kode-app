@@ -1,5 +1,6 @@
 package com.example.kusinakode.ui.auth
 
+import com.example.kusinakode.domain.model.AppError
 import com.example.kusinakode.ui.components.clickSfx
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -30,10 +31,24 @@ fun LoginScreen(
     onLoginSuccess: (userId: Int, displayName: String, email: String) -> Unit,
     onForgotPassword: () -> Unit,
     onGoToSignUp: () -> Unit,
+    /** True once when returning from a completed password reset. */
+    justResetPassword: Boolean = false,
+    onResetHandled: () -> Unit = {},
     viewModel: LoginViewModel = viewModel()
 ) {
     val ui by viewModel.uiState.collectAsState()
     var passVisible by remember { mutableStateOf(false) }
+
+    // This screen stays on the back stack while the reset flow runs, so its
+    // ViewModel survives and would otherwise still hold the old password and
+    // the lockout card that sent the player away.
+    LaunchedEffect(justResetPassword) {
+        if (justResetPassword) {
+            viewModel.onReturnFromPasswordReset()
+            passVisible = false
+            onResetHandled()
+        }
+    }
 
     ui.success?.let { session ->
         viewModel.consumeSuccess()
@@ -84,16 +99,21 @@ fun LoginScreen(
             }
 
             ui.error?.let { err ->
+                val locked = err.kind == AppError.Kind.LOCKED
                 ErrorNotice(
                     error = err,
                     onRetry = { viewModel.login() },
+                    // A locked account cannot be typed out of, so the only
+                    // button offered is the one that actually helps.
+                    actionLabel = if (locked) "Reset password" else null,
+                    onAction = if (locked) onForgotPassword else null,
                     modifier = Modifier.padding(bottom = 10.dp)
                 )
             }
 
             AuthPrimaryButton(
                 text = "LOG IN",
-                enabled = ui.email.isNotBlank() && ui.password.isNotBlank() && !ui.isLoading,
+                enabled = ui.canSubmitLogin,
                 isLoading = ui.isLoading,
                 onClick = { viewModel.login() }
             )
