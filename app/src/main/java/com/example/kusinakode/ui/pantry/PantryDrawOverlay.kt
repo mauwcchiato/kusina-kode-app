@@ -636,6 +636,12 @@ private fun BobbingBaul(
  */
 private enum class OpenPhase { Travel, Shake, Burst }
 
+/**
+ * How many ingredients the burst parades one at a time before handing over to
+ * the haul screen. Everything drawn is still awarded and still listed there.
+ */
+private const val MAX_PARADED = 6
+
 @Composable
 private fun OpeningBeat(
     chosen: Int,
@@ -648,7 +654,19 @@ private fun OpeningBeat(
     onViewReward: () -> Unit
 ) {
     val viewReward by rememberUpdatedState(onViewReward)
-    val haulNow by rememberUpdatedState(haul)
+
+    // One list for both the parade's sound and its picture.
+    //
+    // These were two lists that disagreed. The animation stepped through the
+    // whole haul and played a coin for every item, while the picture came
+    // from haul.take(6) - so opening seven or more jars at once gave a chime
+    // and an empty stage from the seventh on. The cap is kept, because the
+    // parade holds ~1s per item and an OPEN ALL of twenty would be a
+    // twenty-second wait; what it must not do is outlive what is drawn.
+    // Nothing is lost by capping: the haul screen after this shows every
+    // ingredient, and all of them are already shelved either way.
+    val paraded = remember(haul) { haul.take(MAX_PARADED) }
+    val haulNow by rememberUpdatedState(paraded)
     var phase by remember { mutableStateOf(if (solo) OpenPhase.Shake else OpenPhase.Travel) }
     var shakeDone by remember { mutableStateOf(false) }
     var featured by remember { mutableIntStateOf(-1) }
@@ -750,7 +768,7 @@ private fun OpeningBeat(
     val grid = step * 3 - 8.dp
     val startX = if (solo) 0.dp else step * (col - 1)
     val startY = if (solo) 0.dp else step * (row - 1)
-    val haulItems = haul.take(6)
+    val haulItems = paraded
     val t = travel.value
     val bursting = phase == OpenPhase.Burst
     val opened = bursting
