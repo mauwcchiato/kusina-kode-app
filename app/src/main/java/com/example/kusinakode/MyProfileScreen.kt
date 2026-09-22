@@ -317,31 +317,6 @@ fun MyProfileScreen(
                             modifier = Modifier.padding(horizontal = 14.dp, vertical = 5.dp)
                         )
                     }
-
-                    // Which account this actually is.
-                    //
-                    // The header carried only the chef name and the handle,
-                    // and a player picks both and can change them - so with
-                    // several accounts on one phone nothing here answered
-                    // "who am I signed in as?". Settings already showed the
-                    // address, under Sign out; this puts the same fact on the
-                    // screen people open to look at their account.
-                    //
-                    // Dropped entirely when the session has no address rather
-                    // than filled with a placeholder: a profile reading "no
-                    // email" looks broken, while the line simply not being
-                    // there reads as deliberate.
-                    Session.email?.takeIf { it.isNotBlank() }?.let { address ->
-                        Text(
-                            address,
-                            color = Color.White.copy(alpha = 0.78f),
-                            fontFamily = BeVietnamPro,
-                            fontSize = 12.sp,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.padding(horizontal = 24.dp)
-                        )
-                    }
                 }
 
                 Row(
