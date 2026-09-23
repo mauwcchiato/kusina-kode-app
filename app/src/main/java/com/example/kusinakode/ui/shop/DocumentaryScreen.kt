@@ -91,7 +91,7 @@ fun DocumentaryScreen(
             )
             Spacer(Modifier.height(16.dp))
 
-            KusinaShop.documentaries.chunked(2).forEach { row ->
+            ui.reels.chunked(2).forEach { row ->
                 Row(
                     Modifier
                         .fillMaxWidth()

@@ -67,6 +67,30 @@ data class LoginResponse(
 @Serializable
 data class GenericListResponse<T>(val status: String, val data: List<T>? = null, val message: String? = null)
 
+/**
+ * One Kusina Reel as the admin console holds it.
+ *
+ * Every field carries a default because this endpoint does not exist yet:
+ * the web workstream builds reels/list.php, and until it does, and for a
+ * while after while its shape settles, a missing or renamed column must
+ * degrade to a usable row rather than throw on parse.
+ *
+ * [status] separates a reel that is for sale from one that was withdrawn but
+ * is still owned by somebody. Both are returned; only Published reaches the
+ * shelf. See KusinaShop.applyRemoteReels.
+ */
+@Serializable
+data class ReelData(
+    val id: String = "",
+    val title: String = "",
+    val subtitle: String = "",
+    val coin_cost: Int = 0,
+    val youtube_query: String = "",
+    val dish_slug: String = "",
+    val status: String = "Published",
+    val emoji: String = ""
+)
+
 @Serializable
 data class LevelData(
     val id: Int = 0,
@@ -570,6 +594,19 @@ object KusinaApi {
 
     suspend fun getLevels(): GenericListResponse<LevelData> =
         KtorClient.client.get("${BASE}get_levels.php").body()
+
+    /**
+     * The admin-managed reel catalogue.
+     *
+     * Not built yet on the server. Until it is, this 404s, the caller's
+     * runCatching swallows it and the app keeps the reels compiled into the
+     * APK - so shipping this ahead of the endpoint changes nothing a player
+     * can see, and the shelf starts picking up admin-added reels the moment
+     * reels/list.php answers, with no second app release.
+     */
+    suspend fun getReels(): List<ReelData> =
+        KtorClient.client.get("${BASE}reels/list.php")
+            .body<GenericListResponse<ReelData>>().data.orEmpty()
 
     /** Tool name to uploaded picture, so a card can show the panel's art. */
     suspend fun getEquipment(): List<EquipmentData> =

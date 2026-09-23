@@ -40,7 +40,7 @@ object KusinaShop {
         watchUrl = "https://www.youtube.com/results?search_query=$query"
     )
 
-    val documentaries = listOf(
+    private val seedDocumentaries = listOf(
         reel("doc_adobo", "The Story of Adobo", "Philippines · Savory Vinegar Pork", 8, "filipino+adobo+history+documentary"),
         reel("doc_sinigang", "The Story of Sinigang", "Philippines · Sour Tamarind Soup", 8, "sinigang+filipino+soup+documentary"),
         reel("doc_paksiw", "The Story of Paksiw", "Visayas · Vinegar-Braised Catch", 8, "paksiw+filipino+documentary"),
@@ -508,14 +508,107 @@ object KusinaShop {
     val avatars: List<ShopItem> = frames + characters
 
     /** Thematic reels replaced by dish posters; kept so old tickets still resolve. */
-    private val retiredReels = listOf(
+    private val seedRetiredReels = listOf(
         reel("doc_palengke", "Palengke: The Wet Market", "Where every dish begins", 12, "filipino+wet+market+palengke+documentary"),
         reel("doc_mindanao", "Flavors of the Royal South", "Mindanao · Maranao & Tausug kitchens", 12, "mindanao+filipino+cuisine+documentary")
     )
 
-    val all: List<ShopItem> = documentaries + encyclopedia + avatars + retiredReels
+    // ---- Reels the server knows about, laid over the seeds above ----------
+    //
+    // The lists above are no longer "the catalogue". They are what the app
+    // knows before it has spoken to the server, and they stay in the APK on
+    // purpose: item() is a synchronous lookup with seven callers, two of
+    // which - the reward history and the notifications inbox - render
+    // purchases a player made long ago and have to work with no network. A
+    // catalogue that only existed after a fetch would show them raw ids like
+    // "doc_adobo" where a dish name belongs.
+    //
+    // So a fetch never replaces the seed, it is merged over it by id: a known
+    // reel takes the server's wording and price, an admin-added one is
+    // appended, and anything the server does not mention keeps its seeded
+    // entry. With no endpoint yet every merge is empty and the app behaves
+    // exactly as it did before this existed.
+    //
+    // Deliberately plain Kotlin, no Compose state: the domain layer does not
+    // depend on the UI, and the screens that need to redraw read the shelf
+    // from ShopUiState instead.
+    @Volatile
+    private var remoteReels: List<ShopItem> = emptyList()
+
+    /**
+     * Ids the server is currently selling. Everything else it sent is
+     * withdrawn: still addressable, off the shelf.
+     */
+    @Volatile
+    private var remotePublishedIds: Set<String> = emptySet()
+
+    /**
+     * Replaces the remote overlay. An empty [reels] restores the seeds.
+     *
+     * [reels] is the WHOLE server list, withdrawn entries included - it is not
+     * a delta. Sending only the published ones would leave a reel the admin
+     * has just withdrawn sitting on the shelf from its seeded copy, because
+     * nothing would say it had gone.
+     */
+    fun applyRemoteReels(reels: List<ShopItem>, publishedIds: Set<String>) {
+        remoteReels = reels
+        remotePublishedIds = publishedIds
+    }
+
+    /** True once a server catalogue has been laid down, cached or fetched. */
+    val hasRemoteReels: Boolean get() = remoteReels.isNotEmpty()
+
+    /**
+     * The shelf: seeded reels wearing the server's wording and price, plus
+     * anything the admin has added, minus anything the admin has withdrawn.
+     *
+     * Seed order is kept so the shelf does not reshuffle when a fetch lands;
+     * reels the server adds go on the end.
+     */
+    val documentaries: List<ShopItem>
+        get() {
+            if (remoteReels.isEmpty()) return seedDocumentaries
+            val byId = remoteReels.associateBy { it.id }
+            val fromSeed = seedDocumentaries
+                .filter { it.id in remotePublishedIds }
+                .map { byId[it.id] ?: it }
+            val seeded = seedDocumentaries.mapTo(mutableSetOf()) { it.id }
+            val added = remoteReels.filter {
+                it.id !in seeded && it.id in remotePublishedIds
+            }
+            return fromSeed + added
+        }
+
+    /**
+     * Everything addressable by id, withdrawn reels included.
+     *
+     * This is what item() and prices() read, and it is why a reel pulled from
+     * the shelf still resolves to a title in the history of the player who
+     * bought it. The seeds are unioned in rather than replaced, so an id the
+     * server has never heard of - or has dropped from its table outright -
+     * keeps answering rather than becoming a bare string on screen.
+     */
+    val all: List<ShopItem>
+        get() {
+            val seedReels = seedDocumentaries + seedRetiredReels
+            if (remoteReels.isEmpty()) return seedReels + encyclopedia + avatars
+            val byId = remoteReels.associateBy { it.id }
+            val reels = seedReels.map { byId[it.id] ?: it }
+            val seeded = seedReels.mapTo(mutableSetOf()) { it.id }
+            return reels + remoteReels.filter { it.id !in seeded } + encyclopedia + avatars
+        }
 
     fun item(id: String): ShopItem? = all.firstOrNull { it.id == id }
 
     fun prices(): Map<String, Int> = all.associate { it.id to it.coinCost }
+
+    /** Builds a catalogue entry from the server's row. */
+    fun remoteReel(
+        id: String,
+        title: String,
+        subtitle: String,
+        coinCost: Int,
+        youtubeQuery: String,
+        emoji: String = ""
+    ): ShopItem = reel(id, title, subtitle, coinCost, youtubeQuery).copy(emoji = emoji)
 }

@@ -20,9 +20,16 @@ class ErrorMappingTest {
         val error = ConnectTimeoutException("http://192.168.100.21/…").toAppError()
 
         assertEquals(AppError.Kind.UNREACHABLE, error.kind)
+        // Was "guidance should hint at the address changing". That advice made
+        // sense when the backend was a laptop on the team's Wi-Fi; the API now
+        // has a fixed address in Azure, so telling a player it had moved was
+        // simply false. What the guidance has to do is separate "your
+        // connection is fine" from "we are not answering" - which is the
+        // distinction this test is named for.
         assertTrue(
-            "guidance should hint at the address changing",
-            error.guidance.contains("address", ignoreCase = true)
+            "guidance should say the connection is fine and the server is not",
+            error.guidance.contains("connection", ignoreCase = true) &&
+                error.guidance.contains("server", ignoreCase = true)
         )
     }
 

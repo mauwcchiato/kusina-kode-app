@@ -6,6 +6,9 @@ import androidx.lifecycle.viewModelScope
 import com.example.kusinakode.Session
 import com.example.kusinakode.SoundFx
 import com.example.kusinakode.api.KusinaApi
+import com.example.kusinakode.data.repository.ReelCatalogStore
+import com.example.kusinakode.data.repository.publishedIds
+import com.example.kusinakode.data.repository.toShopItems
 import com.example.kusinakode.domain.ChainQueue
 import com.example.kusinakode.domain.shop.AvatarSlot
 import com.example.kusinakode.domain.shop.KusinaShop
@@ -25,7 +28,13 @@ data class ShopUiState(
     val busyId: String? = null,
     val notice: String? = null,
     val reading: ShopItem? = null,
-    val pendingBuy: ShopItem? = null
+    val pendingBuy: ShopItem? = null,
+    /**
+     * The reel shelf, read from here rather than from KusinaShop directly so
+     * a fetch that lands after the screen is open actually redraws it.
+     * KusinaShop stays plain Kotlin with no Compose state in it.
+     */
+    val reels: List<ShopItem> = KusinaShop.documentaries
 )
 
 class ShopViewModel(app: Application) : AndroidViewModel(app) {
@@ -41,6 +50,23 @@ class ShopViewModel(app: Application) : AndroidViewModel(app) {
 
     fun refresh() {
         viewModelScope.launch {
+            // The admin-managed reel catalogue, if the server has one yet.
+            //
+            // runCatching, not a failure path: reels/list.php is not built,
+            // so today this always throws and the shelf quietly stays on the
+            // reels compiled into the APK. The moment the endpoint answers,
+            // the same code starts merging its rows in - no app release, no
+            // flag to flip. A later outage lands here too and falls back to
+            // the last catalogue saved on the device.
+            runCatching { KusinaApi.getReels() }
+                .onSuccess { rows ->
+                    if (rows.isNotEmpty()) {
+                        KusinaShop.applyRemoteReels(rows.toShopItems(), rows.publishedIds())
+                        ReelCatalogStore.save(getApplication(), rows)
+                        _uiState.update { it.copy(reels = KusinaShop.documentaries) }
+                    }
+                }
+
             runCatching { KusinaApi.getWalletBalance().data }
                 .onSuccess { data ->
                     if (data != null) _uiState.update { it.copy(balanceKk = data.balance_kk) }

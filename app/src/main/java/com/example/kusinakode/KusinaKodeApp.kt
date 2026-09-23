@@ -3,6 +3,7 @@ package com.example.kusinakode
 import android.app.Application
 import com.example.kusinakode.data.net.NetworkStatus
 import com.example.kusinakode.data.repository.ChainRewardCoordinator
+import com.example.kusinakode.data.repository.ReelCatalogStore
 import com.example.kusinakode.data.repository.LocalGamificationRepository
 import com.example.kusinakode.data.repository.RemoteGamificationSync
 import com.example.kusinakode.domain.gamification.GamificationCoordinator
@@ -29,6 +30,11 @@ class KusinaKodeApp : Application() {
         // Before anything that can make a request, so the very first failure
         // is already classified correctly rather than guessed at.
         NetworkStatus.warm(this)
+
+        // The reel catalogue the server last gave us, before any screen can
+        // ask KusinaShop.item() what a purchase was called. Absent until the
+        // admin endpoint exists, in which case the seeds answer as before.
+        ReelCatalogStore.warm(this)
 
         gamification = LocalGamificationRepository(this)
 
