@@ -1087,7 +1087,7 @@ private fun GameOverOverlay(
                             letterSpacing = 2.sp
                         )
                         Text(
-                            "Out of tries · solve it to earn KK",
+                            "Out of tries · Solve it to earn KK",
                             color = Color.White,
                             fontWeight = FontWeight.Bold,
                             fontSize = 14.sp
@@ -1102,8 +1102,13 @@ private fun GameOverOverlay(
                     SoundFx.tap(ctx)
                     onRestart()
                 },
+                // The same button the win sheet ends on, so losing and winning
+                // leave by a door that looks the same: PlayNowBrown rather
+                // than the brighter BurntOrange, and no icon. The refresh
+                // glyph made this read as a minor utility next to NEXT LEVEL,
+                // which is plain type.
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = BurntOrange,
+                    containerColor = PlayNowBrown,
                     contentColor = Color.White
                 ),
                 shape = RoundedCornerShape(26.dp),
@@ -1111,8 +1116,6 @@ private fun GameOverOverlay(
                     .fillMaxWidth()
                     .height(52.dp)
             ) {
-                Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(8.dp))
                 Text("RETRY LEVEL", fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
             }
             Spacer(Modifier.height(10.dp))
