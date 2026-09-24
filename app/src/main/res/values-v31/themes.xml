@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- Android 12+ draws its own launch screen before the app, with its own
+         background attribute; without this it is white whatever the window is. -->
+    <style name="Theme.KusinaKode" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/splash_brown</item>
+        <item name="android:windowSplashScreenBackground">@color/splash_brown</item>
+    </style>
+</resources>

@@ -7,4 +7,7 @@
     <color name="teal_700">#FF018786</color>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+    <!-- The splash's wooden table under its scrim, averaged. The window shows
+         it before the first frame, so launch goes brown to wood, never white. -->
+    <color name="splash_brown">#FF4B321F</color>
 </resources>

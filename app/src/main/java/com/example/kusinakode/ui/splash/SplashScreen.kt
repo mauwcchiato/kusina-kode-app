@@ -43,11 +43,14 @@ private const val TILE_START_DELAY_MS = 560L
 private const val TILE_STAGGER_MS = 70L    // phase 3: gap between letters
 private const val HOLD_MS = 1_200L         // requested pause before handing over
 
+/** Same as @color/splash_brown, so the window and the first frame match. */
+private val SplashBrown = Color(0xFF4B321F)
+
 private val LOGO_SIZE = 148.dp
 private val TILE_SIZE = 40.dp
 
 /**
- * The launch sequence: white, then a circular reveal floods the wooden table
+ * The launch sequence: brown, then a circular reveal floods the wooden table
  * outward from behind the chef, who pops, and the wordmark drops in letter by
  * letter.
  *
@@ -110,7 +113,7 @@ fun SplashScreen(onFinished: () -> Unit) {
         completed = true
     }
 
-    Box(Modifier.fillMaxSize().background(Color.White)) {
+    Box(Modifier.fillMaxSize().background(SplashBrown)) {
 
         // The wooden table, clipped to a circle growing from behind the chef.
         // drawWithContent is one clip per frame rather than a recomposed shape,
