@@ -16,7 +16,9 @@ data class ShopItem(
     val emoji: String = "",
     val slot: AvatarSlot? = null,
     /** Short chips for pantry pages — keep the shelf itself quiet. */
-    val tags: List<String> = emptyList()
+    val tags: List<String> = emptyList(),
+    /** Reel poster from the admin panel. Wins over the compiled art when set. */
+    val posterUrl: String? = null
 )
 
 /**
@@ -609,6 +611,8 @@ object KusinaShop {
         subtitle: String,
         coinCost: Int,
         youtubeQuery: String,
-        emoji: String = ""
-    ): ShopItem = reel(id, title, subtitle, coinCost, youtubeQuery).copy(emoji = emoji)
+        emoji: String = "",
+        posterUrl: String? = null
+    ): ShopItem = reel(id, title, subtitle, coinCost, youtubeQuery)
+        .copy(emoji = emoji, posterUrl = posterUrl)
 }

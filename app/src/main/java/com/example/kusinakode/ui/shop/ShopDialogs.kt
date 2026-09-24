@@ -295,12 +295,10 @@ fun ShopItemVisual(item: ShopItem) {
             }
         }
         ShopKind.DOCUMENTARY -> {
-            val poster = ShopArt.documentary(item.id)
-            if (poster != null) {
-                Image(
-                    painter = painterResource(poster),
+            if (ShopArt.documentary(item.id) != null || item.posterUrl != null) {
+                ReelPosterImage(
+                    item = item,
                     contentDescription = item.title,
-                    contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(180.dp)

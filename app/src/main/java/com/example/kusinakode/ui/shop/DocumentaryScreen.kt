@@ -34,6 +34,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.example.kusinakode.KusinaToast
 import com.example.kusinakode.LevelProvider
 import com.example.kusinakode.domain.shop.KusinaShop
@@ -147,6 +149,48 @@ private fun documentaryUnveiled(item: ShopItem, solvedLevels: Set<Int>): Boolean
     return level in solvedLevels
 }
 
+/**
+ * A reel's poster: the one uploaded from the admin panel if there is one,
+ * otherwise the art compiled into the APK.
+ *
+ * The compiled art doubles as the placeholder and the error image, so a
+ * seeded reel looks the same offline as it always did and only changes once
+ * the panel's picture has actually arrived. A reel added from the panel has
+ * no compiled art, so until its picture loads the caller's background shows.
+ */
+@Composable
+internal fun ReelPosterImage(
+    item: ShopItem,
+    contentDescription: String?,
+    modifier: Modifier = Modifier,
+    colorFilter: ColorFilter? = null
+) {
+    val compiled = ShopArt.documentary(item.id)?.let { painterResource(it) }
+    val url = item.posterUrl
+    if (url == null) {
+        if (compiled != null) Image(
+            painter = compiled,
+            contentDescription = contentDescription,
+            contentScale = ContentScale.Crop,
+            colorFilter = colorFilter,
+            modifier = modifier
+        )
+        return
+    }
+    AsyncImage(
+        model = ImageRequest.Builder(LocalContext.current)
+            .data(url)
+            .crossfade(220)
+            .build(),
+        contentDescription = contentDescription,
+        placeholder = compiled,
+        error = compiled,
+        contentScale = ContentScale.Crop,
+        colorFilter = colorFilter,
+        modifier = modifier
+    )
+}
+
 private val LockedPosterFilter = ColorFilter.colorMatrix(
     ColorMatrix().apply { setToSaturation(0.12f) }
 )
@@ -174,14 +218,14 @@ private fun ReelPosterCard(
                     .aspectRatio(0.78f)
                     .clip(RoundedCornerShape(16.dp))
             ) {
-                if (poster != null) {
-                    Image(
-                        painter = painterResource(poster),
+                if (poster != null || item.posterUrl != null) {
+                    ReelPosterImage(
+                        item = item,
                         contentDescription = if (unveiled) item.title else null,
-                        contentScale = ContentScale.Crop,
                         colorFilter = if (unveiled) null else LockedPosterFilter,
                         modifier = Modifier
                             .fillMaxSize()
+                            .background(Brush.verticalGradient(listOf(Color(0xFFC97B2C), Color(0xFF5A2E0C))))
                             .then(if (unveiled) Modifier else Modifier.blur(28.dp))
                     )
                 } else {

@@ -88,6 +88,7 @@ internal fun List<ReelData>.toShopItems(): List<ShopItem> =
             subtitle = row.subtitle,
             coinCost = row.coin_cost,
             youtubeQuery = row.youtube_query.ifBlank { row.dish_slug },
-            emoji = row.emoji
+            emoji = row.emoji,
+            posterUrl = row.image_url.trim().ifBlank { null }
         )
     }

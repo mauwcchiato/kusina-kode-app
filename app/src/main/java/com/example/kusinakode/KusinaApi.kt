@@ -88,7 +88,9 @@ data class ReelData(
     val youtube_query: String = "",
     val dish_slug: String = "",
     val status: String = "Published",
-    val emoji: String = ""
+    val emoji: String = "",
+    /** Poster uploaded from the admin panel, as a full URL; empty if none. */
+    val image_url: String = ""
 )
 
 @Serializable
