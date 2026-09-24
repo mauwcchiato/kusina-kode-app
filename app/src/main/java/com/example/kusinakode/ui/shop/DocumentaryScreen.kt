@@ -135,9 +135,15 @@ fun DocumentaryScreen(
     }
 }
 
+/**
+ * A reel tied to a dish unveils once that dish is solved. A reel with no
+ * matching level - one an admin added from the panel, or a general film like
+ * doc_palengke - has no dish to solve, so it is unveiled from the start and
+ * only needs KK. Locking it would leave it locked forever.
+ */
 private fun documentaryUnveiled(item: ShopItem, solvedLevels: Set<Int>): Boolean {
     val slug = item.id.removePrefix("doc_")
-    val level = LevelProvider.levelOf(slug) ?: return false
+    val level = LevelProvider.levelOf(slug) ?: return true
     return level in solvedLevels
 }
 
