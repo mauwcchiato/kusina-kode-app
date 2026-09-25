@@ -116,7 +116,7 @@ object EquipmentSync {
         if (p.isEmpty()) return null
         if (p.startsWith("http://", true) || p.startsWith("https://", true)) return p
         if (!p.startsWith("media/", true)) return null
-        return "http://${ServerConfig.host}/kusinakode/$p"
+        return "${ServerConfig.scheme}://${ServerConfig.host}/kusinakode/$p"
     }
 
     private fun prefs(context: Context) =

@@ -2,6 +2,7 @@ package com.example.kusinakode.data.net
 
 import android.content.Context
 import android.os.Build
+import com.example.kusinakode.BuildConfig
 
 /**
  * Where the REST API lives.
@@ -30,8 +31,13 @@ object ServerConfig {
      * and why the override below exists at all. The backend now has a public,
      * static address, so the default no longer moves and a release build
      * reaches the cloud without anyone typing anything.
+     *
+     * It is a DNS name, not the bare IP (4.193.189.219), because the API is now
+     * served over HTTPS and a certificate cannot be issued for a raw IP. The
+     * VM's public IP carries this free Azure DNS label, and Let's Encrypt
+     * issued a certificate for exactly this name (see [scheme]/[baseUrl]).
      */
-    const val DEFAULT_LAN_HOST = "4.193.189.219"
+    const val DEFAULT_LAN_HOST = "kusinakode.southeastasia.cloudapp.azure.com"
 
     /** The emulator's alias for the development machine. Not configurable. */
     private const val EMULATOR_HOST = "10.0.2.2"
@@ -60,9 +66,24 @@ object ServerConfig {
     @Volatile
     private var override: String? = null
 
-    /** Reads the saved override. Call once at startup, before any API call. */
+    /**
+     * Reads the saved override. Call once at startup, before any API call.
+     *
+     * The override only exists to let QA repoint a debug build at a local
+     * XAMPP or a different laptop. It is set from a Settings section that is
+     * itself shown only on debug builds (BuildConfig.DEBUG). A release build
+     * must therefore ignore any saved value: with no UI left to clear it, a
+     * stale LAN address left on the device would send a shipped app somewhere
+     * the backend is not — and a value planted by someone with local/ADB
+     * access could quietly redirect every request. Release always talks to the
+     * compiled DEFAULT_LAN_HOST (the Azure API), so connectivity is unchanged.
+     */
     fun load(context: Context) {
-        override = prefs(context).getString(KEY_HOST, null)?.trim()?.takeIf { it.isNotEmpty() }
+        override = if (BuildConfig.DEBUG) {
+            prefs(context).getString(KEY_HOST, null)?.trim()?.takeIf { it.isNotEmpty() }
+        } else {
+            null
+        }
     }
 
     /**
@@ -82,9 +103,26 @@ object ServerConfig {
     val host: String
         get() = override ?: DEFAULT_LAN_HOST
 
+    /**
+     * http or https, chosen by whether an override is in effect.
+     *
+     * The production host ([DEFAULT_LAN_HOST]) is reached over HTTPS: its
+     * certificate is what keeps the bearer token and the login password off the
+     * wire in the clear. A saved override, on the other hand, only ever exists
+     * on a debug build (see [load]) and points at a local XAMPP / LAN laptop,
+     * which has no certificate - so an override implies plain http.
+     *
+     * Net effect: release is always https (override is null there); debug is
+     * https against production and http against a local box. This is the same
+     * split the network security config enforces, kept in one place so the URL
+     * and the platform's cleartext policy cannot drift apart.
+     */
+    val scheme: String
+        get() = if (override != null) "http" else "https"
+
     /** Full base, ending in a slash, so call sites stay `"${BASE}login.php"`. */
     val baseUrl: String
-        get() = "http://$host$PATH"
+        get() = "$scheme://$host$PATH"
 
     /** What Settings shows in the field: the override only, not the default. */
     fun savedOverride(): String? = override
