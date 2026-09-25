@@ -41,6 +41,7 @@ android {
         targetSdk = 34
         versionCode = 13
         versionName = "1.12"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     signingConfigs {
@@ -146,4 +147,12 @@ dependencies {
     // --- Unit testing ---
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
+
+    // --- Instrumented UI testing (Compose) ---
+    // Needed by GameNavigationStressTest (androidTest). ui-test-manifest is a
+    // debugImplementation so the empty test activity ships only in debug builds.
+    androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    androidTestImplementation(platform("androidx.compose:compose-bom:2024.05.00"))
+    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
 }
