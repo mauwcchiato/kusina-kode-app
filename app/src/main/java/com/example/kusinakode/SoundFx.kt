@@ -30,17 +30,23 @@ import com.example.kusinakode.domain.model.Region
  */
 object SoundFx {
 
-    private val main = Handler(Looper.getMainLooper())
+    // lazy so the object can load in a plain JVM unit test: Handler/Looper are
+    // Android-only and would throw in SoundFx's static init, crashing any caller
+    // (e.g. GameViewModel.charge) the first time it touches SoundFx. Deferred
+    // here, it is created on first real playback, where a Looper always exists.
+    private val main by lazy { Handler(Looper.getMainLooper()) }
     private val shotLock = Any()
     private val shots = ArrayDeque<MediaPlayer>()
     private var bgmPlayer: MediaPlayer? = null
     private var currentBgm: Bgm? = null
     private var bgmPaused = false
 
-    private val sfxAttrs = AudioAttributes.Builder()
-        .setUsage(AudioAttributes.USAGE_GAME)
-        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-        .build()
+    private val sfxAttrs by lazy {
+        AudioAttributes.Builder()
+            .setUsage(AudioAttributes.USAGE_GAME)
+            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+            .build()
+    }
 
 
     enum class Cue(@RawRes val res: Int) {
