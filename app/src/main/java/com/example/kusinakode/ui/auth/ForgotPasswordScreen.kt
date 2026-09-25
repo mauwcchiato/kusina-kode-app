@@ -1,6 +1,7 @@
 package com.example.kusinakode.ui.auth
 
 import com.example.kusinakode.ui.components.clickSfx
+import com.example.kusinakode.ui.components.SecureScreen
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
@@ -104,6 +105,9 @@ fun ForgotPasswordScreen(
     onDone: () -> Unit = onBack,
     viewModel: PasswordResetViewModel = viewModel()
 ) {
+    // The reset code and the new password stay off screenshots / recordings.
+    SecureScreen()
+
     val ui by viewModel.uiState.collectAsState()
 
     // goBack() only leaves the flow from the first and last steps; from the
