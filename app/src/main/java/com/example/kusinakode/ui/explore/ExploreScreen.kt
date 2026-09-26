@@ -221,7 +221,7 @@ fun ExploreScreen(
                     Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f)) {
                         Text(
-                            "Explore the Philippines",
+                            "Game Map",
                             color = Color.White,
                             fontFamily = BeVietnamPro,
                             fontWeight = FontWeight.Bold,
@@ -863,7 +863,7 @@ private fun RegionPanel(
                     modifier = Modifier.clickable { onExplore() }
                 ) {
                     Text(
-                        "Explore",
+                        "Game Map",
                         color = BurntOrange,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.SemiBold

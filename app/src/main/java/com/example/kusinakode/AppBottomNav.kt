@@ -150,7 +150,7 @@ fun KusinaBottomNav(
                     highlightModifier = walletModifier
                 )
                 NavItem(
-                    Icons.Default.TravelExplore, "Explore",
+                    Icons.Default.TravelExplore, "Game Map",
                     selected == BottomNavTab.Levels, Modifier.weight(1f), onLevels
                 )
                 NavItem(

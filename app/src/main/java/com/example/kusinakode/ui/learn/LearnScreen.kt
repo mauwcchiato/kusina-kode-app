@@ -281,7 +281,7 @@ fun LearnScreen(
                             when {
                                 favoritesOnly -> "No favorites yet — tap the heart on a dish to save it here."
                                 query.isNotBlank() -> "No solved dishes match your search."
-                                else -> "Solve dishes in Explore to fill your KODEX!"
+                                else -> "Solve dishes in the Game Map to fill your KODEX!"
                             },
                             color = HintGray,
                             fontSize = 12.sp,
