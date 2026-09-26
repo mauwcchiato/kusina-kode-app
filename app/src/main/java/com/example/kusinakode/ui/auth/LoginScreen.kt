@@ -22,7 +22,6 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.kusinakode.ui.components.ErrorNotice
-import com.example.kusinakode.ui.components.SecureScreen
 import com.example.kusinakode.ui.theme.BeVietnamPro
 import com.example.kusinakode.ui.theme.ErrorRed
 
@@ -37,10 +36,6 @@ fun LoginScreen(
     onResetHandled: () -> Unit = {},
     viewModel: LoginViewModel = viewModel()
 ) {
-    // Keep the password on this screen off screenshots, screen recordings and
-    // the recent-apps thumbnail. Scoped to login: cleared when the screen leaves.
-    SecureScreen()
-
     val ui by viewModel.uiState.collectAsState()
     var passVisible by remember { mutableStateOf(false) }
 

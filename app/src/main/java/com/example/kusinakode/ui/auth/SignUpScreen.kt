@@ -22,7 +22,6 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.kusinakode.ui.components.ErrorNotice
-import com.example.kusinakode.ui.components.SecureScreen
 import com.example.kusinakode.ui.theme.ErrorRed
 import com.example.kusinakode.ui.theme.HintGray
 import com.example.kusinakode.ui.theme.SuccessGreen
@@ -34,9 +33,6 @@ fun SignUpScreen(
     onGoToLogin: () -> Unit,
     viewModel: LoginViewModel = viewModel()
 ) {
-    // Password fields on this screen stay off screenshots / recordings.
-    SecureScreen()
-
     val ui by viewModel.uiState.collectAsState()
     var passVisible by remember { mutableStateOf(false) }
 
