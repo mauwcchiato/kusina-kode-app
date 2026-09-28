@@ -3,7 +3,17 @@ package com.example.kusinakode.ui.onboarding
 import com.example.kusinakode.ui.components.clickSfx
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
+import com.example.kusinakode.ui.components.KusinaButton
+import com.example.kusinakode.ui.components.KusinaButtonTone
+import com.example.kusinakode.ui.components.ParchmentCard
+import com.example.kusinakode.ui.theme.BeVietnamPro
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -20,6 +30,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -98,12 +109,14 @@ fun Modifier.coachAnchor(key: String, anchors: CoachAnchors): Modifier =
 fun CoachMarkOverlay(
     steps: List<CoachStep>,
     anchors: CoachAnchors,
-    onFinish: () -> Unit
+    onFinish: () -> Unit,
+    onStepChange: (CoachStep) -> Unit = {}
 ) {
     if (steps.isEmpty()) return
 
     var index by rememberSaveable { mutableIntStateOf(0) }
     val step = steps.getOrNull(index) ?: return
+    LaunchedEffect(index) { onStepChange(step) }
     val target = anchors[step.anchorKey]
 
     var overlayOrigin by remember { mutableStateOf(Offset.Zero) }
@@ -155,22 +168,25 @@ fun CoachMarkOverlay(
             ) {
                 drawRect(Color.Black.copy(alpha = 0.78f))
                 localTarget?.let { r ->
-                    val isWallet = step.anchorKey == "home_wallet"
-                    val pad = if (isWallet) 6.dp.toPx() else 10.dp.toPx()
+                    val isNav = step.anchorKey == "home_wallet" ||
+                        step.anchorKey == "home_notif" ||
+                        step.anchorKey == "explore_home" ||
+                        step.anchorKey == "wallet_profile"
+                    val pad = if (isNav) 6.dp.toPx() else 10.dp.toPx()
                     val padded = Rect(
                         r.left - pad,
                         r.top - pad,
                         r.right + pad,
                         r.bottom + pad
                     )
-                    val clip = if (isWallet) {
+                    val clip = if (isNav) {
                         null
                     } else {
                         localStats?.takeIf { it.overlaps(padded) }
                     }
                     val holeRect = clip?.let { padded.intersect(it) } ?: padded
                     if (holeRect.width <= 0f || holeRect.height <= 0f) return@let
-                    val corner = if (isWallet) {
+                    val corner = if (isNav) {
                         14.dp.toPx()
                     } else {
                         10.dp.toPx().coerceAtMost(holeRect.minDimension / 4f)
@@ -202,55 +218,81 @@ fun CoachMarkOverlay(
                     .width(with(density) { (windowWidthPx - sidePadPx * 2).toDp() })
                     .onGloballyPositioned { cardHeightPx = it.size.height.toFloat() }
             ) {
-                Surface(
-                    shape = RoundedCornerShape(20.dp),
-                    color = Color(0xFFFFFDF9),
-                    shadowElevation = 12.dp
-                ) {
-                    Column(Modifier.padding(18.dp)) {
-                        Text(
-                            "STEP ${index + 1} OF ${steps.size}",
-                            color = DarkBrown.copy(alpha = 0.65f),
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 1.sp
-                        )
-                        Spacer(Modifier.height(6.dp))
+                // The same parchment plate and carved buttons the app's dialogs
+                // wear, so the tour reads as part of the kitchen rather than a
+                // plain system tooltip.
+                ParchmentCard(contentPadding = 20.dp) {
+                    Column {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                "STEP ${index + 1} OF ${steps.size}",
+                                color = CoachStepInk,
+                                fontFamily = BeVietnamPro,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                letterSpacing = 1.4.sp
+                            )
+                            Spacer(Modifier.weight(1f))
+                            // Progress beads: filled up to this step.
+                            steps.indices.forEach { i ->
+                                Box(
+                                    Modifier
+                                        .padding(start = 4.dp)
+                                        .size(if (i == index) 8.dp else 6.dp)
+                                        .clip(CircleShape)
+                                        .background(if (i <= index) CoachBeadOn else CoachBeadOff)
+                                )
+                            }
+                        }
+                        Spacer(Modifier.height(8.dp))
                         Text(
                             step.title,
-                            style = MaterialTheme.typography.titleMedium.copy(color = DarkBrown),
-                            fontWeight = FontWeight.Bold
+                            color = CoachTitleInk,
+                            fontFamily = BeVietnamPro,
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 18.sp
                         )
                         Spacer(Modifier.height(6.dp))
                         Text(
                             step.body,
-                            style = MaterialTheme.typography.bodyMedium.copy(color = HintGray),
+                            color = CoachBodyInk,
+                            fontFamily = BeVietnamPro,
+                            fontSize = 14.sp,
                             lineHeight = 21.sp
                         )
-                        Spacer(Modifier.height(14.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            TextButton(onClick = clickSfx(onFinish)) {
-                                Text("Skip", color = HintGray, fontWeight = FontWeight.SemiBold)
-                            }
-                            Spacer(Modifier.weight(1f))
-                            Button(
+                        Spacer(Modifier.height(16.dp))
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            KusinaButton(
+                                label = "Skip",
+                                onClick = clickSfx(onFinish),
+                                tone = KusinaButtonTone.Parchment,
+                                height = 46.dp,
+                                fontSize = 14.sp,
+                                modifier = Modifier.weight(1f)
+                            )
+                            KusinaButton(
+                                label = if (index >= steps.lastIndex) "Got it" else "Next",
                                 onClick = clickSfx {
                                     if (index >= steps.lastIndex) onFinish() else index++
                                 },
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = DarkBrown,
-                                    contentColor = LightOrange
-                                ),
-                                shape = RoundedCornerShape(20.dp)
-                            ) {
-                                Text(
-                                    if (index >= steps.lastIndex) "Got it" else "Next",
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
+                                tone = KusinaButtonTone.Brown,
+                                height = 46.dp,
+                                fontSize = 14.sp,
+                                modifier = Modifier.weight(1.4f)
+                            )
                         }
                     }
                 }
             }
         }
     }
+
+// Inks for the parchment walkthrough card.
+private val CoachStepInk = Color(0xFFA4724C)
+private val CoachTitleInk = Color(0xFF4A2412)
+private val CoachBodyInk = Color(0xFF6B4A33)
+private val CoachBeadOn = Color(0xFFA4724C)
+private val CoachBeadOff = Color(0xFFD9C7A6)

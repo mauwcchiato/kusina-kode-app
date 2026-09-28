@@ -73,6 +73,11 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.kusinakode.BottomNavTab
 import com.example.kusinakode.FavoritesManager
 import com.example.kusinakode.KusinaBottomNav
+import com.example.kusinakode.CoachMarkManager
+import com.example.kusinakode.ui.onboarding.CoachMarkOverlay
+import com.example.kusinakode.ui.onboarding.CoachStep
+import com.example.kusinakode.ui.onboarding.coachAnchor
+import com.example.kusinakode.ui.onboarding.rememberCoachAnchors
 import com.example.kusinakode.LevelProvider
 import com.example.kusinakode.R
 import com.example.kusinakode.Session
@@ -204,6 +209,18 @@ fun KodexHubScreen(
         }
     }
 
+    // First-visit tour of the KODEX.
+    val ctx = LocalContext.current
+    val coachAnchors = rememberCoachAnchors()
+    var showTour by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        if (!CoachMarkManager.isDone(ctx, CoachMarkManager.TOUR_LEARN)) {
+            delay(500)
+            showTour = true
+        }
+    }
+
+    Box(Modifier.fillMaxSize()) {
     Scaffold(
         containerColor = CreamBg,
         bottomBar = {
@@ -276,7 +293,9 @@ fun KodexHubScreen(
                 HorizontalPager(
                     state = pager,
                     beyondBoundsPageCount = 1,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .coachAnchor("kodex_featured", coachAnchors)
                 ) { page ->
                     FeaturedBanner(FeaturedSlides[page % slideCount], onClick = onOpenFeaturedIngredients)
                 }
@@ -316,10 +335,12 @@ fun KodexHubScreen(
                     count = dishes.size.takeIf { it > 0 }
                 )
                 Spacer(Modifier.height(10.dp))
-                if (dishes.isEmpty()) {
-                    DishSolvePlaceholder(onSeeAll = onOpenDishes)
-                } else {
-                    DishCardStack(dishes, onOpenDish = onOpenDish)
+                Box(Modifier.coachAnchor("kodex_dishes", coachAnchors)) {
+                    if (dishes.isEmpty()) {
+                        DishSolvePlaceholder(onSeeAll = onOpenDishes)
+                    } else {
+                        DishCardStack(dishes, onOpenDish = onOpenDish)
+                    }
                 }
 
                 Spacer(Modifier.height(22.dp))
@@ -328,9 +349,34 @@ fun KodexHubScreen(
                 HubTileRow(rares, onTile = onOpenRareIngredients)
                 Spacer(Modifier.height(12.dp))
             }
-        
+
             }
         }
+    }
+
+    if (showTour) {
+        CoachMarkOverlay(
+            steps = listOf(
+                CoachStep(
+                    anchorKey = "kodex_dishes",
+                    title = "Your KODEX",
+                    body = "Every dish you solve opens its full page here - the story, " +
+                        "trivia, ingredients and the step-by-step recipe."
+                ),
+                CoachStep(
+                    anchorKey = "kodex_featured",
+                    title = "Ingredients & pantry",
+                    body = "Swipe through featured Filipino ingredients up top, and browse " +
+                        "the KODEX pantry lower down."
+                )
+            ),
+            anchors = coachAnchors,
+            onFinish = {
+                CoachMarkManager.markDone(ctx, CoachMarkManager.TOUR_LEARN)
+                showTour = false
+            }
+        )
+    }
     }
 }
 

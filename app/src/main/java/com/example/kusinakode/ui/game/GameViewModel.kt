@@ -61,6 +61,15 @@ class GameViewModel(
 
     private var coachJob: Job? = null
 
+    /** Freezes the round clock without the pause menu. Used while the
+     *  NEXT LEVEL sign is on screen, before the round actually starts. */
+    @Volatile
+    private var clockHeld = false
+
+    fun setClockHeld(held: Boolean) {
+        clockHeld = held
+    }
+
     init {
         viewModelScope.launch {
             while (true) {
@@ -68,7 +77,7 @@ class GameViewModel(
                 val now = System.currentTimeMillis()
                 _uiState.update { s ->
                     val cooled = PowerUpRules.cooldownRemainingMs(s.lastHintUsedAtMs, now)
-                    val next = if (!s.isPaused && s.isRoundActive) {
+                    val next = if (!s.isPaused && !clockHeld && s.isRoundActive) {
                         s.copy(elapsedSeconds = s.elapsedSeconds + 1)
                     } else s
                     if (next.hintCooldownRemainingMs == cooled) next

@@ -76,7 +76,18 @@ object SoundFx {
         KeepGoing(R.raw.vo_keep_going),
         LastTaste(R.raw.vo_last_taste),
         Malapit(R.raw.vo_malapit),
-        NextDish(R.raw.vo_next_dish)
+        // NEXT LEVEL on the win screen. Was the "next dish" voice-over (vo_next_dish);
+        // now a sound effect.
+        NextDish(R.raw.sfx_next_dish),
+        // Four takes of the palayok wheel turning; a spin picks one at random.
+        Wheel1(R.raw.sfx_wheel_1),
+        Wheel2(R.raw.sfx_wheel_2),
+        Wheel3(R.raw.sfx_wheel_3),
+        Wheel4(R.raw.sfx_wheel_4);
+
+        companion object {
+            val Wheel = listOf(Wheel1, Wheel2, Wheel3, Wheel4)
+        }
     }
 
     enum class Bgm(@RawRes val res: Int, val loop: Boolean) {
@@ -100,7 +111,6 @@ object SoundFx {
                 Region.LUZON -> GameLuzon
                 Region.VISAYAS -> GameVisayas
                 Region.MINDANAO -> GameMindanao
-                Region.PHILIPPINES -> GamePhilippines
             }
 
             fun forWin(firstTry: Boolean): Bgm = if (firstTry) WinFirst else Win

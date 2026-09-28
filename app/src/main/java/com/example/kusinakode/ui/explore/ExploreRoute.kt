@@ -13,6 +13,7 @@ fun ExploreRoute(
     onViewDish: (Int) -> Unit,
     onHome: () -> Unit,
     onCompleted: () -> Unit,
+    onViewDishes: () -> Unit,
     onProfile: () -> Unit,
     onLeadership: () -> Unit,
     vm: LevelsViewModel = viewModel(),
@@ -35,6 +36,7 @@ fun ExploreRoute(
     ExploreScreen(
         unlockedUpTo = ui.unlockedUpTo,
         completedUpTo = completed,
+        solvedLevels = game.progress.solvedLevels,
         resumableLevels = resumable,
         onPlayLevel = onLevelSelected,
         onViewDish = onViewDish,
@@ -43,6 +45,7 @@ fun ExploreRoute(
         onLeaderboard = onLeadership,
         onWallet = onWallet,
         onLearn = onCompleted,
+        onViewDishes = onViewDishes,
         onSettings = onSettings,
         initialRegion = initialRegion
     )

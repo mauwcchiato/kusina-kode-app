@@ -311,7 +311,6 @@ private fun regionIcon(region: Region): ImageVector = when (region) {
     Region.LUZON -> Icons.Default.LocationOn
     Region.VISAYAS -> Icons.Default.WaterDrop
     Region.MINDANAO -> Icons.Default.Terrain
-    Region.PHILIPPINES -> Icons.Default.Public
 }
 
 @Composable
@@ -497,7 +496,8 @@ private fun LockedRow(entry: KodexEntry) {
             Column(Modifier.weight(1f)) {
                 Text("Mystery Dish", fontWeight = FontWeight.Bold, color = HintGray, fontSize = 15.sp)
                 Text(
-                    "Complete Level ${entry.level} to unlock",
+                    "Complete ${LevelProvider.forLevel(entry.level).region.displayName} " +
+                        "Level ${LevelProvider.regionLevelNumber(entry.level)} to unlock",
                     color = HintGray.copy(alpha = 0.85f),
                     fontSize = 11.sp
                 )

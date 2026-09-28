@@ -38,7 +38,6 @@ fun RegionBackdrop(region: Region, modifier: Modifier = Modifier) {
             Region.LUZON -> drawBanig()
             Region.VISAYAS -> drawCapiz()
             Region.MINDANAO -> drawOkir()
-            Region.PHILIPPINES -> drawParol()
         }
     }
 }

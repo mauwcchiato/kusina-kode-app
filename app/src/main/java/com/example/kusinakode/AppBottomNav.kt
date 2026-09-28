@@ -91,6 +91,10 @@ fun KusinaBottomNav(
     onWallet: () -> Unit,
     onCompleted: () -> Unit,
     walletModifier: Modifier = Modifier,
+    levelsModifier: Modifier = Modifier,
+    homeModifier: Modifier = Modifier,
+    learnModifier: Modifier = Modifier,
+    profileModifier: Modifier = Modifier,
 ) {
     Column(Modifier.fillMaxWidth()) {
         // Nothing is painted here; it is the headroom the lifted circle needs.
@@ -151,19 +155,23 @@ fun KusinaBottomNav(
                 )
                 NavItem(
                     Icons.Default.TravelExplore, "Game Map",
-                    selected == BottomNavTab.Levels, Modifier.weight(1f), onLevels
+                    selected == BottomNavTab.Levels, Modifier.weight(1f), onLevels,
+                    highlightModifier = levelsModifier
                 )
                 NavItem(
                     Icons.Default.Home, "Home",
-                    selected == BottomNavTab.Home, Modifier.weight(1f), onHome
+                    selected == BottomNavTab.Home, Modifier.weight(1f), onHome,
+                    highlightModifier = homeModifier
                 )
                 NavItem(
                     Icons.Default.School, "Learn",
-                    selected == BottomNavTab.Completed, Modifier.weight(1f), onCompleted
+                    selected == BottomNavTab.Completed, Modifier.weight(1f), onCompleted,
+                    highlightModifier = learnModifier
                 )
                 NavItem(
                     Icons.Default.Person, "Profile",
-                    selected == BottomNavTab.Profile, Modifier.weight(1f), onProfile
+                    selected == BottomNavTab.Profile, Modifier.weight(1f), onProfile,
+                    highlightModifier = profileModifier
                 )
             }
         }

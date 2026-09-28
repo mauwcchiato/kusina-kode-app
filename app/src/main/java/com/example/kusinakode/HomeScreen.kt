@@ -66,6 +66,8 @@ import com.example.kusinakode.ui.rewards.waitingForYouCount
 import com.example.kusinakode.ui.pantry.PantryViewModel
 import com.example.kusinakode.ui.shop.EquippedAvatarPortrait
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -130,10 +132,16 @@ fun HomeScreen(
     val game by gamification.uiState.collectAsState()
     val totalLevels = LevelProvider.levelCount
     val completed = game.progress.roundsCompleted
-    val nextLevel = remember(game.progress.solvedLevels) {
-        UnlockManager.getUnlockedLevel(ctx, Session.userId)
-            .coerceAtLeast((game.progress.solvedLevels.maxOrNull() ?: 0) + 1)
-            .coerceAtMost(totalLevels)
+    // The dish the "Play / Continue" card points at. It follows the island the
+    // player last opened a round in: after a Visayas level, Home offers the next
+    // Visayas level (not back to Luzon). Once that island is fully solved — or
+    // before any round is played — it falls back to the first unlocked, unsolved
+    // level overall (Luzon→Visayas→Mindanao, each by word length), matching the
+    // Game Map's PLAY NOW.
+    val lastRegion = LastPlayedStore.region(ctx, Session.userId)
+    val nextLevel = remember(game.progress.solvedLevels, lastRegion) {
+        lastRegion?.let { LevelProvider.nextPlayableInRegion(it, game.progress.solvedLevels) }
+            ?: LevelProvider.nextPlayable(game.progress.solvedLevels)
     }
 
     val rewards: RewardsViewModel = viewModel()
@@ -201,11 +209,25 @@ fun HomeScreen(
 
     val anchors = rememberCoachAnchors()
     var showTour by remember { mutableStateOf(false) }
+    val homeScroll = rememberScrollState()
+    var tourAnchor by remember { mutableStateOf<String?>(null) }
+    var scrollOrigin by remember { mutableIntStateOf(0) }
+    var statsTop by remember { mutableIntStateOf(0) }
+    var guidesTop by remember { mutableIntStateOf(0) }
     LaunchedEffect(Unit) {
         if (!CoachMarkManager.isDone(ctx, CoachMarkManager.TOUR_HOME)) {
             delay(450)
             showTour = true
         }
+    }
+    LaunchedEffect(tourAnchor, statsTop, guidesTop) {
+        val target = when (tourAnchor) {
+            "home_notif" -> 0
+            "home_foods", "home_regions", "home_coins", "home_badges" -> statsTop
+            "home_story", "home_tutorial", "home_kk" -> guidesTop
+            else -> return@LaunchedEffect
+        }
+        homeScroll.animateScrollTo((target - 16).coerceIn(0, homeScroll.maxValue))
     }
 
     Box(Modifier.fillMaxSize()) {
@@ -231,7 +253,8 @@ fun HomeScreen(
             Column(
                 Modifier
                     .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
+                    .verticalScroll(homeScroll)
+                    .onGloballyPositioned { scrollOrigin = it.positionInWindow().y.toInt() }
             ) {
                 // The hero overlaps the header, so the header reserves space at
                 // its foot and the card is pinned to the bottom of the same Box.
@@ -251,6 +274,7 @@ fun HomeScreen(
                         onNotifications = onNotifications,
                         unreadNotifications = unreadNotifications,
                         onSettings = onSettings,
+                        bellModifier = Modifier.coachAnchor("home_notif", anchors),
                         // Deeper than the card's top inset below, so the card
                         // laps into the brown rather than sitting under it.
                         panelDepth = 104.dp
@@ -284,8 +308,14 @@ fun HomeScreen(
                         regions = regionsExplored,
                         coins = wallet.balanceKk,
                         badges = game.earnedCount,
-                        modifier = Modifier.coachAnchor("home_stats", anchors),
+                        modifier = Modifier
+                            .coachAnchor("home_stats", anchors)
+                            .onGloballyPositioned {
+                                statsTop = (it.positionInWindow().y - scrollOrigin + homeScroll.value).toInt()
+                            },
+                        foodsModifier = Modifier.coachAnchor("home_foods", anchors),
                         regionsModifier = Modifier.coachAnchor("home_regions", anchors),
+                        coinsModifier = Modifier.coachAnchor("home_coins", anchors),
                         badgesModifier = Modifier.coachAnchor("home_badges", anchors)
                     )
 
@@ -315,7 +345,13 @@ fun HomeScreen(
 
                 // Not in the frame, but the only way back to the story and the
                 // practice round once onboarding is behind you.
-                Column(Modifier.padding(horizontal = 20.dp)) {
+                Column(
+                    Modifier
+                        .padding(horizontal = 20.dp)
+                        .onGloballyPositioned {
+                            guidesTop = (it.positionInWindow().y - scrollOrigin + homeScroll.value).toInt()
+                        }
+                ) {
                     SectionHeader("Story & Guides")
                     Spacer(Modifier.height(12.dp))
                     Row(
@@ -323,9 +359,18 @@ fun HomeScreen(
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         val cell = Modifier.weight(1f)
-                        GuideCard(R.drawable.guide_story, "Story", "Why Kusina Kode Exists", cell, go(onStory))
-                        GuideCard(R.drawable.guide_tutorial, "Tutorial", "Practice Round", cell, go(onTutorial))
-                        GuideCard(R.drawable.guide_kk, "KK Guide", "Earn & Spend", cell, go(onKkGuide))
+                        GuideCard(
+                            R.drawable.guide_story, "Story", "Why Kusina Kode Exists",
+                            cell.coachAnchor("home_story", anchors), go(onStory)
+                        )
+                        GuideCard(
+                            R.drawable.guide_tutorial, "Tutorial", "Practice Round",
+                            cell.coachAnchor("home_tutorial", anchors), go(onTutorial)
+                        )
+                        GuideCard(
+                            R.drawable.guide_kk, "KK Guide", "Earn & Spend",
+                            cell.coachAnchor("home_kk", anchors), go(onKkGuide)
+                        )
                     }
                     Spacer(Modifier.height(24.dp))
                 }
@@ -338,6 +383,12 @@ fun HomeScreen(
           CoachMarkOverlay(
               steps = listOf(
                   CoachStep(
+                      anchorKey = "home_notif",
+                      title = "Notifications",
+                      body = "The number is how many are waiting. Open them for minted " +
+                          "badges and receipts, and report an issue if a reward looks wrong."
+                  ),
+                  CoachStep(
                       anchorKey = "home_play",
                       title = "Guess the dish",
                       body = "Every round is a Filipino dish name. You get the region " +
@@ -345,16 +396,42 @@ fun HomeScreen(
                           "tile colours tell you how close you were."
                   ),
                   CoachStep(
+                      anchorKey = "home_foods",
+                      title = "Foods",
+                      body = "How many dishes you have finished. Each one you cook adds here."
+                  ),
+                  CoachStep(
                       anchorKey = "home_regions",
-                      title = "Cook your way around",
-                      body = "Dishes are grouped by where they come from. Finish every " +
+                      title = "Regions",
+                      body = "How many island groups you have cooked from. Finish every " +
                           "dish in a region and it pays out a bonus."
                   ),
                   CoachStep(
+                      anchorKey = "home_coins",
+                      title = "Coins",
+                      body = "Kusina Kode coins you have earned. Spend them on hints, " +
+                          "chef looks, and stories."
+                  ),
+                  CoachStep(
                       anchorKey = "home_badges",
-                      title = "Badges are minted, not just displayed",
+                      title = "Badges",
                       body = "Each badge you earn is written onto the ledger, not just " +
                           "stored on your phone."
+                  ),
+                  CoachStep(
+                      anchorKey = "home_story",
+                      title = "Story",
+                      body = "Why Kusina Kode exists, and the kitchen it comes from."
+                  ),
+                  CoachStep(
+                      anchorKey = "home_tutorial",
+                      title = "Tutorial",
+                      body = "A practice round, so you can learn the tiles before a real dish."
+                  ),
+                  CoachStep(
+                      anchorKey = "home_kk",
+                      title = "KK Guide",
+                      body = "How to earn coins, and what you can spend them on."
                   ),
                   CoachStep(
                       anchorKey = "home_wallet",
@@ -364,6 +441,7 @@ fun HomeScreen(
                   )
               ),
               anchors = anchors,
+              onStepChange = { tourAnchor = it.anchorKey },
               onFinish = {
                   CoachMarkManager.markDone(ctx, CoachMarkManager.TOUR_HOME)
                   showTour = false
@@ -463,9 +541,13 @@ private fun DailyChallengeCard(
                 Spacer(Modifier.height(8.dp))
                 Text(
                     if (canResume) {
-                        "Level $level is right where you left it. Finish what you started."
+                        "${LevelProvider.forLevel(level).region.displayName} Level " +
+                            "${LevelProvider.regionLevelNumber(level)} is right where you " +
+                            "left it. Finish what you started."
                     } else {
-                        "Level $level is on the stove. Crack the word, taste the story."
+                        "${LevelProvider.forLevel(level).region.displayName} Level " +
+                            "${LevelProvider.regionLevelNumber(level)} is on the stove. " +
+                            "Crack the word, taste the story."
                     },
                     color = Color.White.copy(alpha = 0.78f),
                     fontSize = 15.sp,

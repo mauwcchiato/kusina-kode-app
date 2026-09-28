@@ -3,6 +3,7 @@ package com.example.kusinakode.domain.gamification
 import com.example.kusinakode.domain.model.Badge
 import com.example.kusinakode.domain.model.BadgeType
 import com.example.kusinakode.domain.model.PlayerProgress
+import com.example.kusinakode.domain.model.Region
 
 /**
  * Badge eligibility for the three milestone families the manuscript names
@@ -56,8 +57,14 @@ object BadgeRules {
         val isMet: (PlayerProgress) -> Boolean
     )
 
-    /** How many regions the game ships; World Explorer needs all of them. */
-    const val REGION_COUNT = 4
+    /**
+     * How many regions the game ships; World Explorer needs all of them.
+     *
+     * Derived from [Region] rather than hardcoded: it was 4 while PHILIPPINES
+     * was a region, and when that was folded into the islands the badge
+     * silently became unearnable.
+     */
+    val REGION_COUNT: Int get() = Region.values().size
 
     val ACHIEVEMENTS = listOf(
         Achievement(
@@ -79,7 +86,11 @@ object BadgeRules {
         Achievement(
             "world_explorer", BadgeType.EXPLORATION, "World Explorer",
             "Solve a dish from every region"
-        ) { it.regionsSolved.size >= REGION_COUNT },
+        ) { p ->
+            // Every current island by name, so a stale "PHILIPPINES" still in
+            // an older save cannot stand in for one the player has not solved.
+            Region.values().all { it.name in p.regionsSolved }
+        },
         Achievement(
             "trivia_detective", BadgeType.KNOWLEDGE, "Trivia Detective",
             "Read the story behind $TRIVIA_DETECTIVE_READS dishes"

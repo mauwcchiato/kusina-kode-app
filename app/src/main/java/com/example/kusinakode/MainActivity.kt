@@ -310,7 +310,10 @@ private fun AppNavigator() {
             // is signed in rather than on a duplicated set of routes.
             val leaveIntro: () -> Unit = {
                 val uid = Session.userId
-                val destination = if (uid != null && uid > 0) "home" else "welcome"
+                // Finish the intro straight into the Game Map, not Home, so a new
+                // cook lands on Level 1 of the islands right away. Guests still
+                // exit to the welcome poster since they have no progress to show.
+                val destination = if (uid != null && uid > 0) "levels/ALL" else "welcome"
                 nav.navigate(destination) {
                     popUpTo(destination) { inclusive = true }
                     launchSingleTop = true
@@ -448,6 +451,7 @@ private fun AppNavigator() {
                     onViewDish      = { lvl -> nav.navigate("dish/$lvl") },
                     onHome          = { nav.navigate("home") },
                     onCompleted     = { nav.navigate("completed") },
+                    onViewDishes    = { nav.navigate("kodex_dishes") },
                     onProfile       = { nav.navigate("profile") },
                     onLeadership    = { nav.navigate("leadership") },
                     onWallet        = { nav.navigate("rewards") },

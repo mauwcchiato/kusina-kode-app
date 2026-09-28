@@ -80,6 +80,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import com.example.kusinakode.LevelProvider
 import com.example.kusinakode.ui.components.clickSfx
 import com.example.kusinakode.ui.components.byWidth
 import com.example.kusinakode.ui.components.readableWidth
@@ -106,6 +107,8 @@ import com.example.kusinakode.ui.theme.GrayBrown
 import com.example.kusinakode.ui.theme.LightOrange
 import com.example.kusinakode.ui.tutorial.HowToPlayContent
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
+import androidx.compose.runtime.snapshotFlow
 import kotlin.random.Random
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.kusinakode.ui.gamification.BadgeArt
@@ -159,11 +162,25 @@ fun GameScreen(
     /** Kusina Reel — its own row under the reward stack, above Next Level. */
     onOpenDocumentary: () -> Unit = {},
     /** What Module 2 credited for this round; null until it reports. */
-    scored: RoundScored? = null
+    scored: RoundScored? = null,
+    /** How long the hint cards stay fanned on arrival. Longer when the
+     *  NEXT LEVEL sign is holding the round. */
+    hintPeekHoldMs: Long = 900L,
+    /** While true the tiles stay hidden, and they pop in once it turns
+     *  false — so the NEXT LEVEL sign can hold them until it lifts. Read
+     *  through a snapshot flow, so flipping it never recomposes the screen. */
+    holdTiles: () -> Boolean = { false },
+    /** True only when this win leaves no dish unsolved on any island — the
+     *  one time leaving the win screen plays the clapping-chef finale. */
+    finishesGame: Boolean = false
 ) {
     val ctx = LocalContext.current
     val prefs by KusinaSettings.prefs.collectAsState()
     val level = uiState.level.number
+    // Player-facing "Level N": the per-region number shown on the Game Map
+    // (Level 1 = shortest word in that region). `level` above stays the global
+    // id — it's the unique key for saved rounds, the pantry factory, etc.
+    val displayLevel = LevelProvider.regionLevelNumber(level)
     // The dish's own photograph. Previously this looked up bgN by level
     // number, which silently mismatched once the level list came from the
     // dataset rather than being hand-ordered.
@@ -370,7 +387,7 @@ fun GameScreen(
                         overflow = TextOverflow.Ellipsis
                     )
                     Text(
-                        "LEVEL $level",
+                        "LEVEL $displayLevel",
                         color = LightOrange,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Black,
@@ -618,7 +635,8 @@ fun GameScreen(
                                     col = c,
                                     cols = cols,
                                     roundKey = uiState.level.number,
-                                    reduceMotion = reduceMotion
+                                    reduceMotion = reduceMotion,
+                                    holdTiles = holdTiles
                                 )
                             }
                         }
@@ -642,6 +660,7 @@ fun GameScreen(
                 bombUsed = uiState.bombUsed,
                 cooldownMs = uiState.hintCooldownRemainingMs,
                 reduceMotion = reduceMotion,
+                peekHoldMs = hintPeekHoldMs,
                 onReveal = {
                     SoundFx.play(ctx, SoundFx.Cue.Reveal)
                     SoundFx.vibrate(ctx, 18)
@@ -755,7 +774,7 @@ fun GameScreen(
                         )
                         Spacer(Modifier.height(2.dp))
                         Text(
-                            "Level ${uiState.level.number}  ·  ${uiState.level.region.displayName}",
+                            "Level $displayLevel  ·  ${uiState.level.region.displayName}",
                             color = GrayBrown,
                             fontFamily = BeVietnamPro,
                             fontSize = 12.sp,
@@ -819,7 +838,7 @@ fun GameScreen(
                         )
                         Spacer(Modifier.height(6.dp))
                         Text(
-                            "Level ${uiState.level.number} is still cooking. " +
+                            "Level $displayLevel is still cooking. " +
                                 "You can start it again anytime.",
                             color = GrayBrown,
                             fontFamily = BeVietnamPro,
@@ -935,9 +954,9 @@ fun GameScreen(
             BackHandler { }
         }
 
-        // The last dish has no next level, which is what marks the game as
-        // finished. Leaving the win screen then plays the curtain call once
-        // before handing back to the map.
+        // Once every dish on every island is solved, leaving the win screen
+        // plays the curtain call once before handing back to the map. An
+        // island's last dish also has no next level, so that alone is not it.
         if (showFinale) {
             FinaleScreen(
                 onFinish = {
@@ -959,8 +978,8 @@ fun GameScreen(
                 onOpenDocumentary = onOpenDocumentary,
                 onPlayNext = onPlayNext,
                 onBackToMap = {
-                    if (onPlayNext == null) {
-                        // Nothing left to play: send them off with the film.
+                    if (finishesGame) {
+                        // Nothing left to play anywhere: send them off with the film.
                         showFinale = true
                     } else {
                         SoundFx.stopBgm()
@@ -1486,13 +1505,16 @@ private fun WinOverlay(
                     Text("Back to Map", fontWeight = FontWeight.SemiBold)
                 }
             } else {
-                // Final dish cleared — nothing left to advance to.
+                // Last dish on this island. NEXT LEVEL stays within one island,
+                // so this only means the island is done — the others may
+                // still be waiting, hence no "every dish" claim.
                 Text(
-                    "You've cooked through every dish. Bravo, Chef!",
+                    "Congrats! You've finished ${uiState.level.region.displayName}!",
                     color = LightOrange,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    textAlign = TextAlign.Center
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Black,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(Modifier.height(12.dp))
                 Button(
@@ -1515,7 +1537,12 @@ private fun WinOverlay(
         }
 
         // Celebration rains over everything; decorative, never blocks taps.
-        ConfettiBurst(Modifier.fillMaxSize())
+        // Finishing an island gets a much bigger, longer downpour.
+        if (onPlayNext == null) {
+            ConfettiBurst(Modifier.fillMaxSize(), count = 150, spreadMs = 2_200, totalMs = 4_400)
+        } else {
+            ConfettiBurst(Modifier.fillMaxSize())
+        }
     }
 }
 
@@ -1528,15 +1555,24 @@ private data class Confetto(
     val spin: Float
 )
 
-/** One-shot celebration burst over the win screen. Purely decorative. */
+/**
+ * One-shot celebration burst over the win screen. Purely decorative.
+ * [count] pieces start over the first [spreadMs]; the whole shower lasts
+ * [totalMs], which must leave each piece its 1.9s fall after [spreadMs].
+ */
 @Composable
-private fun ConfettiBurst(modifier: Modifier = Modifier) {
+private fun ConfettiBurst(
+    modifier: Modifier = Modifier,
+    count: Int = 46,
+    spreadMs: Int = 800,
+    totalMs: Int = 2800
+) {
     val colors = listOf(TileCorrectGreen, TileSemiYellow, LightOrange, BurntOrange, Color.White)
     val confetti = remember {
-        List(46) {
+        List(count) {
             Confetto(
                 xFraction = Random.nextFloat(),
-                delayMs = Random.nextInt(0, 800),
+                delayMs = Random.nextInt(0, spreadMs),
                 colorIndex = Random.nextInt(colors.size),
                 width = Random.nextInt(6, 13).toFloat(),
                 drift = Random.nextFloat() * 2f - 1f,
@@ -1544,7 +1580,6 @@ private fun ConfettiBurst(modifier: Modifier = Modifier) {
             )
         }
     }
-    val totalMs = 2800
     val clock = remember { Animatable(0f) }
     LaunchedEffect(Unit) {
         clock.animateTo(1f, tween(totalMs, easing = LinearEasing))
@@ -1753,6 +1788,7 @@ private fun PowerUpDock(
     cooldownMs: Long,
     reduceMotion: Boolean,
     onReveal: () -> Unit,
+    peekHoldMs: Long = 900L,
     onBomb: () -> Unit,
     onSolve: () -> Unit
 ) {
@@ -1765,7 +1801,7 @@ private fun PowerUpDock(
     // then folds back to the stacked deck. Tapping still opens it for real.
     val peek = remember(previewKey) { Animatable(0f) }
     var peekPlayed by remember(previewKey) { mutableStateOf(false) }
-    LaunchedEffect(previewKey, reduceMotion, expanded) {
+    LaunchedEffect(previewKey, reduceMotion, expanded, peekHoldMs) {
         if (expanded) {
             peek.snapTo(0f)
             peekPlayed = true
@@ -1777,7 +1813,7 @@ private fun PowerUpDock(
             1f,
             spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessLow)
         )
-        delay(900)
+        delay(peekHoldMs)
         peek.animateTo(
             0f,
             spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium)
@@ -2164,7 +2200,8 @@ private fun PlayTile(
     col: Int,
     cols: Int,
     roundKey: Int,
-    reduceMotion: Boolean
+    reduceMotion: Boolean,
+    holdTiles: () -> Boolean = { false }
 ) {
     val appear = remember(roundKey) { Animatable(if (reduceMotion) 1f else 0f) }
     LaunchedEffect(roundKey, reduceMotion) {
@@ -2172,6 +2209,8 @@ private fun PlayTile(
             appear.snapTo(1f)
             return@LaunchedEffect
         }
+        // Wait out the NEXT LEVEL sign, so the pop-in plays where it is seen.
+        snapshotFlow { holdTiles() }.first { held -> !held }
         delay((row * cols + col) * 18L + 80L)
         appear.animateTo(
             1f,

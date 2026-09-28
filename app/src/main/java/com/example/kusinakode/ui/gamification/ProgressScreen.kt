@@ -37,6 +37,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.kusinakode.BottomNavTab
+import com.example.kusinakode.LevelProvider
 import com.example.kusinakode.KusinaBottomNav
 import com.example.kusinakode.PlayNowBrown
 import com.example.kusinakode.domain.model.BadgeVerification
@@ -538,7 +539,9 @@ internal fun RoundRow(
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(
-                    if (revealed) round.levelName else "Level ${round.levelId}",
+                    if (revealed) round.levelName
+                    else "${LevelProvider.forLevel(round.levelId).region.displayName} " +
+                        "Level ${LevelProvider.regionLevelNumber(round.levelId)}",
                     fontWeight = FontWeight.Bold,
                     color = ProgressInk,
                     fontSize = 13.sp

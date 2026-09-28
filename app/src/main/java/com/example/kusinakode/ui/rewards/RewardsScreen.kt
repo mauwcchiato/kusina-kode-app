@@ -8,6 +8,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -40,6 +42,11 @@ import androidx.compose.ui.window.PopupProperties
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.kusinakode.BottomNavTab
 import com.example.kusinakode.KusinaBottomNav
+import com.example.kusinakode.CoachMarkManager
+import com.example.kusinakode.ui.onboarding.CoachMarkOverlay
+import com.example.kusinakode.ui.onboarding.CoachStep
+import com.example.kusinakode.ui.onboarding.coachAnchor
+import com.example.kusinakode.ui.onboarding.rememberCoachAnchors
 import com.example.kusinakode.LevelProvider
 import com.example.kusinakode.R
 import com.example.kusinakode.SoundFx
@@ -114,6 +121,35 @@ fun RewardsScreen(
     }
     val historyPreview = historyNewestFirst.take(3)
 
+    // First-visit tour of the wallet.
+    val tourCtx = LocalContext.current
+    val coachAnchors = rememberCoachAnchors()
+    var showTour by remember { mutableStateOf(false) }
+    val walletScroll = rememberScrollState()
+    var tourAnchor by remember { mutableStateOf<String?>(null) }
+    var scrollOrigin by remember { mutableIntStateOf(0) }
+    var filmsTop by remember { mutableIntStateOf(0) }
+    var pantryTop by remember { mutableIntStateOf(0) }
+    var marketTop by remember { mutableIntStateOf(0) }
+    LaunchedEffect(Unit) {
+        if (!CoachMarkManager.isDone(tourCtx, CoachMarkManager.TOUR_WALLET)) {
+            delay(500)
+            showTour = true
+        }
+    }
+    LaunchedEffect(tourAnchor, filmsTop, pantryTop, marketTop) {
+        val target = when (tourAnchor) {
+            // Leave the Chef's Vault sign above the first row so the card
+            // doesn't cover it.
+            "wallet_films" -> filmsTop - 160
+            "wallet_pantry" -> pantryTop - 36
+            "wallet_market" -> marketTop - 36
+            else -> return@LaunchedEffect
+        }
+        walletScroll.animateScrollTo(target.coerceIn(0, walletScroll.maxValue))
+    }
+
+    Box(Modifier.fillMaxSize()) {
     Scaffold(
         containerColor = RewardsCreamBg,
         bottomBar = {
@@ -123,7 +159,8 @@ fun RewardsScreen(
                 onProfile = onProfile,
                 onLevels = onExplore,
                 onWallet = { /* already here */ },
-                onCompleted = onLearn
+                onCompleted = onLearn,
+                profileModifier = Modifier.coachAnchor("wallet_profile", coachAnchors)
             )
         }
     ) { inner ->
@@ -131,7 +168,8 @@ fun RewardsScreen(
             Modifier
                 .fillMaxSize()
                 .padding(bottom = inner.calculateBottomPadding())
-                .verticalScroll(rememberScrollState())
+                .verticalScroll(walletScroll)
+                .onGloballyPositioned { scrollOrigin = it.positionInWindow().y.toInt() }
         ) {
             Box(
                 Modifier
@@ -185,7 +223,9 @@ fun RewardsScreen(
                 Surface(
                     shape = RoundedCornerShape(22.dp),
                     shadowElevation = 8.dp,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .coachAnchor("wallet_balance", coachAnchors)
                 ) {
                     Column(
                         Modifier.background(
@@ -266,7 +306,9 @@ fun RewardsScreen(
                 Surface(
                     shape = RoundedCornerShape(18.dp),
                     color = RewardsCreamCard,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .coachAnchor("wallet_earn", coachAnchors)
                 ) {
                     Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
                         earnLines.forEach { line ->
@@ -287,7 +329,22 @@ fun RewardsScreen(
                 ChefsVault(
                     onDocumentaries = onDocumentaries,
                     onEncyclopedia = onEncyclopedia,
-                    onAvatarMarket = onAvatarMarket
+                    onAvatarMarket = onAvatarMarket,
+                    filmsModifier = Modifier
+                        .coachAnchor("wallet_films", coachAnchors)
+                        .onGloballyPositioned {
+                            filmsTop = (it.positionInWindow().y - scrollOrigin + walletScroll.value).toInt()
+                        },
+                    pantryModifier = Modifier
+                        .coachAnchor("wallet_pantry", coachAnchors)
+                        .onGloballyPositioned {
+                            pantryTop = (it.positionInWindow().y - scrollOrigin + walletScroll.value).toInt()
+                        },
+                    marketModifier = Modifier
+                        .coachAnchor("wallet_market", coachAnchors)
+                        .onGloballyPositioned {
+                            marketTop = (it.positionInWindow().y - scrollOrigin + walletScroll.value).toInt()
+                        }
                 )
 
                 Spacer(Modifier.height(20.dp))
@@ -338,9 +395,55 @@ fun RewardsScreen(
                 }
                 Spacer(Modifier.height(12.dp))
             }
-        
+
             }
         }
+    }
+
+    if (showTour) {
+        CoachMarkOverlay(
+            steps = listOf(
+                CoachStep(
+                    anchorKey = "wallet_balance",
+                    title = "Your KK balance",
+                    body = "This is your Kusina Kode coin balance. It's custodial - the app " +
+                        "keeps it for you, no wallet setup needed."
+                ),
+                CoachStep(
+                    anchorKey = "wallet_earn",
+                    title = "Earn more",
+                    body = "Solve dishes, clear whole islands and claim the daily reward to " +
+                        "stack up more KK."
+                ),
+                CoachStep(
+                    anchorKey = "wallet_films",
+                    title = "Food Documentary",
+                    body = "Heritage films. Spend KK here to watch the story of a dish."
+                ),
+                CoachStep(
+                    anchorKey = "wallet_pantry",
+                    title = "Kodex Pantry",
+                    body = "Trade KK for ingredient pages from the islands."
+                ),
+                CoachStep(
+                    anchorKey = "wallet_market",
+                    title = "Avatar Market",
+                    body = "Shop chef looks in the atelier."
+                ),
+                CoachStep(
+                    anchorKey = "wallet_profile",
+                    title = "Profile",
+                    body = "Your cook, badges, and progress live here."
+                )
+            ),
+            anchors = coachAnchors,
+            onStepChange = { tourAnchor = it.anchorKey },
+            onFinish = {
+                CoachMarkManager.markDone(tourCtx, CoachMarkManager.TOUR_WALLET)
+                showTour = false
+            }
+        )
+    }
     }
 }
 
@@ -508,7 +611,10 @@ private fun EarnRow(
 private fun ChefsVault(
     onDocumentaries: () -> Unit,
     onEncyclopedia: () -> Unit,
-    onAvatarMarket: () -> Unit
+    onAvatarMarket: () -> Unit,
+    filmsModifier: Modifier = Modifier,
+    pantryModifier: Modifier = Modifier,
+    marketModifier: Modifier = Modifier
 ) {
     val stall = painterResource(R.drawable.vault_stall)
     val stallAspect = run {
@@ -545,6 +651,7 @@ private fun ChefsVault(
                 subtitle = "Heritage films",
                 cta = "Watch",
                 ctaTone = VaultCtaTone.Gold,
+                modifier = filmsModifier,
                 onClick = onDocumentaries
             )
             Spacer(Modifier.height(12.dp))
@@ -554,6 +661,7 @@ private fun ChefsVault(
                 subtitle = "Ingredients of the islands",
                 cta = "Trade",
                 ctaTone = VaultCtaTone.Maple,
+                modifier = pantryModifier,
                 onClick = onEncyclopedia
             )
             Spacer(Modifier.height(12.dp))
@@ -563,6 +671,7 @@ private fun ChefsVault(
                 subtitle = "Chef's Atelier",
                 cta = "Shop",
                 ctaTone = VaultCtaTone.Copper,
+                modifier = marketModifier,
                 onClick = onAvatarMarket
             )
         }

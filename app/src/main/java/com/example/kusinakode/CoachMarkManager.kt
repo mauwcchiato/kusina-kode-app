@@ -16,7 +16,15 @@ object CoachMarkManager {
     /** The first-login tour of the Home dashboard. Bumped when the
      *  spotlight layout changed so cooks who saw the old, mis-aimed
      *  version still get the corrected walkthrough. */
-    const val TOUR_HOME = "home_v3"
+    const val TOUR_HOME = "home_v5"
+
+    /** First-visit tours of each main screen, mirroring [TOUR_HOME]: each one
+     *  fires the first time a cook opens that screen and spotlights what matters
+     *  there. Bump a suffix if that screen's spotlight layout changes. */
+    const val TOUR_EXPLORE = "explore_v3"
+    const val TOUR_LEARN = "learn_v1"
+    const val TOUR_WALLET = "wallet_v2"
+    const val TOUR_PROFILE = "profile_v1"
 
     private fun key(tour: String, userId: Int?): String =
         "coach_${tour}_${userId ?: 0}"

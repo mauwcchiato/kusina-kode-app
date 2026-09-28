@@ -121,14 +121,23 @@ class AchievementBadgeTest {
     @Test
     fun `world explorer needs every region`() {
         var p = PlayerProgress()
-        listOf("LUZON", "VISAYAS", "MINDANAO").forEachIndexed { i, r ->
+        listOf("LUZON", "VISAYAS").forEachIndexed { i, r ->
             p = ProgressRules.advance(p, round(levelId = i + 1, region = r))
         }
         assertFalse("world_explorer" in ids(p))
 
-        p = ProgressRules.advance(p, round(levelId = 9, region = "PHILIPPINES"))
+        p = ProgressRules.advance(p, round(levelId = 9, region = "MINDANAO"))
         assertEquals(BadgeRules.REGION_COUNT, p.regionsSolved.size)
         assertTrue("world_explorer" in ids(p))
+    }
+
+    @Test
+    fun `a retired region in an old save does not count toward world explorer`() {
+        var p = PlayerProgress()
+        listOf("LUZON", "VISAYAS", "PHILIPPINES").forEachIndexed { i, r ->
+            p = ProgressRules.advance(p, round(levelId = i + 1, region = r))
+        }
+        assertFalse("world_explorer" in ids(p))
     }
 
     @Test

@@ -146,7 +146,15 @@ internal fun PalayokWheelOverlay(
         val per = 360f / WheelSlices.size
         val target = 360f * 5 - (slice * per + per / 2f)
         turn.snapTo(0f)
-        turn.animateTo(target, tween(2600, easing = FastOutSlowInEasing))
+        // The wheel's whirr runs exactly as long as it turns: one of the four
+        // takes at random, looped, and stopped the moment it lands — or when
+        // the sheet closes mid-spin, since the finally runs on cancel too.
+        val whirr = SoundFx.loop(ctx, SoundFx.Cue.Wheel.random())
+        try {
+            turn.animateTo(target, tween(2600, easing = FastOutSlowInEasing))
+        } finally {
+            whirr.stop()
+        }
         settled = true
         SoundFx.play(ctx, SoundFx.Cue.Badge)
         SoundFx.vibrate(ctx, 30)

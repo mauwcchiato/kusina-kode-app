@@ -104,6 +104,82 @@ object LevelProvider {
         levels.indexOfFirst { it.dish.slug == slug }.takeIf { it >= 0 }?.plus(1)
 
     /**
+     * The global level ids belonging to [region], ordered by word length
+     * ascending (ties broken by the global id). This is the exact order the
+     * Game Map numbers a region's dishes Level 1..N in — Level 1 is the
+     * shortest word — so anything that shows a player-facing level number must
+     * derive it from here to stay consistent with the map.
+     */
+    fun regionOrder(region: Region): List<Int> =
+        (1..levelCount)
+            .filter { forLevel(it).region == region }
+            .sortedWith(compareBy({ forLevel(it).answer.length }, { it }))
+
+    /**
+     * The per-region "Level N" a player sees for a global level id — its
+     * 1-based position within its own region's [regionOrder]. Falls back to the
+     * global id if the level is somehow not found. The global id is still what
+     * progress, unlocks and the server are keyed to; this is display only.
+     */
+    fun regionLevelNumber(globalId: Int): Int {
+        val region = runCatching { forLevel(globalId).region }.getOrNull() ?: return globalId
+        val idx = regionOrder(region).indexOf(globalId)
+        return if (idx >= 0) idx + 1 else globalId
+    }
+
+    /**
+     * The global id of the level to nudge the player toward next, given the set
+     * of solved global ids: the first still-unsolved level that is *unlocked*,
+     * scanning regions in order and, within a region, by [regionOrder] (word
+     * length). Each region's Level 1 is always unlocked; Level K unlocks once
+     * that region's previous level is solved. This is exactly what the Game Map
+     * offers as PLAY NOW, so any "continue" entry point (e.g. the Home card)
+     * must use this rather than a global maxSolved+1, which would skip across
+     * regions. Falls back to the first unsolved level overall, then level 1.
+     */
+    /**
+     * The global id of the next level within the *same* region (by
+     * [regionOrder], i.e. the next-longest word), or null if this is that
+     * region's last level. The win screen's NEXT LEVEL uses this so finishing
+     * "Visayas Level 1" continues to "Visayas Level 2" instead of jumping to
+     * whatever global id happens to sit at level+1 in another island.
+     */
+    fun nextInRegion(globalId: Int): Int? {
+        val region = runCatching { forLevel(globalId).region }.getOrNull() ?: return null
+        val order = regionOrder(region)
+        val idx = order.indexOf(globalId)
+        return if (idx >= 0 && idx + 1 < order.size) order[idx + 1] else null
+    }
+
+    /**
+     * The first unlocked, unsolved level *within one region* (by [regionOrder]),
+     * or null if that region is fully solved. Used to keep the Home "Continue"
+     * card on the island the player is currently working through.
+     */
+    fun nextPlayableInRegion(region: Region, solved: Set<Int>): Int? {
+        val order = regionOrder(region)
+        for (idx in order.indices) {
+            val gid = order[idx]
+            if (gid in solved) continue
+            val unlocked = idx == 0 || order[idx - 1] in solved
+            if (unlocked) return gid
+        }
+        return null
+    }
+
+    fun nextPlayable(solved: Set<Int>): Int {
+        Region.entries.forEach { region ->
+            nextPlayableInRegion(region, solved)?.let { return it }
+        }
+        // Nothing unlocked-and-unsolved: fall back to the first unsolved level
+        // anywhere, then level 1.
+        Region.entries.forEach { region ->
+            regionOrder(region).firstOrNull { it !in solved }?.let { return it }
+        }
+        return 1
+    }
+
+    /**
      * What the Levels panel owns, keyed by the puzzle word.
      *
      * The server's `word` column holds the answer, which is what
@@ -223,7 +299,7 @@ object LevelProvider {
             slug = "remote_$w",
             name = display,
             answer = w.uppercase(),
-            region = region ?: Region.PHILIPPINES,
+            region = region ?: Region.LUZON,
             origin = "",
             rating = rating.orEmpty(),
             cookingTime = cookingTime.orEmpty(),

@@ -629,7 +629,7 @@ private fun BobbingBaul(
 
 /**
  * The chosen pot slides from its grid seat to the centre, rattles for
- * about three seconds, then bursts. One ingredient stays on the spotlight
+ * about a second, then bursts. One ingredient stays on the spotlight
  * for two seconds (or until tapped) before the card opens. OPEN ALL keeps
  * the open palayok and shows each drawn ingredient one by one, bigger,
  * then the cards.
@@ -641,6 +641,9 @@ private enum class OpenPhase { Travel, Shake, Burst }
  * the haul screen. Everything drawn is still awarded and still listed there.
  */
 private const val MAX_PARADED = 6
+
+/** Minimum time the chosen pot rattles before it may burst open. */
+private const val SHAKE_MS = 1_000L
 
 @Composable
 private fun OpeningBeat(
@@ -720,10 +723,10 @@ private fun OpeningBeat(
     LaunchedEffect(phase) {
         if (phase != OpenPhase.Shake) return@LaunchedEffect
         var elapsed = 0L
-        while (elapsed < 3_000L) {
+        while (elapsed < SHAKE_MS) {
             SoundFx.vibrate(ctx, 14)
-            delay(550)
-            elapsed += 550
+            delay(250)
+            elapsed += 250
         }
         shakeDone = true
     }

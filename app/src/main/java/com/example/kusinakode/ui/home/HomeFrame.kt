@@ -95,6 +95,7 @@ fun HomeHeader(
     /** Unread inbox entries plus anything waiting to be claimed. */
     unreadNotifications: Int = 0,
     onSettings: () -> Unit,
+    bellModifier: Modifier = Modifier,
     /**
      * Extra brown below the header row for the hero card to lap into.
      * Applied to the inner Row, not the outer modifier: padding on the outer
@@ -195,7 +196,7 @@ fun HomeHeader(
 
             // The inbox had no door: onNotifications was wired from
             // MainActivity but nothing on Home ever called it.
-            Box(contentAlignment = Alignment.TopEnd) {
+            Box(bellModifier, contentAlignment = Alignment.TopEnd) {
                 Box(
                     Modifier
                         .size(36.dp)
@@ -277,7 +278,9 @@ fun HomeStatsRow(
     coins: Long,
     badges: Int,
     modifier: Modifier = Modifier,
+    foodsModifier: Modifier = Modifier,
     regionsModifier: Modifier = Modifier,
+    coinsModifier: Modifier = Modifier,
     badgesModifier: Modifier = Modifier
 ) {
     Surface(
@@ -289,7 +292,11 @@ fun HomeStatsRow(
             Modifier.padding(vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            StatCell(Icons.Default.Restaurant, "$foods", "FOODS", Modifier.weight(1f))
+            StatCell(
+                Icons.Default.Restaurant, "$foods", "FOODS",
+                modifier = Modifier.weight(1f),
+                anchorModifier = foodsModifier
+            )
             CellDivider()
             StatCell(
                 Icons.Default.Public, "$regions", "REGIONS",
@@ -302,7 +309,8 @@ fun HomeStatsRow(
                 value = "$coins",
                 label = "COINS",
                 modifier = Modifier.weight(1f),
-                glyph = "KK"
+                glyph = "KK",
+                anchorModifier = coinsModifier
             )
             CellDivider()
             StatCell(
@@ -479,7 +487,6 @@ fun regionIcon(region: Region): Int = when (region) {
     Region.LUZON -> R.drawable.region_luzon
     Region.VISAYAS -> R.drawable.region_visayas
     Region.MINDANAO -> R.drawable.region_mindanao
-    Region.PHILIPPINES -> R.drawable.region_philippines
 }
 
 /**
@@ -492,7 +499,6 @@ fun homeMapArt(region: Region): Int = when (region) {
     Region.LUZON -> R.drawable.home_map_luzon
     Region.VISAYAS -> R.drawable.home_map_visayas
     Region.MINDANAO -> R.drawable.home_map_mindanao
-    Region.PHILIPPINES -> R.drawable.home_map_philippines
 }
 
 /** Section heading with the "See All ›" affordance. */

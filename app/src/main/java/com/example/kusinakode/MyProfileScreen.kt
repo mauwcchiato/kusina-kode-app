@@ -47,6 +47,11 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import com.example.kusinakode.ui.onboarding.CoachMarkOverlay
+import com.example.kusinakode.ui.onboarding.CoachStep
+import com.example.kusinakode.ui.onboarding.coachAnchor
+import com.example.kusinakode.ui.onboarding.rememberCoachAnchors
+import kotlinx.coroutines.delay
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.window.Dialog
@@ -177,6 +182,17 @@ fun MyProfileScreen(
             )
     }
 
+    // First-visit tour of the profile.
+    val coachAnchors = rememberCoachAnchors()
+    var showTour by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        if (!CoachMarkManager.isDone(ctx, CoachMarkManager.TOUR_PROFILE)) {
+            delay(500)
+            showTour = true
+        }
+    }
+
+    Box(Modifier.fillMaxSize()) {
     Scaffold(
         containerColor = CreamBg,
         bottomBar = {
@@ -348,6 +364,7 @@ fun MyProfileScreen(
                     color = CreamCard,
                     modifier = Modifier
                         .fillMaxWidth()
+                        .coachAnchor("profile_badges", coachAnchors)
                         .clickable { showBadgePicker = true }
                 ) {
                     Row(
@@ -370,6 +387,7 @@ fun MyProfileScreen(
                     color = CreamCard,
                     modifier = Modifier
                         .fillMaxWidth()
+                        .coachAnchor("profile_leaderboard", coachAnchors)
                         .clickable { onLeadership() }
                 ) {
                     Row(
@@ -418,6 +436,7 @@ fun MyProfileScreen(
                     color = CreamCard,
                     modifier = Modifier
                         .fillMaxWidth()
+                        .coachAnchor("profile_progress", coachAnchors)
                         .clickable { onProgress() }
                 ) {
                     Row(
@@ -563,6 +582,37 @@ fun MyProfileScreen(
             onSave = { userId?.let { viewModel.saveProfile(it) } },
             onDismiss = { if (!ui.isSaving) viewModel.cancelEdit() }
         )
+    }
+
+    if (showTour) {
+        CoachMarkOverlay(
+            steps = listOf(
+                CoachStep(
+                    anchorKey = "profile_badges",
+                    title = "Digital badges",
+                    body = "Badges you earn are minted on-chain, not just stored on your " +
+                        "phone. Tap Edit to choose which four to show off."
+                ),
+                CoachStep(
+                    anchorKey = "profile_leaderboard",
+                    title = "Global leaderboard",
+                    body = "See how your points stack up against every other cook, and " +
+                        "climb the ranks as you solve more."
+                ),
+                CoachStep(
+                    anchorKey = "profile_progress",
+                    title = "My progress",
+                    body = "Your points, badges and recent rounds, all in one place - a " +
+                        "quick read on how far you've come."
+                )
+            ),
+            anchors = coachAnchors,
+            onFinish = {
+                CoachMarkManager.markDone(ctx, CoachMarkManager.TOUR_PROFILE)
+                showTour = false
+            }
+        )
+    }
     }
 }
 
