@@ -641,6 +641,7 @@ fun ExploreScreen(
                                     region = region,
                                     levels = regionLevels,
                                     dishesModifier = Modifier.coachAnchor("explore_dishes", coachAnchors),
+                                    nextLevelModifier = Modifier.coachAnchor("explore_level", coachAnchors),
                                     onDishList = { sheetRegion = region },
                                     onBack = { selectedRegion = null },
                                     topInset = 12.dp,
@@ -710,6 +711,7 @@ fun ExploreScreen(
                             .readableWidth()
                             .padding(start = 12.dp, end = 12.dp, top = MapSearchTop)
                             .onGloballyPositioned { topPanelHeightPx = it.size.height }
+                            .coachAnchor("explore_panel", coachAnchors)
                     )
                 }
 
@@ -792,30 +794,30 @@ fun ExploreScreen(
         CoachMarkOverlay(
             steps = listOf(
                 CoachStep(
-                    anchorKey = "explore_map",
+                    anchorKey = "explore_panel",
                     title = "Pick an island",
-                    body = "The whole map is yours to explore. Tap Luzon, Visayas or " +
-                        "Mindanao to take a road trip there. Each island keeps its own " +
-                        "Level 1, 2, 3…"
+                    body = "The map is yours to explore: tap any island to take a road " +
+                        "trip there. Search here to find a dish you've already solved."
                 ),
                 CoachStep(
                     anchorKey = "explore_pin",
-                    title = "Region pins",
-                    body = "Each pin names the island and how many dishes you've cooked " +
-                        "there. Tap Luzon, Visayas, or Mindanao to focus on it."
+                    title = "Island pins",
+                    body = "Each pin shows how many of that island's dishes you've cooked. " +
+                        "The chef waits by your next one, and walks the road to any " +
+                        "island you tap."
                 ),
                 CoachStep(
-                    anchorKey = "explore_dishes",
+                    anchorKey = "explore_level",
                     title = "Island levels",
-                    body = "Each circle on the island is a level. Solved ones show their " +
-                        "dish, the glowing one is next, and the rest are mystery dishes. " +
-                        "Dish list opens the whole kitchen."
+                    body = "Each circle is a level. Solved ones show their dish, the chef " +
+                        "stands on your next one, and the rest are mystery dishes."
                 ),
                 CoachStep(
                     anchorKey = "explore_kitchen",
                     title = "The kitchen",
-                    body = "Solved dishes show their photo. The next one has a play " +
-                        "button. The rest stay a mystery until you reach them."
+                    body = "Dish list opens this: every dish on the island in one place. " +
+                        "Solved ones show their photo; the rest stay a mystery until " +
+                        "you reach them."
                 ),
                 CoachStep(
                     anchorKey = "explore_cta",
@@ -838,8 +840,8 @@ fun ExploreScreen(
             onStepChange = { step ->
                 tourAnchor = step.anchorKey
                 when (step.anchorKey) {
-                    "explore_dishes", "explore_kitchen" -> selectedRegion = Region.LUZON
-                    "explore_pin", "explore_map", "explore_cta", "explore_home" ->
+                    "explore_level", "explore_kitchen" -> selectedRegion = Region.LUZON
+                    "explore_panel", "explore_pin", "explore_cta", "explore_home" ->
                         selectedRegion = null
                 }
             }
@@ -1720,7 +1722,9 @@ private fun IslandLevelsLayer(
     /** Space kept clear at the top for the map's search bar. */
     topInset: Dp = 12.dp,
     /** Space kept clear at the foot for PLAY NOW and the bottom bar. */
-    bottomInset: Dp = 76.dp
+    bottomInset: Dp = 76.dp,
+    /** Marks the next level's stop, for the walkthrough to spotlight. */
+    nextLevelModifier: Modifier = Modifier
 ) {
     val solved = levels.count { it.isSolved }
     val total = levels.size
@@ -1815,6 +1819,7 @@ private fun IslandLevelsLayer(
             LevelPath(
                 levels = levels,
                 onOpen = onOpen,
+                nextLevelModifier = nextLevelModifier,
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
@@ -1832,7 +1837,8 @@ private fun IslandLevelsLayer(
 private fun LevelPath(
     levels: List<RegionLevel>,
     onOpen: (RegionLevel) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    nextLevelModifier: Modifier = Modifier
 ) {
     if (levels.isEmpty()) return
     val ctx = LocalContext.current
@@ -1898,7 +1904,9 @@ private fun LevelPath(
                 lvl = lvl,
                 isCurrent = lvl == current,
                 size = node,
-                modifier = Modifier.offset(x = cx - node / 2, y = cy - node / 2)
+                modifier = Modifier
+                    .offset(x = cx - node / 2, y = cy - node / 2)
+                    .then(if (lvl == current) nextLevelModifier else Modifier)
             ) {
                 if (lvl.isSolved || lvl.isUnlocked) {
                     onOpen(lvl)

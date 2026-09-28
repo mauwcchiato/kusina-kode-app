@@ -4,6 +4,7 @@ import com.example.kusinakode.ui.components.clickSfx
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -260,28 +261,36 @@ fun CoachMarkOverlay(
                             fontSize = 14.sp,
                             lineHeight = 21.sp
                         )
-                        Spacer(Modifier.height(16.dp))
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(10.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            KusinaButton(
-                                label = "Skip",
-                                onClick = clickSfx(onFinish),
-                                tone = KusinaButtonTone.Parchment,
-                                height = 46.dp,
-                                fontSize = 14.sp,
-                                modifier = Modifier.weight(1f)
-                            )
+                        Spacer(Modifier.height(14.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            // Skip is just a word, still tappable: the tour
+                            // should not ask for a decision on every step. Its
+                            // touch area is padded out so it is easy to hit.
+                            // Hidden on the last step, where Got it ends it anyway.
+                            if (index < steps.lastIndex) {
+                                Text(
+                                    "Skip",
+                                    color = CoachSkipInk,
+                                    fontFamily = BeVietnamPro,
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 14.sp,
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .clickable(onClick = clickSfx(onFinish))
+                                        .padding(horizontal = 8.dp, vertical = 10.dp)
+                                )
+                            }
+                            Spacer(Modifier.weight(1f))
+                            // A small carved Next, sized to its word.
                             KusinaButton(
                                 label = if (index >= steps.lastIndex) "Got it" else "Next",
                                 onClick = clickSfx {
                                     if (index >= steps.lastIndex) onFinish() else index++
                                 },
                                 tone = KusinaButtonTone.Brown,
-                                height = 46.dp,
-                                fontSize = 14.sp,
-                                modifier = Modifier.weight(1.4f)
+                                height = 40.dp,
+                                fontSize = 13.sp,
+                                modifier = Modifier.width(CoachNextWidth)
                             )
                         }
                     }
@@ -296,3 +305,6 @@ private val CoachTitleInk = Color(0xFF4A2412)
 private val CoachBodyInk = Color(0xFF6B4A33)
 private val CoachBeadOn = Color(0xFFA4724C)
 private val CoachBeadOff = Color(0xFFD9C7A6)
+private val CoachSkipInk = Color(0xFF8A6A4E)
+/** Room for "Got it" on the carved pill; "Next" is centred in the same width. */
+private val CoachNextWidth = 108.dp
