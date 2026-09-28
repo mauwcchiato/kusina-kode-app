@@ -76,7 +76,12 @@ import kotlin.math.roundToInt
 data class CoachStep(
     val anchorKey: String? = null,
     val title: String,
-    val body: String
+    val body: String,
+    /**
+     * Sit the card at the foot of the screen instead of beside the spotlight,
+     * for a spotlight too tall to leave room above or below it.
+     */
+    val cardAtBottom: Boolean = false
 )
 
 /**
@@ -149,7 +154,9 @@ fun CoachMarkOverlay(
             val sidePadPx = with(density) { 20.dp.toPx() }
             val estimatedCard = cardHeightPx.takeIf { it > 0f } ?: minCardPx
 
-            val cardTopPx = localTarget?.let { spot ->
+            val cardTopPx = if (step.cardAtBottom) {
+                windowHeightPx - estimatedCard - with(density) { 28.dp.toPx() }
+            } else localTarget?.let { spot ->
                 val below = spot.bottom + gapPx
                 val above = spot.top - gapPx - estimatedCard
                 val fitsBelow = below + estimatedCard < windowHeightPx - 12f

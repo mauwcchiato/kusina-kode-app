@@ -21,7 +21,7 @@ object CoachMarkManager {
     /** First-visit tours of each main screen, mirroring [TOUR_HOME]: each one
      *  fires the first time a cook opens that screen and spotlights what matters
      *  there. Bump a suffix if that screen's spotlight layout changes. */
-    const val TOUR_EXPLORE = "explore_v4"
+    const val TOUR_EXPLORE = "explore_v5"
     const val TOUR_LEARN = "learn_v1"
     const val TOUR_WALLET = "wallet_v2"
     const val TOUR_PROFILE = "profile_v1"

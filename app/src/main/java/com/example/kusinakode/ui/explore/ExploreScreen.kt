@@ -226,7 +226,6 @@ fun ExploreScreen(
 
     var selectedRegion by remember(initialRegion) { mutableStateOf(initialRegion) }
     var sheetRegion by remember { mutableStateOf<Region?>(null) }
-    var query by remember { mutableStateOf("") }
     LaunchedEffect(initialRegion) { selectedRegion = initialRegion }
 
     // First-visit tour of the Game Map itself: what the chips do, that the map
@@ -358,15 +357,8 @@ fun ExploreScreen(
             val nextRegion = nextTarget?.region
             // The island the chef is travelling to, while a road trip is under way.
             var tripTo by remember { mutableStateOf<Region?>(null) }
-            var topPanelHeightPx by remember { mutableIntStateOf(0) }
-            val density = LocalDensity.current
-            // On the whole map the art starts below the top panel, so the panel
-            // never sits over Luzon; an open island uses the full height.
-            val mapArtTop = if (selectedRegion == null) {
-                MapSearchTop + with(density) { topPanelHeightPx.toDp() } + 4.dp
-            } else {
-                0.dp
-            }
+            // The islands use the map's full height; nothing is docked above them.
+            val mapArtTop = 0.dp
 
             Box(
                 Modifier
@@ -560,6 +552,22 @@ fun ExploreScreen(
                                 }
                             }
 
+                            // An invisible frame around the three islands, the
+                            // chef and their labels: what the walkthrough's first
+                            // step spotlights. Draws nothing and takes no touches.
+                            if (selectedRegion == null) {
+                                val left = stops.minOf { it.x } - IslandsPadSide
+                                val right = stops.maxOf { it.x } + IslandsPadSide
+                                val top = stops.minOf { it.y } - IslandsPadTop
+                                val bottom = stops.maxOf { it.y } + IslandsPadBottom
+                                Box(
+                                    Modifier
+                                        .offset(x = left.dp, y = top.dp)
+                                        .size(width = (right - left).dp, height = (bottom - top).dp)
+                                        .coachAnchor("explore_islands", coachAnchors)
+                                )
+                            }
+
                             if (selectedRegion == null) pinSpots.forEachIndexed { i, (region, _, _) ->
                                 val inRegion = allLevels.filter { it.region == region }
                                 val solvedHere = inRegion.count { it.isSolved }
@@ -697,62 +705,20 @@ fun ExploreScreen(
                     }
                 }
 
-                // ---- Top panel: what to do here, and the search ----
-                // One parchment panel instead of a search bar and a separate
-                // hint floating on their own. Whole map only: an open island
-                // has its own header, and searching belongs to the full chart.
-                if (selectedRegion == null) {
+                // Nothing sits over the whole map at rest: the walkthrough says
+                // what to do, and the islands have the full height. Only while
+                // the chef is travelling does a note say where they are headed.
+                val dest = tripTo
+                if (selectedRegion == null && dest != null) {
                     MapTopPanel(
-                        tripTo = tripTo,
-                        query = query,
-                        onQueryChange = { query = it },
+                        tripTo = dest,
                         modifier = Modifier
                             .align(Alignment.TopCenter)
                             .readableWidth()
                             .padding(start = 12.dp, end = 12.dp, top = MapSearchTop)
-                            .onGloballyPositioned { topPanelHeightPx = it.size.height }
-                            .coachAnchor("explore_panel", coachAnchors)
                     )
                 }
 
-                // Search results float over the map rather than pushing it
-                // down, since the map no longer scrolls.
-                if (selectedRegion == null && query.isNotBlank()) {
-                    val matches = allLevels.filter {
-                        it.isSolved && it.name.contains(query.trim(), ignoreCase = true)
-                    }
-                    Surface(
-                        shape = RoundedCornerShape(14.dp),
-                        color = Color.White,
-                        shadowElevation = 10.dp,
-                        border = BorderStroke(1.dp, OutlineDefault.copy(alpha = 0.6f)),
-                        modifier = Modifier
-                            .align(Alignment.TopCenter)
-                            .readableWidth()
-                            .padding(start = 12.dp, end = 12.dp, top = MapSearchTop + with(density) { topPanelHeightPx.toDp() } + 4.dp)
-                            .fillMaxWidth()
-                            .heightIn(max = 300.dp)
-                    ) {
-                        Column(
-                            Modifier
-                                .verticalScroll(rememberScrollState())
-                                .padding(6.dp)
-                        ) {
-                            if (matches.isEmpty()) {
-                                Text(
-                                    "No solved dishes match — solve more to fill your map!",
-                                    color = HintGray,
-                                    fontSize = 12.sp,
-                                    modifier = Modifier.padding(12.dp)
-                                )
-                            } else {
-                                matches.forEach { lvl ->
-                                    LevelRow(lvl, onPlayLevel, onViewDish)
-                                }
-                            }
-                        }
-                    }
-                }
             }
         }
     }
@@ -794,10 +760,12 @@ fun ExploreScreen(
         CoachMarkOverlay(
             steps = listOf(
                 CoachStep(
-                    anchorKey = "explore_panel",
-                    title = "Pick an island",
-                    body = "The map is yours to explore: tap any island to take a road " +
-                        "trip there. Search here to find a dish you've already solved."
+                    anchorKey = "explore_islands",
+                    title = "Tap an island to start your food trip",
+                    body = "Luzon, Visayas and Mindanao each have their own mystery " +
+                        "dishes, from Level 1 up.",
+                    // The islands fill the map, so the card waits at the foot.
+                    cardAtBottom = true
                 ),
                 CoachStep(
                     anchorKey = "explore_pin",
@@ -841,7 +809,7 @@ fun ExploreScreen(
                 tourAnchor = step.anchorKey
                 when (step.anchorKey) {
                     "explore_level", "explore_kitchen" -> selectedRegion = Region.LUZON
-                    "explore_panel", "explore_pin", "explore_cta", "explore_home" ->
+                    "explore_islands", "explore_pin", "explore_cta", "explore_home" ->
                         selectedRegion = null
                 }
             }
@@ -2161,76 +2129,14 @@ private const val RoadTripPrints = 7
 private const val PhArtWidth = 688f
 private const val PhArtHeight = 1024f
 
-private val SlimSearchHeight = 40.dp
 
-/** Where the search sits inside the map, and where what follows it starts. */
+/** Where the top panel sits inside the map. */
 private val MapSearchTop = 12.dp
-private val MapInsetTop = MapSearchTop + SlimSearchHeight + 8.dp
 /** Room kept at the map's foot for the floating PLAY NOW button. */
 private val MapCtaRoom = 76.dp
 /** Share of the map's width the PLAY NOW button takes. */
 private const val MapCtaWidth = 0.8f
 
-/** A slimmer search bar than the Material field, so the map keeps the room. */
-@Composable
-private fun SlimSearchField(
-    value: String,
-    onValueChange: (String) -> Unit,
-    placeholder: String
-) {
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .height(SlimSearchHeight)
-            .shadow(6.dp, RoundedCornerShape(12.dp))
-            .clip(RoundedCornerShape(12.dp))
-            .background(Color.White)
-            .border(1.dp, OutlineDefault, RoundedCornerShape(12.dp))
-            .padding(horizontal = 12.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(
-            Icons.Default.Search,
-            contentDescription = null,
-            tint = HintGray,
-            modifier = Modifier.size(18.dp)
-        )
-        Spacer(Modifier.width(8.dp))
-        Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
-            if (value.isEmpty()) {
-                Text(
-                    placeholder,
-                    color = HintGray.copy(alpha = 0.7f),
-                    fontFamily = BeVietnamPro,
-                    fontSize = 13.sp,
-                    maxLines = 1
-                )
-            }
-            BasicTextField(
-                value = value,
-                onValueChange = onValueChange,
-                singleLine = true,
-                textStyle = TextStyle(
-                    color = TextDark,
-                    fontFamily = BeVietnamPro,
-                    fontSize = 13.sp
-                ),
-                cursorBrush = SolidColor(DarkBrown),
-                modifier = Modifier.fillMaxWidth()
-            )
-        }
-        if (value.isNotEmpty()) {
-            Icon(
-                Icons.Default.Close,
-                contentDescription = "Clear search",
-                tint = HintGray,
-                modifier = Modifier
-                    .size(18.dp)
-                    .clickable { onValueChange("") }
-            )
-        }
-    }
-}
 
 
 /**
@@ -2248,19 +2154,20 @@ private const val MapArtFade = 0.12f
 private const val MapArtFadeTop = 0.06f
 
 /**
- * The whole map's single top panel, on parchment: the instruction (or, while
- * the chef is on the road, where they are headed) above the dish search.
+ * The whole map's single top panel, on parchment: the instruction, or while
+ * the chef is on the road, where they are headed.
  */
 @Composable
 private fun MapTopPanel(
     tripTo: Region?,
-    query: String,
-    onQueryChange: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     ParchmentCard(modifier = modifier, contentPadding = 12.dp) {
         Column {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.align(Alignment.CenterHorizontally)
+            ) {
                 Box(
                     Modifier
                         .size(24.dp)
@@ -2277,7 +2184,7 @@ private fun MapTopPanel(
                 }
                 Spacer(Modifier.width(8.dp))
                 Text(
-                    if (tripTo != null) "Road trip to ${tripTo.displayName}!"
+                    if (tripTo != null) "Food trip to ${tripTo.displayName}!"
                     else "Tap an island to start your road trip",
                     color = PlateInk,
                     fontFamily = BeVietnamPro,
@@ -2285,12 +2192,8 @@ private fun MapTopPanel(
                     fontSize = 14.sp
                 )
             }
-            Spacer(Modifier.height(8.dp))
-            SlimSearchField(
-                value = query,
-                onValueChange = onQueryChange,
-                placeholder = "Search a dish you've solved…"
-            )
+            // Clear of the plate's stitched lower edge.
+            Spacer(Modifier.height(4.dp))
         }
     }
 }
@@ -2300,3 +2203,10 @@ private val PlateInk = Color(0xFF4A2412)
 private val PlateInkSoft = Color(0xFF7A5A40)
 private val PlateCream = Color(0xFFFFF1D6)
 private val PlateGold = Color(0xFFE8B34A)
+
+/** Margins (dp) around the island stops for the walkthrough's islands frame:
+ *  wide enough for the chef on the left and the labels on the right, tall
+ *  enough for a pin above its stop and its label below. */
+private const val IslandsPadSide = 80f
+private const val IslandsPadTop = 64f
+private const val IslandsPadBottom = 44f

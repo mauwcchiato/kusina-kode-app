@@ -129,6 +129,11 @@ fun PantryDrawOverlay(
     onSellNow: ((DrawResult) -> Unit)? = null,
     sellingNow: Boolean = false,
     haul: List<DrawResult> = emptyList(),
+    /**
+     * A palayok is still on its way (a win whose grant has not landed yet).
+     * The pots show anyway; this stops an empty count from closing them.
+     */
+    awaitingGrant: Boolean = false,
     onDismissHaul: () -> Unit = {}
 ) {
     HoldsTheScreen()
@@ -171,9 +176,10 @@ fun PantryDrawOverlay(
         if (drawing) sawDrawing = true
     }
 
-    LaunchedEffect(drawsAvailable, reveal, beat, drawingAll, haul.size) {
+    LaunchedEffect(drawsAvailable, reveal, beat, drawingAll, haul.size, awaitingGrant) {
         if (beat == BaulBeat.Choose &&
             drawsAvailable <= 0 &&
+            !awaitingGrant &&
             reveal == null &&
             !drawingAll &&
             haul.isEmpty()

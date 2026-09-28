@@ -72,6 +72,8 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -107,6 +109,8 @@ import com.example.kusinakode.ui.theme.GrayBrown
 import com.example.kusinakode.ui.theme.LightOrange
 import com.example.kusinakode.ui.tutorial.HowToPlayContent
 import kotlinx.coroutines.delay
+import androidx.compose.runtime.rememberUpdatedState
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.flow.first
 import androidx.compose.runtime.snapshotFlow
 import kotlin.random.Random
@@ -172,7 +176,12 @@ fun GameScreen(
     holdTiles: () -> Boolean = { false },
     /** True only when this win leaves no dish unsolved on any island — the
      *  one time leaving the win screen plays the clapping-chef finale. */
-    finishesGame: Boolean = false
+    finishesGame: Boolean = false,
+    /** True when this dish was already solved before the round (a replay):
+     *  its heritage card is in the collection, so there is nothing to claim. */
+    cardAlreadyClaimed: Boolean = false,
+    /** Reports the tile grid's centre, in window coordinates. */
+    onGridCenter: (Offset) -> Unit = {}
 ) {
     val ctx = LocalContext.current
     val prefs by KusinaSettings.prefs.collectAsState()
@@ -212,20 +221,51 @@ fun GameScreen(
     var potPolling by remember(level) { mutableStateOf(false) }
     var potSpent by remember(level) { mutableStateOf(false) }
     var awaitingPot by remember(level) { mutableStateOf(false) }
+    // This win's palayok could not be opened here; the win screen says it is
+    // waiting in the Pantry (the server pays it on the next pantry load).
+    var palayokMissed by remember(level) { mutableStateOf(false) }
 
     // Grant lands a beat after the win posts. Start asking during the
     // heritage card so the pot is ready the moment it is claimed.
+    //
+    // Each ask waits for the server's answer, and the wait is bounded by time
+    // rather than by a count. It used to fire five loads 600 ms apart and read
+    // the state without waiting for any of them, so on a slower connection the
+    // grant arrived after the loop had already decided there was no palayok —
+    // and the pot was skipped even though it had been granted.
+    //
+    // The first ask waits for the win itself to be saved. The server grants a
+    // palayok only for a win it has on record, and asking at the same moment
+    // the win was sent usually got "not solved yet" and cost a wasted round
+    // trip; that was most of the wait the player could see.
+    val winSavedNow by rememberUpdatedState(uiState.winSaved)
     LaunchedEffect(uiState.hasWon, level) {
         if (!uiState.hasWon) return@LaunchedEffect
         potPolling = true
-        pantry.load(powerUpsUsed = uiState.powerUpsUsed)
-        var tries = 0
-        while (tries < 5 && pantry.uiState.value.snapshot.drawsAvailable <= 0) {
-            delay(600)
-            pantry.load(powerUpsUsed = uiState.powerUpsUsed)
-            tries++
+        val started = System.currentTimeMillis()
+        withTimeoutOrNull(WIN_SAVE_WAIT_MS) { snapshotFlow { winSavedNow }.first { it } }
+        while (pantry.refresh(powerUpsUsed = uiState.powerUpsUsed) <= 0 &&
+            !pantry.uiState.value.isGuest &&
+            System.currentTimeMillis() - started < POT_WAIT_MS
+        ) {
+            delay(800)
         }
         potPolling = false
+        if (pantry.uiState.value.snapshot.drawsAvailable <= 0 && !pantry.uiState.value.isGuest) {
+            palayokMissed = true
+        }
+    }
+    // Opening the pot can fail (a dropped connection); the ritual then goes
+    // back to choosing. Say so, rather than leaving the player to wonder.
+    LaunchedEffect(pantryUi.notice) {
+        val notice = pantryUi.notice
+        if (showPot && notice != null) {
+            android.widget.Toast.makeText(
+                ctx,
+                "The palayok didn't open. Tap it to try again.",
+                android.widget.Toast.LENGTH_SHORT
+            ).show()
+        }
     }
     val hasJar = !pantryUi.isGuest &&
         (pantryUi.snapshot.drawsAvailable > 0 || pantryUi.drawing || pantryUi.reveal != null)
@@ -239,6 +279,14 @@ fun GameScreen(
         potSpent = true
         pantry.dismissReveal()
         goToWin()
+    }
+    // A pot was chosen but its palayok never came (drawWhenReady gave up):
+    // leave the ritual; the win screen says it will be waiting in the Pantry.
+    LaunchedEffect(pantryUi.drawGaveUp) {
+        if (pantryUi.drawGaveUp && showPot) {
+            palayokMissed = true
+            finishPot()
+        }
     }
 
     val soundOn by KusinaSettings.prefs.collectAsState()
@@ -582,7 +630,10 @@ fun GameScreen(
                     // was computed from the whole screen width, so a 6-letter
                     // dish ran to both edges with nothing left for the active
                     // row's border to sit in.
-                    .padding(horizontal = 18.dp, vertical = 4.dp),
+                    .padding(horizontal = 18.dp, vertical = 4.dp)
+                    // The tiles sit centred in this box, so its centre is the
+                    // grid's: the level intro puts its number right there.
+                    .onGloballyPositioned { onGridCenter(it.boundsInWindow().center) },
                 contentAlignment = Alignment.Center
             ) {
                 val gridGap = 6.dp
@@ -914,26 +965,22 @@ fun GameScreen(
                 dishName = uiState.level.displayName,
                 cardRes = uiState.level.cardRes,
                 cardUrl = uiState.level.cardUrl,
+                alreadyClaimed = cardAlreadyClaimed,
                 onClaim = {
                     showCardReveal = false
-                    if (potSpent || (!potPolling && !hasJar)) {
+                    // The pots show straight away, even while the palayok is
+                    // still on its way: the chosen pot rattles while it is
+                    // fetched (drawWhenReady), so there is no waiting screen.
+                    // Only a guest, a spent pot, or a grant that has already
+                    // come back empty goes straight to the win screen.
+                    if (potSpent || pantryUi.isGuest || (!potPolling && !hasJar)) {
                         goToWin()
                     } else {
-                        awaitingPot = true
-                        if (!potPolling && hasJar) showPot = true
+                        showPot = true
                     }
                 }
             )
             BackHandler { }
-        }
-
-        if (awaitingPot && !showPot && !showWin) {
-            Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.90f)))
-            LaunchedEffect(potPolling, hasJar, potSpent) {
-                if (potPolling) return@LaunchedEffect
-                awaitingPot = false
-                if (!potSpent && hasJar) showPot = true else goToWin()
-            }
         }
 
         if (showPot && !showWin) {
@@ -941,7 +988,8 @@ fun GameScreen(
                 drawsAvailable = pantryUi.snapshot.drawsAvailable,
                 drawing = pantryUi.drawing,
                 reveal = pantryUi.reveal,
-                onPick = pantry::draw,
+                awaitingGrant = potPolling,
+                onPick = { pantry.drawWhenReady(powerUpsUsed = uiState.powerUpsUsed) },
                 onDismissReveal = pantry::dismissReveal,
                 onSkip = { finishPot() },
                 oneShot = true,
@@ -975,6 +1023,7 @@ fun GameScreen(
                 bgUrl = uiState.level.imageUrl,
                 scored = scored,
                 onViewDish = onViewDish,
+                palayokLater = palayokMissed && !pantryUi.isGuest,
                 onOpenDocumentary = onOpenDocumentary,
                 onPlayNext = onPlayNext,
                 onBackToMap = {
@@ -1168,6 +1217,8 @@ private fun WinOverlay(
     onViewDish: () -> Unit,
     onOpenDocumentary: () -> Unit,
     onPlayNext: (() -> Unit)?,
+    /** This win's palayok was not ready in time to open here; it goes to the Pantry. */
+    palayokLater: Boolean = false,
     onBackToMap: () -> Unit
 ) {
     val ctx = LocalContext.current
@@ -1464,6 +1515,31 @@ private fun WinOverlay(
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                         )
                     }
+                }
+            }
+
+            // The palayok could not be fetched in time to open here (a slow or
+            // dropped connection). It is not lost: the server pays it on the
+            // next pantry load and the bell lists it. Say so, so the player
+            // is not left wondering where it went.
+            if (palayokLater) {
+                Spacer(Modifier.height(10.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Image(
+                        painter = painterResource(R.drawable.baul_closed),
+                        contentDescription = null,
+                        modifier = Modifier.size(22.dp)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        "Your palayok for this dish will be waiting in your Pantry.",
+                        color = LightOrange.copy(alpha = 0.9f),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
                 }
             }
 
@@ -2252,3 +2328,9 @@ private fun CircleIconButton(
         content()
     }
 }
+
+/** How long the post-win wait gives the server to grant this win's palayok. */
+private const val POT_WAIT_MS = 12_000L
+
+/** How long the palayok ask waits for the win itself to be saved first. */
+private const val WIN_SAVE_WAIT_MS = 8_000L

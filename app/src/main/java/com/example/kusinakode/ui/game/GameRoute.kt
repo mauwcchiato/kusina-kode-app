@@ -13,6 +13,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.kusinakode.KusinaKodeApp
@@ -95,6 +96,10 @@ fun GameRoute(
     // The tiles stay hidden under the sign and pop in once it lifts. Held from
     // the very first frame, so they cannot start before the sign appears.
     val tilesHeld = remember(level) { mutableStateOf(true) }
+    // Where the tile grid's centre is on screen; the intro's level number is
+    // placed over it. A State read only inside the banner layer.
+    val gridCenter = remember(level) { mutableStateOf<Offset?>(null) }
+    val onGridCenter: (Offset) -> Unit = remember(level) { { c -> gridCenter.value = c } }
     val reveal: () -> Unit = remember(level) {
         {
             if (bannerShown.value) {
@@ -147,7 +152,11 @@ fun GameRoute(
             // The fan takes ~1s to open, hence the shorter hold.
             hintPeekHoldMs = (introMs - 1_300L).coerceAtLeast(300L),
             holdTiles = { tilesHeld.value },
-            finishesGame = finishesGame
+            finishesGame = finishesGame,
+            // Judged from when the round opened: a first solve adds the level
+            // to the live set mid-round, and must still get its Claim Card.
+            cardAlreadyClaimed = solvedAtOpen?.contains(level) == true,
+            onGridCenter = onGridCenter
         )
         // The next dish's own ingredients burst out of the sign.
         val burstArt = remember(level) {
@@ -161,7 +170,7 @@ fun GameRoute(
             runCatching { LevelProvider.forLevel(level).region }.getOrNull()
         }
         // A tap skips the sign instead of waiting it out.
-        BannerLayer(bannerShown, burstArt, regionLevel, region, arrivingFromNext, onSkip = reveal)
+        BannerLayer(bannerShown, burstArt, regionLevel, region, arrivingFromNext, gridCenter, onSkip = reveal)
     }
 }
 
@@ -173,6 +182,7 @@ private fun BannerLayer(
     levelNumber: Int,
     region: Region?,
     withSign: Boolean,
+    gridCenter: State<Offset?>,
     onSkip: () -> Unit
 ) {
     NextLevelBanner(
@@ -182,6 +192,7 @@ private fun BannerLayer(
         regionName = region?.displayName.orEmpty(),
         region = region,
         withSign = withSign,
+        numberCenter = gridCenter.value,
         onSkip = onSkip
     )
 }

@@ -33,6 +33,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import kotlin.math.roundToInt
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.layout.positionInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
@@ -92,6 +98,8 @@ fun NextLevelBanner(
      * big level number, with no sign and no ingredient burst.
      */
     withSign: Boolean = true,
+    /** Where to centre the level number, in window coordinates: the tile grid. */
+    numberCenter: Offset? = null,
     onSkip: () -> Unit = {}
 ) {
     Box(modifier.fillMaxSize()) {
@@ -157,8 +165,28 @@ fun NextLevelBanner(
                 enter = fadeIn(tween(1)),
                 exit = fadeOut(tween(220)) + scaleOut(tween(220), targetScale = 0.6f)
             ) {
-                // Dead centre of the screen, the focal point under the sign.
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                // Centred on the tile grid it is introducing, so the number
+                // flashes where the round is about to appear. Falls back to
+                // the centre of the screen until the grid has been measured.
+                var origin by remember { mutableStateOf(Offset.Zero) }
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .onGloballyPositioned { origin = it.positionInWindow() }
+                        .layout { measurable, constraints ->
+                            val badge = measurable.measure(
+                                constraints.copy(minWidth = 0, minHeight = 0)
+                            )
+                            val at = numberCenter?.let { it - origin }
+                                ?: Offset(constraints.maxWidth / 2f, constraints.maxHeight / 2f)
+                            layout(constraints.maxWidth, constraints.maxHeight) {
+                                badge.place(
+                                    (at.x - badge.width / 2f).roundToInt(),
+                                    (at.y - badge.height / 2f).roundToInt()
+                                )
+                            }
+                        }
+                ) {
                     LevelNumberBadge(
                         levelNumber,
                         regionName,
@@ -213,7 +241,7 @@ private fun LevelNumberBadge(
                 angle = (i / BURST_SPARKS.toFloat() * 2f * PI).toFloat() + Random.nextFloat() * 0.3f,
                 dist = 0.9f + Random.nextFloat() * 0.5f,
                 phase = 0f,
-                sizeDp = 18f + Random.nextFloat() * 14f
+                sizeDp = 12f + Random.nextFloat() * 10f
             )
         }
     }
@@ -230,7 +258,7 @@ private fun LevelNumberBadge(
                 angle = (Random.nextFloat() * 2f * PI).toFloat(),
                 dist = 0.35f + Random.nextFloat() * 0.65f,
                 phase = Random.nextFloat(),
-                sizeDp = 12f + Random.nextFloat() * 14f
+                sizeDp = 8f + Random.nextFloat() * 10f
             )
         }
     }
@@ -244,7 +272,7 @@ private fun LevelNumberBadge(
         }
     }
 
-    Box(Modifier.size(340.dp), contentAlignment = Alignment.Center) {
+    Box(Modifier.size(BadgeSize), contentAlignment = Alignment.Center) {
         Canvas(
             Modifier
                 .fillMaxSize()
@@ -316,8 +344,8 @@ private fun LevelNumberBadge(
                     color = Color.White,
                     fontFamily = BeVietnamPro,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 22.sp,
-                    letterSpacing = 7.sp
+                    fontSize = 15.sp,
+                    letterSpacing = 5.sp
                 )
             }
             Text(
@@ -325,10 +353,10 @@ private fun LevelNumberBadge(
                 color = glow.number,
                 fontFamily = BeVietnamPro,
                 fontWeight = FontWeight.ExtraBold,
-                fontSize = 220.sp,
-                lineHeight = 224.sp,
+                fontSize = 132.sp,
+                lineHeight = 136.sp,
                 style = TextStyle(
-                    shadow = Shadow(glow.shadow, Offset(0f, 16f), blurRadius = 0f)
+                    shadow = Shadow(glow.shadow, Offset(0f, 10f), blurRadius = 0f)
                 )
             )
         }
@@ -464,3 +492,6 @@ private val NumberShadow = Color(0xFF5A2A0C)
 private const val STREAK_TAIL = 14
 private const val STREAKS = 7
 private const val BURST_SPARKS = 16
+
+/** The level number's sparkle field, sized to sit over the tile grid. */
+private val BadgeSize = 230.dp

@@ -148,9 +148,10 @@ object SoundFx {
     }
 
     /**
-     * The coin chime for KK actually leaving the wallet.
+     * The coin chime for KK actually moving: leaving the wallet on a spend,
+     * or landing in it on a Wallet claim (RewardsViewModel.claim).
      *
-     * Call this where a spend is *confirmed*, not where the button is
+     * Call this where a spend or claim is *confirmed*, not where the button is
      * pressed — a purchase that fails for want of balance should stay
      * silent. Every KK debit funnels through one of three places:
      * GameViewModel.charge (power-ups), ShopViewModel.buy (avatars and

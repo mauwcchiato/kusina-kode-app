@@ -35,4 +35,13 @@ class WaitingForYouCountTest {
         assertEquals("Account Sign Up", historyLabel("account_signup", "signup"))
         assertEquals("Account Login", historyLabel("account_login", "login"))
     }
+
+    @Test
+    fun `unopened palayoks are one waiting row however many there are`() {
+        assertEquals(1, waitingForYouCount(false, spinsAvailable = 0, 0, 0, palayoksToOpen = 1))
+        assertEquals(1, waitingForYouCount(false, spinsAvailable = 0, 0, 0, palayoksToOpen = 4))
+        assertEquals(0, waitingForYouCount(false, spinsAvailable = 0, 0, 0, palayoksToOpen = 0))
+        // Alongside an unclaimed daily: its two rows plus the palayok row.
+        assertEquals(3, waitingForYouCount(true, spinsAvailable = 1, 0, 0, palayoksToOpen = 2))
+    }
 }

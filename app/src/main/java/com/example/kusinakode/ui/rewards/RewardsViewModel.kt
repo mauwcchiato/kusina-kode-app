@@ -3,6 +3,7 @@ package com.example.kusinakode.ui.rewards
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.kusinakode.SoundFx
 import com.example.kusinakode.KusinaKodeApp
 import com.example.kusinakode.KusinaNotifications
 import com.example.kusinakode.Session
@@ -34,8 +35,18 @@ data class RewardsUiState(
     val badges: List<EarnBadgeData> = emptyList(),
     val history: List<RewardHistoryItem> = emptyList(),
     val claimBusy: Boolean = false,
+    /**
+     * Which reward is being claimed right now ([claimKey]), or null. Only that
+     * row shows the claim in progress; the rest keep their state. A single
+     * busy flag used to grey every CLAIM button at once, so they all looked
+     * claimed for the length of the chain settle and then snapped back.
+     */
+    val claimingKey: String? = null,
     val notice: String? = null
 )
+
+/** The identity of one claimable reward, as [RewardsUiState.claimingKey] names it. */
+fun claimKey(kind: String, id: String? = null): String = if (id == null) kind else "$kind:$id"
 
 class RewardsViewModel(app: Application) : AndroidViewModel(app) {
 
@@ -99,9 +110,12 @@ class RewardsViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun claim(kind: String, island: String? = null, badgeId: String? = null) {
+        // One claim at a time (they share the chain queue); a tap on another
+        // reward while one settles is ignored rather than stacked.
         if (_uiState.value.claimBusy) return
+        val key = claimKey(kind, island ?: badgeId)
         viewModelScope.launch {
-            _uiState.update { it.copy(claimBusy = true, notice = null) }
+            _uiState.update { it.copy(claimBusy = true, claimingKey = key, notice = null) }
             val result = runCatching {
                 ChainQueue.serialized {
                     val resp = KusinaApi.claimKk(kind, island, badgeId)
@@ -113,8 +127,25 @@ class RewardsViewModel(app: Application) : AndroidViewModel(app) {
                     resp
                 }
             }
-            _uiState.update { it.copy(claimBusy = false) }
             result.onSuccess { resp ->
+                // Show this reward as claimed straight away, rather than
+                // leaving it as CLAIM until the reload below comes back. The
+                // busy flag clears in this same update: the spin puck reads
+                // "not busy but daily still claimable" as a failed claim, so
+                // there must be no moment where a success looks like that.
+                _uiState.update { current ->
+                    val s = current.copy(claimBusy = false, claimingKey = null)
+                    when (kind) {
+                        "daily" -> s.copy(dailyClaimable = false, dailyClaimed = true)
+                        "island" -> s.copy(islands = s.islands.map {
+                            if (it.id == island) it.copy(claimable = false, claimed = true) else it
+                        })
+                        "badge" -> s.copy(badges = s.badges.map {
+                            if (it.id == badgeId) it.copy(claimable = false, claimed = true) else it
+                        })
+                        else -> s
+                    }
+                }
                 val amount = when (kind) {
                     "daily" -> _uiState.value.dailyAmount
                     "badge" -> _uiState.value.badges.firstOrNull { it.id == badgeId }?.amount_kk ?: 25
@@ -127,6 +158,10 @@ class RewardsViewModel(app: Application) : AndroidViewModel(app) {
                     KusinaNotifications.islandClaimed(ctx, name, amount)
                 }
                 _uiState.update { it.copy(notice = "Claimed +$amount KK") }
+                // The coin chime for KK landing, on a claim the server has just
+                // confirmed. An already-claimed reply pays nothing, so it stays
+                // silent, as a failed claim does.
+                if (!resp.alreadyClaimed()) SoundFx.coin()
                 refresh()
                 // The daily also banks a palayok spin. Publish the pantry so
                 // the inbox keeps a "spin waiting" row instead of vanishing
@@ -144,7 +179,9 @@ class RewardsViewModel(app: Application) : AndroidViewModel(app) {
                     (getApplication() as KusinaKodeApp).gamificationCoordinator.refresh()
                 }
             }.onFailure { e ->
-                _uiState.update { it.copy(notice = e.message ?: "Could not claim") }
+                _uiState.update {
+                    it.copy(claimBusy = false, claimingKey = null, notice = e.message ?: "Could not claim")
+                }
             }
         }
     }

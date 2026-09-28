@@ -86,7 +86,8 @@ private val CardTextShadow = Shadow(
 @Composable
 fun HomeHeader(
     chefName: String,
-    level: Int,
+    /** The chef rank title (see ChefRank), shown where the old LVL was. */
+    rankTitle: String,
     levelProgress: Float,
     balanceKk: Long,
     portrait: @Composable () -> Unit,
@@ -146,7 +147,7 @@ fun HomeHeader(
                 Spacer(Modifier.height(5.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        "LVL $level",
+                        rankTitle.uppercase(),
                         color = LightOrange.copy(alpha = 0.95f),
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold

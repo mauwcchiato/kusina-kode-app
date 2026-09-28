@@ -187,17 +187,20 @@ object NotificationArt {
  *
  * The daily pays KK and a palayok, so it is two inbox rows. After the daily
  * is claimed, a leftover unused spin is one waiting row — not a third on
- * top of the unclaimed pair.
+ * top of the unclaimed pair. Unopened palayoks are one row however many
+ * there are ("3 palayoks to open").
  */
 internal fun waitingForYouCount(
     dailyClaimable: Boolean,
     spinsAvailable: Int,
     islandClaimable: Int,
-    badgeClaimable: Int
+    badgeClaimable: Int,
+    palayoksToOpen: Int = 0
 ): Int {
     val dailyRows = if (dailyClaimable) 2 else 0
     val spinRow = if (!dailyClaimable && spinsAvailable > 0) 1 else 0
-    return dailyRows + spinRow + islandClaimable + badgeClaimable
+    val palayokRow = if (palayoksToOpen > 0) 1 else 0
+    return dailyRows + spinRow + palayokRow + islandClaimable + badgeClaimable
 }
 
 /**

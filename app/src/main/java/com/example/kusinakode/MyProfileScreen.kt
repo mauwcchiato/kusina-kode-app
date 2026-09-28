@@ -62,6 +62,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.kusinakode.domain.model.BadgeType
 import com.example.kusinakode.domain.model.BadgeVerification
 import com.example.kusinakode.domain.model.Region
+import com.example.kusinakode.domain.gamification.ChefRank
 import com.example.kusinakode.ui.gamification.BadgeSlot
 import com.example.kusinakode.ui.gamification.GamificationViewModel
 import com.example.kusinakode.ui.home.ChromeCream
@@ -149,11 +150,6 @@ fun MyProfileScreen(
     val totalLevels = LevelProvider.levelCount
     val completed = game.progress.roundsCompleted
     val solvedLevels = game.progress.solvedLevels
-    val nextLevel = remember(solvedLevels) {
-        UnlockManager.getUnlockedLevel(ctx, userId)
-            .coerceAtLeast((solvedLevels.maxOrNull() ?: 0) + 1)
-            .coerceAtMost(totalLevels)
-    }
     val regionsExplored = remember(solvedLevels) {
         solvedLevels.map { LevelProvider.forLevel(it).region }.distinct().size
     }
@@ -274,15 +270,18 @@ fun MyProfileScreen(
                                 size = 112.dp
                             )
                         }
+                        // The player's chef title (Kusinero up to Kusina
+                        // Master), the same one the Home header shows. The
+                        // leaderboard #N stays on the Global Leaderboard card.
                         Surface(
                             shape = RoundedCornerShape(8.dp),
                             color = TanBadge,
                             modifier = Modifier.offset(x = 6.dp, y = 4.dp)
                         ) {
                             Text(
-                                "LVL $nextLevel",
+                                ChefRank.forSolved(solvedLevels.size, totalLevels).title.uppercase(),
                                 color = ThemeBrown,
-                                fontSize = 10.sp,
+                                fontSize = 11.sp,
                                 fontWeight = FontWeight.Black,
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                             )
@@ -333,6 +332,7 @@ fun MyProfileScreen(
                             modifier = Modifier.padding(horizontal = 14.dp, vertical = 5.dp)
                         )
                     }
+
                 }
 
                 Row(
@@ -409,7 +409,13 @@ fun MyProfileScreen(
                                 fontSize = 14.sp
                             )
                             Text(
-                                stats?.currentRank?.let { "Rank #$it" } ?: "Play to get ranked!",
+                                // Points-based, the same #N as the portrait tag and the
+                                // Leaderboard screen (the server's current_rank counts unlocks).
+                                when {
+                                    ui.pointsRank != null -> "Rank #${ui.pointsRank}"
+                                    ui.pointsRankBeyond -> "Rank #${ProfileViewModel.RANK_BOARD_SIZE}+"
+                                    else -> "Play to get ranked!"
+                                },
                                 color = BurntOrange,
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Medium
@@ -1143,3 +1149,4 @@ private fun PercentRing(percent: Int, modifier: Modifier = Modifier) {
         )
     }
 }
+

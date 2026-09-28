@@ -37,6 +37,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -99,6 +100,7 @@ private val NoteEdge = Color(0xFFD4A24A)
 @Composable
 fun NotificationsScreen(
     onBack: () -> Unit,
+    /** Kept for callers; rewards are now claimed in place rather than here. */
     onOpenRewards: () -> Unit,
     /** Where the palayok spin is redeemed. */
     onOpenMarketRun: () -> Unit = {},
@@ -127,6 +129,14 @@ fun NotificationsScreen(
         if (pantryUi.spinWon != null) viewModel.refresh()
     }
 
+    // Rewards are claimed right here now, so the claim's outcome ("Claimed
+    // +25 KK", or why it failed) is shown here too, then cleared.
+    val noticeCtx = LocalContext.current
+    LaunchedEffect(ui.notice) {
+        val message = ui.notice ?: return@LaunchedEffect
+        android.widget.Toast.makeText(noticeCtx, message, android.widget.Toast.LENGTH_SHORT).show()
+        viewModel.dismissNotice()
+    }
     val claimable = buildList {
         // Daily KK and the palayok that ships with it. One palayok row only —
         // never "Free palayok spin" plus "Palayok spin waiting" at once.
@@ -135,8 +145,8 @@ fun NotificationsScreen(
                 ClaimRow(
                     glyph = NotificationArt.forEvent("daily_login", null),
                     title = "Daily Login Claim",
-                    detail = "+${ui.dailyAmount} KK to claim",
-                    action = onOpenRewards
+                    detail = if (ui.claimingKey == claimKey("daily")) "Claiming…" else "+${ui.dailyAmount} KK · tap to claim",
+                    action = { viewModel.claimDaily() }
                 )
             )
             add(
@@ -157,13 +167,27 @@ fun NotificationsScreen(
                 )
             )
         }
+        // Palayoks won but not opened yet, including any that arrived after
+        // their round (the server pays a missed one on the next pantry load).
+        // One row for all of them; the count must match waitingForYouCount.
+        val toOpen = pantryUi.snapshot.drawsAvailable
+        if (toOpen > 0) {
+            add(
+                ClaimRow(
+                    glyph = NotificationGlyph.Art(R.drawable.baul_closed, fill = false),
+                    title = if (toOpen == 1) "A palayok to open" else "$toOpen palayoks to open",
+                    detail = "Waiting in your Pantry",
+                    action = onOpenMarketRun
+                )
+            )
+        }
         ui.islands.filter { it.claimable }.forEach {
             add(
                 ClaimRow(
                     glyph = NotificationArt.forEvent("island_complete", it.id.ifBlank { it.name }),
                     title = "${it.name} complete",
-                    detail = "+${it.amount_kk} KK to claim",
-                    action = onOpenRewards
+                    detail = if (ui.claimingKey == claimKey("island", it.id)) "Claiming…" else "+${it.amount_kk} KK · tap to claim",
+                    action = { viewModel.claimIsland(it.id) }
                 )
             )
         }
@@ -172,8 +196,8 @@ fun NotificationsScreen(
                 ClaimRow(
                     glyph = NotificationArt.forEvent("badge_milestone", it.id),
                     title = it.title,
-                    detail = "+${it.amount_kk} KK to claim",
-                    action = onOpenRewards
+                    detail = if (ui.claimingKey == claimKey("badge", it.id)) "Claiming…" else "+${it.amount_kk} KK · tap to claim",
+                    action = { viewModel.claimBadge(it.id) }
                 )
             )
         }

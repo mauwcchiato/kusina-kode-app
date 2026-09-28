@@ -15,6 +15,12 @@ data class GameUiState(
     val elapsedSeconds: Int,
     val isPaused: Boolean,
     val hasWon: Boolean,
+    /**
+     * The winning attempt has been sent and the server has answered (or every
+     * retry failed and it is parked in the outbox). The palayok for the win is
+     * asked for only after this, so the ask does not race the win.
+     */
+    val winSaved: Boolean = false,
     val isGameOver: Boolean,
     /** Coaching line shown after a guess that didn't win. */
     val encouragement: String? = null,

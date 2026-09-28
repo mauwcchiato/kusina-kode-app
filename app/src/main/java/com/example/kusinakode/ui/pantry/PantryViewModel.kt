@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 data class PantryUiState(
@@ -23,6 +24,8 @@ data class PantryUiState(
     val balanceKk: Long = 0,
     val loading: Boolean = false,
     val drawing: Boolean = false,
+    /** A just-earned palayok never arrived in time to open ([PantryViewModel.drawWhenReady]). */
+    val drawGaveUp: Boolean = false,
     val sellingId: String? = null,
     /** Set while the wheel is turning. */
     val spinning: Boolean = false,
@@ -104,30 +107,46 @@ class PantryViewModel(
             _uiState.update { it.copy(isGuest = true, loading = false) }
             return
         }
-        viewModelScope.launch {
-            _uiState.update { it.copy(loading = true, isGuest = false) }
-            var granted = 0
-            if (levelId != null && levelId > 0) {
-                repository.grant(levelId, powerUpsUsed).onSuccess { granted = it }
-            }
-            repository.snapshot()
-                .onSuccess { (snap, balance) ->
-                    PantrySnapshotBus.publish(snap, balance)
-                    _uiState.update {
-                        it.copy(
-                            snapshot = snap,
-                            balanceKk = balance,
-                            loading = false,
-                            lastGranted = granted
-                        )
-                    }
-                }
-                .onFailure { e ->
-                    _uiState.update {
-                        it.copy(loading = false, notice = e.message ?: "Could not load the pantry")
-                    }
-                }
+        viewModelScope.launch { refresh(powerUpsUsed) }
+    }
+
+    /**
+     * Claims this level's palayoks and reloads the shelf, returning once the
+     * server has answered — unlike [load], which only starts it. The post-win
+     * wait needs to know the answer actually arrived: polling [load] and
+     * reading the state straight after gave up on slower connections while
+     * the grant was still in flight, and the palayok was skipped.
+     *
+     * Returns how many palayoks can be opened now (0 for a guest).
+     */
+    suspend fun refresh(powerUpsUsed: Int = 0): Int {
+        if (Session.userId == null) {
+            _uiState.update { it.copy(isGuest = true, loading = false) }
+            return 0
         }
+        _uiState.update { it.copy(loading = true, isGuest = false) }
+        var granted = 0
+        if (levelId != null && levelId > 0) {
+            repository.grant(levelId, powerUpsUsed).onSuccess { granted = it }
+        }
+        repository.snapshot()
+            .onSuccess { (snap, balance) ->
+                PantrySnapshotBus.publish(snap, balance)
+                _uiState.update {
+                    it.copy(
+                        snapshot = snap,
+                        balanceKk = balance,
+                        loading = false,
+                        lastGranted = granted
+                    )
+                }
+            }
+            .onFailure { e ->
+                _uiState.update {
+                    it.copy(loading = false, notice = e.message ?: "Could not load the pantry")
+                }
+            }
+        return _uiState.value.snapshot.drawsAvailable
     }
 
     /**
@@ -200,25 +219,61 @@ class PantryViewModel(
         if ((_uiState.value.snapshot.drawsAvailable) <= 0) return
         viewModelScope.launch {
             _uiState.update { it.copy(drawing = true, notice = null) }
-            repository.draw(levelId)
-                .onSuccess { (result, snap, balance) ->
-                    PantrySnapshotBus.publish(snap, balance)
-                    _uiState.update {
-                        it.copy(
-                            drawing = false,
-                            reveal = result,
-                            snapshot = snap,
-                            balanceKk = balance,
-                            newIngredientIds = it.newIngredientIds + setOfNotNull(result.ingredient?.id)
-                        )
-                    }
-                }
-                .onFailure { e ->
-                    _uiState.update {
-                        it.copy(drawing = false, notice = e.message ?: "The palayok would not open")
-                    }
-                }
+            performDraw()
         }
+    }
+
+    /**
+     * Opens a palayok that may still be on its way — the one a win has just
+     * earned. Straight after a round the grant can still be in flight, so
+     * rather than make the player wait on a screen before the pots appear,
+     * the pots show at once and this waits here, while the chosen pot is
+     * already rattling. It asks the server again every [GRANT_POLL_MS] until a
+     * palayok is there or [maxWaitMs] passes; then it opens it, or sets
+     * [PantryUiState.drawGaveUp] so the caller can say it will be waiting in
+     * the Pantry instead (the server's catch-up pays it on a later load).
+     *
+     * [drawing] stays true for the whole wait, so the pot keeps rattling and
+     * the overlay never mistakes the wait for a failed draw.
+     */
+    fun drawWhenReady(powerUpsUsed: Int = 0, maxWaitMs: Long = 12_000L) {
+        if (_uiState.value.drawing || _uiState.value.isGuest) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(drawing = true, notice = null, drawGaveUp = false) }
+            val started = System.currentTimeMillis()
+            var available = _uiState.value.snapshot.drawsAvailable
+            while (available <= 0 && System.currentTimeMillis() - started < maxWaitMs) {
+                available = refresh(powerUpsUsed)
+                if (available <= 0) delay(GRANT_POLL_MS)
+            }
+            if (available <= 0) {
+                _uiState.update { it.copy(drawing = false, drawGaveUp = true) }
+                return@launch
+            }
+            performDraw()
+        }
+    }
+
+    /** The draw itself. The caller has already set [PantryUiState.drawing]. */
+    private suspend fun performDraw() {
+        repository.draw(levelId)
+            .onSuccess { (result, snap, balance) ->
+                PantrySnapshotBus.publish(snap, balance)
+                _uiState.update {
+                    it.copy(
+                        drawing = false,
+                        reveal = result,
+                        snapshot = snap,
+                        balanceKk = balance,
+                        newIngredientIds = it.newIngredientIds + setOfNotNull(result.ingredient?.id)
+                    )
+                }
+            }
+            .onFailure { e ->
+                _uiState.update {
+                    it.copy(drawing = false, notice = e.message ?: "The palayok would not open")
+                }
+            }
     }
 
     /**
@@ -359,6 +414,8 @@ class PantryViewModel(
     }
 
     companion object {
+        /** Gap between asks while a just-earned palayok is still on its way. */
+        const val GRANT_POLL_MS = 800L
         fun factory(levelId: Int? = null): ViewModelProvider.Factory =
             object : ViewModelProvider.Factory {
                 @Suppress("UNCHECKED_CAST")

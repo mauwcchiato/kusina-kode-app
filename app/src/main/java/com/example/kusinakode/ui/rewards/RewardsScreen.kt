@@ -461,11 +461,13 @@ private fun buildEarnLines(
         tag = streakTag,
         reward = "+${ui.dailyAmount} KK",
         action = when {
+            ui.claimingKey == claimKey("daily") -> "CLAIMING…"
             ui.dailyClaimed -> "CLAIMED"
             ui.dailyClaimable -> "CLAIM"
             else -> null
         },
-        actionEnabled = ui.dailyClaimable && !ui.claimBusy,
+        // Only the row being claimed dims; the others keep their look.
+        actionEnabled = ui.dailyClaimable && ui.claimingKey != claimKey("daily"),
         onAction = { viewModel.claimDaily() }
     )
     lines += EarnLine(
@@ -481,11 +483,12 @@ private fun buildEarnLines(
             tag = "ADVENTURE MODE · ${island.solved}/${island.total}",
             reward = "+${island.amount_kk} KK",
             action = when {
+                ui.claimingKey == claimKey("island", island.id) -> "CLAIMING…"
                 island.claimed -> "CLAIMED"
                 island.claimable -> "CLAIM"
                 else -> null
             },
-            actionEnabled = island.claimable && !ui.claimBusy,
+            actionEnabled = island.claimable && ui.claimingKey != claimKey("island", island.id),
             onAction = { viewModel.claimIsland(island.id) }
         )
     }

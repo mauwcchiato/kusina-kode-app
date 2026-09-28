@@ -6,6 +6,8 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.Image
@@ -48,6 +50,13 @@ fun HeritageCardReveal(
     cardRes: Int,
     /** Server-hosted art for a panel-added level; null for the packaged ones. */
     cardUrl: String? = null,
+    /**
+     * The dish was solved before this round (a replay), so its card is already
+     * in the collection. There is nothing to claim: the button gives way to a
+     * note, and a tap anywhere carries on to the rest of the win. A first solve
+     * leaves this false and claims as always.
+     */
+    alreadyClaimed: Boolean = false,
     onClaim: () -> Unit
 ) {
     val flip = remember { Animatable(90f) }
@@ -67,6 +76,14 @@ fun HeritageCardReveal(
         Modifier
             .fillMaxSize()
             .background(Color.Black.copy(alpha = 0.90f))
+            // A replayed dish has no button: a tap anywhere moves on.
+            .then(
+                if (alreadyClaimed) Modifier.clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = clickSfx(onClaim)
+                ) else Modifier
+            )
             .statusBarsPadding()
             .padding(horizontal = 20.dp, vertical = 16.dp),
         contentAlignment = Alignment.Center
@@ -78,7 +95,7 @@ fun HeritageCardReveal(
 
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
-                "HERITAGE CARD UNLOCKED",
+                if (alreadyClaimed) "HERITAGE CARD" else "HERITAGE CARD UNLOCKED",
                 color = Color(0xFFD9A227),
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Bold,
@@ -108,17 +125,39 @@ fun HeritageCardReveal(
 
             Spacer(Modifier.height(18.dp))
 
-            Button(
-                onClick = clickSfx(onClaim),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = PlayNowBrown,
-                    contentColor = Color.White
-                ),
-                shape = RoundedCornerShape(26.dp),
-                contentPadding = PaddingValues(horizontal = 40.dp),
-                modifier = Modifier.height(52.dp)
-            ) {
-                Text("Claim Card", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+            if (alreadyClaimed) {
+                // Same height as the button, so the card sits where it always does.
+                Column(
+                    Modifier.height(52.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Text(
+                        "You've already claimed this card",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "Tap anywhere to continue",
+                        color = LightOrange.copy(alpha = 0.75f),
+                        fontSize = 12.sp
+                    )
+                }
+            } else {
+                Button(
+                    onClick = clickSfx(onClaim),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = PlayNowBrown,
+                        contentColor = Color.White
+                    ),
+                    shape = RoundedCornerShape(26.dp),
+                    contentPadding = PaddingValues(horizontal = 40.dp),
+                    modifier = Modifier.height(52.dp)
+                ) {
+                    Text("Claim Card", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                }
             }
         }
     }

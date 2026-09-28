@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.kusinakode.KusinaKodeApp
 import com.example.kusinakode.Session
 import com.example.kusinakode.SoundFx
+import com.example.kusinakode.data.repository.AttemptOutbox
 import com.example.kusinakode.data.repository.DefaultProgressRepository
 import com.example.kusinakode.data.repository.LocalLevelRepository
 import com.example.kusinakode.data.repository.LocalRoundStateRepository
@@ -251,6 +252,7 @@ class GameViewModel(
 
         viewModelScope.launch {
             attemptRepository.recordAttempt(levelNumber, guess, won, timeTakenMs)
+            if (won) _uiState.update { it.copy(winSaved = true) }
             if (won) {
                 repeat(4) {
                     delay(500)
@@ -314,7 +316,12 @@ class GameViewModel(
                 )
             }
 
-            attemptRepository.recordAttempt(levelNumber, answer, true, timeTakenMs)
+            // Sent in the background: with retries and the outbox it can take a
+            // while offline, and progress and badges should not wait on it.
+            viewModelScope.launch {
+                attemptRepository.recordAttempt(levelNumber, answer, true, timeTakenMs)
+                _uiState.update { it.copy(winSaved = true) }
+            }
             progressRepository.onLevelCompleted(levelNumber)
             GameEvents.publish(
                 RoundCompleted(
@@ -550,7 +557,7 @@ class GameViewModel(
             return GameViewModel(
                 levelNumber = level,
                 levelRepository = LocalLevelRepository(),
-                attemptRepository = RemoteAttemptRepository(),
+                attemptRepository = RemoteAttemptRepository(AttemptOutbox(context)),
                 progressRepository = DefaultProgressRepository(context),
                 wallet = app?.let { RemoteKkWallet() },
                 roundStore = LocalRoundStateRepository(context) { Session.userId }

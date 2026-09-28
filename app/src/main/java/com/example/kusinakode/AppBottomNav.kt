@@ -1,8 +1,8 @@
 package com.example.kusinakode
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -10,6 +10,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -31,6 +32,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -40,6 +43,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -138,61 +142,137 @@ fun KusinaBottomNav(
                 }
             }
 
-            Row(
+
+            // The tab the player came from. Every screen builds its own bar, so
+            // a new bar would otherwise start with its circle already in place
+            // and the switch never animated. Read once per bar, before this
+            // bar records itself as the last one.
+            val cameFrom = remember { NavMemory.lastTab }
+            SideEffect { NavMemory.lastTab = selected }
+            val fromIndex = cameFrom?.let { TabOrder.indexOf(it) }?.takeIf { it >= 0 }
+
+            BoxWithConstraints(
                 Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
-                    .navigationBarsPadding()
-                    .padding(start = 6.dp, end = 6.dp, bottom = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(2.dp),
-                verticalAlignment = Alignment.Bottom
             ) {
-                NavItem(
-                    Icons.Default.AccountBalanceWallet, "Wallet",
-                    selected == BottomNavTab.Wallet,
-                    Modifier.weight(1f), onWallet,
-                    highlightModifier = walletModifier
-                )
-                NavItem(
-                    Icons.Default.TravelExplore, "Game Map",
-                    selected == BottomNavTab.Levels, Modifier.weight(1f), onLevels,
-                    highlightModifier = levelsModifier
-                )
-                NavItem(
-                    Icons.Default.Home, "Home",
-                    selected == BottomNavTab.Home, Modifier.weight(1f), onHome,
-                    highlightModifier = homeModifier
-                )
-                NavItem(
-                    Icons.Default.School, "Learn",
-                    selected == BottomNavTab.Completed, Modifier.weight(1f), onCompleted,
-                    highlightModifier = learnModifier
-                )
-                NavItem(
-                    Icons.Default.Person, "Profile",
-                    selected == BottomNavTab.Profile, Modifier.weight(1f), onProfile,
-                    highlightModifier = profileModifier
-                )
+                // Distance between two tabs' centres: the row's inner width
+                // split five ways, plus the gap between them.
+                val pitchPx = with(LocalDensity.current) {
+                    ((maxWidth - RowSidePad * 2 - ItemGap * (TabOrder.size - 1)) / TabOrder.size + ItemGap).toPx()
+                }
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .navigationBarsPadding()
+                        .padding(start = RowSidePad, end = RowSidePad, bottom = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(ItemGap),
+                    verticalAlignment = Alignment.Bottom
+                ) {
+                    TabOrder.forEachIndexed { index, tab ->
+                        val (icon, label) = when (tab) {
+                            BottomNavTab.Wallet -> Icons.Default.AccountBalanceWallet to "Wallet"
+                            BottomNavTab.Levels -> Icons.Default.TravelExplore to "Game Map"
+                            BottomNavTab.Home -> Icons.Default.Home to "Home"
+                            BottomNavTab.Completed -> Icons.Default.School to "Learn"
+                            BottomNavTab.Profile -> Icons.Default.Person to "Profile"
+                        }
+                        NavItem(
+                            icon = icon,
+                            label = label,
+                            index = index,
+                            active = selected == tab,
+                            // Only the tab left behind starts raised, to settle down.
+                            wasActive = cameFrom == tab && cameFrom != selected,
+                            fromIndex = fromIndex,
+                            pitchPx = pitchPx,
+                            modifier = Modifier.weight(1f),
+                            onClick = when (tab) {
+                                BottomNavTab.Wallet -> onWallet
+                                BottomNavTab.Levels -> onLevels
+                                BottomNavTab.Home -> onHome
+                                BottomNavTab.Completed -> onCompleted
+                                BottomNavTab.Profile -> onProfile
+                            },
+                            highlightModifier = when (tab) {
+                                BottomNavTab.Wallet -> walletModifier
+                                BottomNavTab.Levels -> levelsModifier
+                                BottomNavTab.Home -> homeModifier
+                                BottomNavTab.Completed -> learnModifier
+                                BottomNavTab.Profile -> profileModifier
+                            }
+                        )
+                    }
+                }
             }
         }
     }
 }
 
+/** Left-to-right order of the tabs, which the sliding circle travels along. */
+private val TabOrder = listOf(
+    BottomNavTab.Wallet,
+    BottomNavTab.Levels,
+    BottomNavTab.Home,
+    BottomNavTab.Completed,
+    BottomNavTab.Profile
+)
+
+private val RowSidePad = 6.dp
+private val ItemGap = 2.dp
+
+/** The last tab a bar was shown for, remembered across screens. */
+private object NavMemory {
+    var lastTab: BottomNavTab? = null
+}
+
+/** The circle's glide between tabs: a touch of overshoot, then settle. */
+private val SlideSpring = spring<Float>(
+    // Enough bounce to feel alive, little enough that a glide into Wallet or
+    // Profile does not swing past the screen edge.
+    dampingRatio = 0.78f,
+    stiffness = Spring.StiffnessMediumLow
+)
+
 /**
  * One tab. Every item reserves the same [SlotHeight], so the five labels sit
  * on one baseline whether or not their icon is currently a raised circle.
+ *
+ * The raised brown circle belongs to the active tab, but when the player has
+ * just come from another tab it starts over that one ([fromIndex], one
+ * [pitchPx] per tab away) and glides across; the icon rises into it as it
+ * arrives. The tab left behind ([wasActive]) starts raised and settles back.
  */
 @Composable
 private fun NavItem(
     icon: ImageVector,
     label: String,
+    index: Int,
     active: Boolean,
+    wasActive: Boolean,
+    fromIndex: Int?,
+    pitchPx: Float,
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
     highlightModifier: Modifier = Modifier
 ) {
     val ctx = LocalContext.current
-    val p by animateFloatAsState(if (active) 1f else 0f, NavSpring, label = "nav_$label")
+    val slides = active && fromIndex != null && fromIndex != index
+    // How far the circle has come (0 = over the old tab, 1 = home). A tab that
+    // simply is the active one, with nothing to travel from, starts home.
+    val arrive = remember { Animatable(if (slides) 0f else 1f) }
+    // The raise of this tab's icon: up while active, down otherwise.
+    val raise = remember { Animatable(if (active || wasActive) 1f else 0f) }
+    LaunchedEffect(active) {
+        if (active) {
+            arrive.animateTo(1f, SlideSpring)
+        } else {
+            arrive.snapTo(1f)
+        }
+    }
+    LaunchedEffect(active) {
+        raise.animateTo(if (active) 1f else 0f, NavSpring)
+    }
     val tint by animateColorAsState(
         if (active) LightOrange else HintGray,
         tween(220), label = "tint_$label"
@@ -211,22 +291,22 @@ private fun NavItem(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Box(Modifier.height(SlotHeight), contentAlignment = Alignment.Center) {
-                // The circle grows in behind the glyph and carries it upward, so
-                // the icon never jumps between two separate treatments.
-                Box(
-                    Modifier
-                        .size(CircleSize)
-                        .graphicsLayer {
-                            scaleX = p
-                            scaleY = p
-                            alpha = p
-                            translationY = -RaiseRoom.toPx() * p
-                            shadowElevation = 10f * p
-                            shape = CircleShape
-                            clip = true
-                        }
-                        .background(DarkBrown, CircleShape)
-                )
+                if (active) {
+                    // The circle, raised, gliding in from the tab the player left.
+                    Box(
+                        Modifier
+                            .size(CircleSize)
+                            .graphicsLayer {
+                                val from = fromIndex ?: index
+                                translationX = (from - index) * pitchPx * (1f - arrive.value)
+                                translationY = -RaiseRoom.toPx()
+                                shadowElevation = 10f
+                                shape = CircleShape
+                                clip = true
+                            }
+                            .background(DarkBrown, CircleShape)
+                    )
+                }
                 Icon(
                     icon,
                     contentDescription = label,
@@ -234,6 +314,9 @@ private fun NavItem(
                     modifier = Modifier
                         .size(23.dp)
                         .graphicsLayer {
+                            // An arriving tab's icon rises with the circle; a
+                            // departing one settles on its own spring.
+                            val p = if (slides) arrive.value.coerceIn(0f, 1f) else raise.value
                             val sc = 1f + 0.06f * p
                             scaleX = sc
                             scaleY = sc

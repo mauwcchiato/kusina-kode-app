@@ -5,7 +5,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.kusinakode.Session
+import com.example.kusinakode.data.repository.RemoteLeaderboardRepository
 import com.example.kusinakode.data.repository.RemoteProfileRepository
+import com.example.kusinakode.domain.gamification.LeaderboardRules
+import com.example.kusinakode.domain.repository.LeaderboardRepository
 import com.example.kusinakode.domain.model.ProfileStats
 import com.example.kusinakode.domain.repository.ProfileRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -22,11 +25,19 @@ data class ProfileUiState(
     val isSaving: Boolean = false,
     val editError: String? = null,
     val editUsername: String = "",
-    val editNickname: String = ""
+    val editNickname: String = "",
+    /**
+     * The player's place on the all-time points leaderboard (1 = top), the
+     * same number the Leaderboard screen shows. Null until it loads, or when
+     * they are past the fetched board; [pointsRankBeyond] says which.
+     */
+    val pointsRank: Int? = null,
+    val pointsRankBeyond: Boolean = false
 )
 
 class ProfileViewModel(
-    private val profileRepository: ProfileRepository
+    private val profileRepository: ProfileRepository,
+    private val leaderboardRepository: LeaderboardRepository = RemoteLeaderboardRepository()
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ProfileUiState())
@@ -36,9 +47,35 @@ class ProfileViewModel(
         _uiState.update { it.copy(isLoading = true) }
         viewModelScope.launch {
             profileRepository.profileStats(userId)
-                .onSuccess { stats -> _uiState.update { it.copy(isLoading = false, stats = stats, error = null) } }
+                .onSuccess { stats ->
+                    // Some sign-ins leave the session without a display name
+                    // (the profile header already falls back to stats.name).
+                    // Fill it from the server's copy so the rank lookup below,
+                    // and the Leaderboard's "you" row, can find this player.
+                    if (Session.displayName.isNullOrBlank() && stats.name.isNotBlank()) {
+                        Session.displayName = stats.name
+                    }
+                    _uiState.update { it.copy(isLoading = false, stats = stats, error = null) }
+                }
                 .onFailure { e -> _uiState.update { it.copy(isLoading = false, error = e.message) } }
+            // After the stats, so the player's name is known.
+            loadPointsRank()
         }
+    }
+
+    /**
+     * Finds the player on the points leaderboard by name, exactly as the
+     * Leaderboard screen marks "you", so the two always agree.
+     */
+    private suspend fun loadPointsRank() {
+        val me = Session.displayName?.takeIf { it.isNotBlank() } ?: return
+        leaderboardRepository.topPlayers(limit = RANK_BOARD_SIZE)
+            .onSuccess { rows ->
+                val pos = LeaderboardRules.positionOf(rows, me)
+                _uiState.update {
+                    it.copy(pointsRank = pos, pointsRankBeyond = pos == null && rows.size >= RANK_BOARD_SIZE)
+                }
+            }
     }
 
     fun startEdit() {
@@ -80,6 +117,11 @@ class ProfileViewModel(
         if (s.length < 3) return "Username must be at least 3 characters"
         if (!s.all { it.isLetterOrDigit() || it == '_' }) return "Username may only contain letters, numbers, and _"
         return null
+    }
+
+    companion object {
+        /** The most players the leaderboard endpoint returns in one call. */
+        const val RANK_BOARD_SIZE = 100
     }
 
     class Factory(private val context: Context) : ViewModelProvider.Factory {

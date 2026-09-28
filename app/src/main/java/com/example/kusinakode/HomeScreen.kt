@@ -64,6 +64,7 @@ import com.example.kusinakode.ui.rewards.RewardsViewModel
 import com.example.kusinakode.ui.rewards.unreadNotificationCount
 import com.example.kusinakode.ui.rewards.waitingForYouCount
 import com.example.kusinakode.ui.pantry.PantryViewModel
+import com.example.kusinakode.data.repository.AttemptOutbox
 import com.example.kusinakode.ui.shop.EquippedAvatarPortrait
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -77,6 +78,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.kusinakode.ui.game.ResumeViewModel
 import com.example.kusinakode.ui.gamification.GamificationViewModel
+import com.example.kusinakode.domain.gamification.ChefRank
 import com.example.kusinakode.ui.theme.CardSurface
 import com.example.kusinakode.ui.theme.HintGray
 import com.example.kusinakode.ui.theme.LightOrange
@@ -155,7 +157,7 @@ fun HomeScreen(
     val readIds by NotificationStore.read.collectAsState()
     val deletedIds by NotificationStore.deleted.collectAsState()
     val unreadNotifications = remember(
-        wallet, pantryUi.snapshot.spinsAvailable, readIds, deletedIds
+        wallet, pantryUi.snapshot.spinsAvailable, pantryUi.snapshot.drawsAvailable, readIds, deletedIds
     ) {
         unreadNotificationCount(
             history = wallet.history,
@@ -165,9 +167,18 @@ fun HomeScreen(
                 dailyClaimable = wallet.dailyClaimable,
                 spinsAvailable = pantryUi.snapshot.spinsAvailable,
                 islandClaimable = wallet.islands.count { it.claimable },
-                badgeClaimable = wallet.badges.count { it.claimable }
+                badgeClaimable = wallet.badges.count { it.claimable },
+                palayoksToOpen = pantryUi.snapshot.drawsAvailable
             )
         )
+    }
+
+    // A win the server never heard about (the phone was offline) is sent
+    // now; the pantry reload after it is where the server pays any palayok
+    // that win, or any other, is still owed.
+    LaunchedEffect(Unit) {
+        AttemptOutbox(ctx).flush()
+        pantry.refresh()
     }
 
     val resume: ResumeViewModel = viewModel()
@@ -261,8 +272,9 @@ fun HomeScreen(
                 Box {
                     HomeHeader(
                         chefName = chefName,
-                        level = nextLevel,
-                        levelProgress = completed / totalLevels.toFloat(),
+                        rankTitle = ChefRank.forSolved(game.progress.solvedLevels.size, totalLevels).title,
+                        // Dishes solved out of every dish in the game.
+                        levelProgress = game.progress.solvedLevels.size / totalLevels.coerceAtLeast(1).toFloat(),
                         balanceKk = wallet.balanceKk,
                         portrait = {
                             EquippedAvatarPortrait(
