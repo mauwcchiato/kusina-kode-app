@@ -7,9 +7,6 @@
 /captures
 .externalNativeBuild
 .cxx
-CLAUDE.md
-.claude/
-.mcp.json
 
 # Release signing. keystore.properties holds the store and key passwords in
 # plaintext, and build.gradle.kts already claimed this file was ignored when
