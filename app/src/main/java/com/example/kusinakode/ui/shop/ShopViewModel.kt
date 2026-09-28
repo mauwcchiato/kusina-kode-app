@@ -14,6 +14,7 @@ import com.example.kusinakode.domain.shop.AvatarSlot
 import com.example.kusinakode.domain.shop.KusinaShop
 import com.example.kusinakode.domain.shop.ShopItem
 import com.example.kusinakode.domain.shop.ShopKind
+import com.example.kusinakode.ui.pantry.PantryViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -114,8 +115,16 @@ class ShopViewModel(app: Application) : AndroidViewModel(app) {
                     }
                 }
             }
+            // A failure is not always a failed purchase. The chain can be slow
+            // enough that the app stops waiting while the server goes on to
+            // finish the unlock, which used to show a raw timeout for an item
+            // that was in fact bought. Ask the server what is owned before
+            // saying anything; only if the item is not there did it fail.
+            val bought = ok.isSuccess || runCatching {
+                item.id in KusinaApi.getShopOwned().data?.owned.orEmpty()
+            }.getOrDefault(false)
             _uiState.update { it.copy(busyId = null) }
-            ok.onSuccess {
+            if (bought) {
                 SoundFx.coin()
                 val next = _uiState.value.owned + item.id
                 saveOwned(next)
@@ -141,8 +150,14 @@ class ShopViewModel(app: Application) : AndroidViewModel(app) {
                     )
                 }
                 refresh()
-            }.onFailure { e ->
-                _uiState.update { it.copy(notice = e.message ?: "Need ${item.coinCost} KK") }
+            } else {
+                val e = ok.exceptionOrNull()
+                // A server refusal (not enough KK, still settling) is already a
+                // sentence; anything else was the connection giving up.
+                val notice = if (e is IllegalStateException) e.message ?: "Need ${item.coinCost} KK"
+                else PantryViewModel.BUSY_NOTICE
+                _uiState.update { it.copy(notice = notice) }
+                refresh()
             }
         }
     }

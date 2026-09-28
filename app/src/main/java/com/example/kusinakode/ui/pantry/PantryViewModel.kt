@@ -355,10 +355,36 @@ class PantryViewModel(
             var failure: String? = null
             for ((id, qty) in clean) {
                 _uiState.update { it.copy(sellingId = id, notice = null) }
+                val entryBefore = _uiState.value.snapshot.entries.firstOrNull { it.ingredient.id == id }
                 val result = repository.sell(id, qty)
                 val payload = result.getOrNull()
                 if (payload == null) {
-                    failure = result.exceptionOrNull()?.message ?: "Could not sell that ingredient"
+                    val e = result.exceptionOrNull()
+                    if (e is IllegalStateException) {
+                        // The server answered and said no: its reason is the message.
+                        failure = e.message ?: "Could not sell that ingredient"
+                        break
+                    }
+                    // No answer is not a no. The server debits the jar before it
+                    // settles the KK, so a busy chain can finish the sale after
+                    // the app has stopped waiting. Reload the shelf: if the jars
+                    // are gone, the sale went through.
+                    val fresh = repository.snapshot().getOrNull()
+                    if (fresh != null) {
+                        val (snap, balance) = fresh
+                        PantrySnapshotBus.publish(snap, balance)
+                        _uiState.update { it.copy(snapshot = snap, balanceKk = balance) }
+                        val qtyAfter = snap.entries.firstOrNull { it.ingredient.id == id }?.qty ?: 0
+                        if (entryBefore != null && entryBefore.qty - qtyAfter >= qty) {
+                            jars += qty
+                            earned += qty * entryBefore.ingredient.rarity.sellValue
+                            if (qtyAfter <= 0 && _uiState.value.inspecting?.id == id) {
+                                _uiState.update { it.copy(inspecting = null) }
+                            }
+                            continue
+                        }
+                    }
+                    failure = BUSY_NOTICE
                     break
                 }
                 val (sold, snap, balance) = payload
@@ -416,6 +442,8 @@ class PantryViewModel(
     companion object {
         /** Gap between asks while a just-earned palayok is still on its way. */
         const val GRANT_POLL_MS = 800L
+        /** A sale or purchase the server never answered, and did not complete. */
+        const val BUSY_NOTICE = "The market is busy right now. Try again in a moment."
         fun factory(levelId: Int? = null): ViewModelProvider.Factory =
             object : ViewModelProvider.Factory {
                 @Suppress("UNCHECKED_CAST")
