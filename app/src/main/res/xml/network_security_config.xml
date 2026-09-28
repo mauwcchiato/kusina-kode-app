@@ -3,7 +3,7 @@
   Cleartext (plain HTTP) policy for release builds.
 
   The production API is now served over HTTPS (Let's Encrypt certificate on
-  kusinakode.southeastasia.cloudapp.azure.com), and ServerConfig uses https for
+  api.kusinakode.com), and ServerConfig uses https for
   it - so a release build never needs plain HTTP at all. Cleartext is therefore
   denied outright here: if anything on a shipped build ever tries to send over
   http://, it fails instead of leaking in the clear.

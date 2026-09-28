@@ -33,11 +33,15 @@ object ServerConfig {
      * reaches the cloud without anyone typing anything.
      *
      * It is a DNS name, not the bare IP (4.193.189.219), because the API is now
-     * served over HTTPS and a certificate cannot be issued for a raw IP. The
-     * VM's public IP carries this free Azure DNS label, and Let's Encrypt
-     * issued a certificate for exactly this name (see [scheme]/[baseUrl]).
+     * served over HTTPS and a certificate cannot be issued for a raw IP.
+     *
+     * api.kusinakode.com is the project's own domain: an A record at GoDaddy
+     * points it at the VM, and the Let's Encrypt certificate covers it. The
+     * bare kusinakode.com is the GoDaddy website, not the API. The VM's old
+     * Azure label, kusinakode.southeastasia.cloudapp.azure.com, is on the same
+     * certificate and still answers, so builds from before 1.16 keep working.
      */
-    const val DEFAULT_LAN_HOST = "kusinakode.southeastasia.cloudapp.azure.com"
+    const val DEFAULT_LAN_HOST = "api.kusinakode.com"
 
     /** The emulator's alias for the development machine. Not configurable. */
     private const val EMULATOR_HOST = "10.0.2.2"
