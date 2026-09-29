@@ -2,6 +2,8 @@ package com.example.kusinakode.ui.learn
 
 import androidx.annotation.DrawableRes
 import com.example.kusinakode.R
+import com.example.kusinakode.domain.pantry.IngredientCatalog
+import com.example.kusinakode.ui.pantry.PantryIngredientArt
 
 /**
  * Photography for the ingredients named in the dish dataset.
@@ -214,8 +216,20 @@ object IngredientArt {
         "vinegar cane white or coconut vinegar" to R.drawable.ing_vinegar,
     )
 
-    /** Drawable for [name], or null when we have no picture for it. */
+    /**
+     * Drawable for [name], or null when we have no picture for it. A name the
+     * table doesn't know, like the web console's "Tuna (Fresh)", is looked up
+     * in the ingredient book and drawn with that ingredient's pantry picture.
+     */
     @DrawableRes
-    fun forName(name: String): Int? =
-        byName[name.lowercase().replace(Regex("[^a-z0-9]+"), " ").trim()]
+    fun forName(name: String): Int? {
+        val key = normalise(name)
+        byName[key]?.let { return it }
+        val id = IngredientCatalog.byId.values.firstOrNull { normalise(it.name) == key }?.id
+            ?: "ing_" + key.replace(' ', '_')
+        return PantryIngredientArt.forId(id)
+    }
+
+    private fun normalise(name: String): String =
+        name.lowercase().replace(Regex("[^a-z0-9]+"), " ").trim()
 }

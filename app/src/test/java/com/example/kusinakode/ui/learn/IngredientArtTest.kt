@@ -1,6 +1,9 @@
 package com.example.kusinakode.ui.learn
 
+import com.example.kusinakode.R
 import com.example.kusinakode.data.dishes.DishCatalog
+import com.example.kusinakode.domain.pantry.IngredientCatalog
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
@@ -14,6 +17,9 @@ import org.junit.Test
  * string, which is exactly the moment someone needs to be told.
  */
 class IngredientArtTest {
+
+    @After
+    fun reset() = IngredientCatalog.clearRemote()
 
     /** The sheet interleaves section headers and bare measurements. */
     private fun isItem(s: String): Boolean {
@@ -60,5 +66,17 @@ class IngredientArtTest {
     fun `an unknown ingredient returns null rather than throwing`() {
         assertEquals(null, IngredientArt.forName("truffle oil"))
         assertEquals(null, IngredientArt.forName(""))
+    }
+
+    @Test
+    fun `the web console's names get the pantry picture`() {
+        assertEquals(R.drawable.ing_tuna, IngredientArt.forName("Tuna (Fresh)"))
+        assertEquals(R.drawable.ing_vinegar, IngredientArt.forName("Vinegar (White/Cane/Coconut)"))
+    }
+
+    @Test
+    fun `every ingredient in the book has a picture by its name`() {
+        val missing = IngredientCatalog.byId.values.filter { IngredientArt.forName(it.name) == null }
+        assertTrue("no picture for: ${missing.map { it.name }}", missing.isEmpty())
     }
 }
