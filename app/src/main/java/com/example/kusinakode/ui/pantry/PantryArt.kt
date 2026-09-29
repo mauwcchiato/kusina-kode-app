@@ -18,7 +18,9 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.imageResource
 import androidx.compose.ui.res.painterResource
+import coil.compose.SubcomposeAsyncImage
 import com.example.kusinakode.domain.pantry.Ingredient
+import com.example.kusinakode.domain.pantry.IngredientCatalog
 import com.example.kusinakode.ui.learn.IngredientArt
 
 @Composable
@@ -45,15 +47,25 @@ fun IngredientPhoto(
     contentScale: ContentScale = ContentScale.Fit
 ) {
     val photo = pantryPhoto(ingredient)
-    if (photo != null) {
-        Image(
+    val webPhoto = if (photo == null) IngredientCatalog.imageUrl(ingredient.id) else null
+    when {
+        photo != null -> Image(
             painter = painterResource(photo),
             contentDescription = ingredient.name,
             modifier = modifier,
             contentScale = contentScale
         )
-    } else {
-        PaintedJar(modifier)
+        // An ingredient added on the web has no packaged art: show the picture
+        // uploaded there, and the painted jar while it loads or if it fails.
+        webPhoto != null -> SubcomposeAsyncImage(
+            model = webPhoto,
+            contentDescription = ingredient.name,
+            modifier = modifier,
+            contentScale = contentScale,
+            loading = { PaintedJar(Modifier.fillMaxSize()) },
+            error = { PaintedJar(Modifier.fillMaxSize()) }
+        )
+        else -> PaintedJar(modifier)
     }
 }
 

@@ -25,7 +25,7 @@ class RemotePantryRepository : PantryRepository {
     override suspend fun draw(levelId: Int?): Result<Triple<DrawResult, PantrySnapshot, Long>> = runCatching {
         val resp = KusinaApi.pantryDraw(levelId)
         val data = resp.data ?: error(resp.message ?: "The palayok was empty")
-        val ingredient = data.ingredient_id?.let { IngredientCatalog.get(it) }
+        val ingredient = data.ingredient_id?.let { IngredientCatalog.getOrStub(it) }
         val snap = (data.snapshot ?: error("Missing pantry snapshot")).toSnapshot()
         Triple(
             DrawResult(
@@ -63,8 +63,7 @@ class RemotePantryRepository : PantryRepository {
         data.tx_ref?.let { ref ->
             ChainQueue.serialized { KusinaApi.settleReward(ref) }
         }
-        val ingredient = IngredientCatalog.get(data.ingredient_id)
-            ?: error("Unknown ingredient")
+        val ingredient = IngredientCatalog.getOrStub(data.ingredient_id)
         val (snap, balance) = snapshot().getOrThrow()
         Triple(
             SellResult(
@@ -81,7 +80,9 @@ class RemotePantryRepository : PantryRepository {
 
 private fun PantrySnapshotData.toSnapshot(): PantrySnapshot {
     val entries = jars.mapNotNull { row ->
-        val ingredient = IngredientCatalog.get(row.id) ?: return@mapNotNull null
+        // Never dropped: an id this app has not heard of still shows (and sells)
+        // as a plain ingredient until the next ingredient refresh names it.
+        val ingredient = IngredientCatalog.getOrStub(row.id)
         if (row.qty <= 0) return@mapNotNull null
         PantryEntry(ingredient, row.qty, row.found_in_level)
     }

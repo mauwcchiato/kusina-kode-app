@@ -441,6 +441,27 @@ data class PantryJarDto(
     val found_in_level: Int? = null
 )
 
+/** One row of get_ingredients.php. [id] is the stable key draws and sales use. */
+@Serializable
+data class IngredientData(
+    val id: String,
+    val name: String,
+    val local_name: String? = null,
+    val category: String? = null,
+    val rarity: String? = null,
+    val description: String? = null,
+    val image_path: String? = null
+)
+
+@Serializable
+data class IngredientListResponse(
+    val status: String,
+    /** Changes whenever the list does. */
+    val version: String? = null,
+    val count: Int = 0,
+    val data: List<IngredientData> = emptyList()
+)
+
 @Serializable
 data class PantrySnapshotData(
     val jars: List<PantryJarDto> = emptyList(),
@@ -614,6 +635,10 @@ object KusinaApi {
     suspend fun getEquipment(): List<EquipmentData> =
         KtorClient.client.get("${BASE}get_equipment.php")
             .body<GenericListResponse<EquipmentData>>().data.orEmpty()
+
+    /** The web panel's Published ingredients (public, read-only). */
+    suspend fun getIngredients(): IngredientListResponse =
+        KtorClient.client.get("${BASE}get_ingredients.php").body()
 
     suspend fun postUnlock(userId: Int?, levelId: Int): UnlockResponse =
         KtorClient.client.post("${BASE}post_unlock.php") {

@@ -93,8 +93,8 @@ fun LeadershipScreen(
     // measured in points.
     val byPoints = window == LeaderboardWindow.AllTime
     fun score(row: LeaderboardRow) =
-        if (byPoints) "${row.points} points"
-        else "${row.correctCount} " + if (row.correctCount == 1) "dish" else "dishes"
+        if (byPoints) "${row.points} Points"
+        else "${row.correctCount} " + if (row.correctCount == 1) "Dish" else "Dishes"
 
     fun isMe(row: LeaderboardRow) = row.name.equals(myName, ignoreCase = true)
 
@@ -407,29 +407,35 @@ private fun PodiumSlot(
             BoardPortrait(row = row, isMe = isMe, size = avatarSize)
         }
         Spacer(Modifier.height(12.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                (row?.name ?: "—") + if (isMe) " (You)" else "",
-                color = Color.White,
-                fontFamily = BeVietnamPro,
-                fontSize = if (rank == 1) 12.sp else 11.sp,
-                fontWeight = FontWeight.ExtraBold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f, fill = false)
-            )
-            if (rankTitle != null) {
-                Spacer(Modifier.width(3.dp))
-                com.example.kusinakode.ui.home.RankBadge(rankTitle, size = 22.dp)
-            }
-        }
         Text(
-            if (row != null) scoreLabel else "",
-            color = medal.copy(alpha = 0.95f),
+            (row?.name ?: "—") + if (isMe) " (You)" else "",
+            color = Color.White,
             fontFamily = BeVietnamPro,
-            fontSize = 10.sp,
-            fontWeight = FontWeight.SemiBold
+            fontSize = if (rank == 1) 12.sp else 11.sp,
+            fontWeight = FontWeight.ExtraBold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
         )
+        // Under the name: rank badge | score.
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (rankTitle != null && row != null) {
+                com.example.kusinakode.ui.home.RankBadge(rankTitle, size = 20.dp)
+                Text(
+                    "|",
+                    color = medal.copy(alpha = 0.5f),
+                    fontSize = 10.sp,
+                    modifier = Modifier.padding(horizontal = 4.dp)
+                )
+            }
+            Text(
+                if (row != null) scoreLabel else "",
+                color = medal.copy(alpha = 0.95f),
+                fontFamily = BeVietnamPro,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1
+            )
+        }
         Spacer(Modifier.height(8.dp))
         Box(
             Modifier
@@ -495,22 +501,15 @@ private fun RankRow(
             )
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        row.name,
-                        fontFamily = BeVietnamPro,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = TextDark,
-                        fontSize = 14.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f, fill = false)
-                    )
-                    if (rankTitle != null) {
-                        Spacer(Modifier.width(4.dp))
-                        com.example.kusinakode.ui.home.RankBadge(rankTitle, size = 26.dp)
-                    }
-                }
+                Text(
+                    row.name,
+                    fontFamily = BeVietnamPro,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = TextDark,
+                    fontSize = 14.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
                 if (isMe) {
                     Surface(
                         shape = RoundedCornerShape(8.dp),
@@ -530,6 +529,16 @@ private fun RankRow(
                 }
             }
             Spacer(Modifier.width(8.dp))
+            // On the right: rank badge | score.
+            if (rankTitle != null) {
+                com.example.kusinakode.ui.home.RankBadge(rankTitle, size = 24.dp)
+                Text(
+                    "|",
+                    color = RegionChipInk.copy(alpha = 0.45f),
+                    fontSize = 12.sp,
+                    modifier = Modifier.padding(horizontal = 6.dp)
+                )
+            }
             Text(
                 scoreLabel,
                 color = RegionChipInk,

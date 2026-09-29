@@ -97,10 +97,13 @@ class MainActivity : ComponentActivity() {
         // panel last published rather than flashing the catalogue's text.
         LevelSync.load(this)
         EquipmentSync.applyCached(this)
+        com.example.kusinakode.data.levels.IngredientSync.applyCached(this)
         lifecycleScope.launch { LevelSync.refresh(this@MainActivity) }
         // Separate launch: equipment art is cosmetic, so a slow or failed
         // fetch here must not hold up the level wording behind it.
         lifecycleScope.launch { EquipmentSync.refresh(this@MainActivity) }
+        // The web's ingredient book; the bundled one stands until it lands.
+        lifecycleScope.launch { com.example.kusinakode.data.levels.IngredientSync.refresh(this@MainActivity) }
         // Draw behind system bars
         WindowCompat.setDecorFitsSystemWindows(window, false)
         setContent {

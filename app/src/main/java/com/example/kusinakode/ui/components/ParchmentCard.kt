@@ -46,12 +46,14 @@ private val GlowLow = Color(0xFFE5D0AD)
 fun ParchmentCard(
     modifier: Modifier = Modifier,
     contentPadding: Dp = 22.dp,
+    /** The dark narra ledge under the card; false for a flat card with no shadow. */
+    ledge: Boolean = true,
     content: @Composable BoxScope.() -> Unit
 ) {
     Box(
         modifier
             .fillMaxWidth()
-            .drawBehind { drawParchmentPlate() }
+            .drawBehind { drawParchmentPlate(ledge = ledge) }
             .padding(contentPadding)
     ) {
         content()
@@ -62,25 +64,28 @@ fun ParchmentCard(
  * The plate on its own, for hosts that already own their layout and only need
  * the background painted behind what they draw.
  */
-fun Modifier.parchmentPlate(): Modifier = drawBehind { drawParchmentPlate() }
+fun Modifier.parchmentPlate(stitched: Boolean = true): Modifier =
+    drawBehind { drawParchmentPlate(stitched = stitched) }
 
-private fun DrawScope.drawParchmentPlate() {
+private fun DrawScope.drawParchmentPlate(ledge: Boolean = true, stitched: Boolean = true) {
     // The artwork's card is 490 units wide; scaling by that keeps every
     // border weight proportional however wide the dialog ends up.
     val u = size.width / 490f
     fun len(v: Float) = v * u
 
     val radius = len(38f)
-    val ledgeDrop = len(10f)
+    val ledgeDrop = if (ledge) len(10f) else 0f
     val bodyH = size.height - ledgeDrop
 
     // Extruded ledge peeking out below the card gives it thickness.
-    drawRoundRect(
-        color = Ledge,
-        topLeft = Offset(0f, ledgeDrop),
-        size = Size(size.width, bodyH),
-        cornerRadius = CornerRadius(radius)
-    )
+    if (ledge) {
+        drawRoundRect(
+            color = Ledge,
+            topLeft = Offset(0f, ledgeDrop),
+            size = Size(size.width, bodyH),
+            cornerRadius = CornerRadius(radius)
+        )
+    }
 
     drawRoundRect(
         brush = Brush.verticalGradient(
@@ -114,6 +119,8 @@ private fun DrawScope.drawParchmentPlate() {
         cornerRadius = CornerRadius(radius - edge / 2f),
         style = Stroke(width = edge)
     )
+
+    if (!stitched) return
 
     // Stitched banig seam.
     val seam = len(9f)

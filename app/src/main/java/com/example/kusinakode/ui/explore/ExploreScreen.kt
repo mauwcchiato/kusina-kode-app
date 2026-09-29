@@ -76,6 +76,7 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
@@ -116,6 +117,7 @@ import com.example.kusinakode.ui.home.ChromeStroke
 import com.example.kusinakode.ui.home.regionIcon
 import com.example.kusinakode.ui.components.LevelImage
 import com.example.kusinakode.ui.components.ParchmentCard
+import com.example.kusinakode.ui.components.parchmentPlate
 import com.example.kusinakode.ui.components.KusinaButton
 import com.example.kusinakode.ui.components.KusinaButtonTone
 
@@ -314,7 +316,7 @@ fun ExploreScreen(
                             fontSize = 17.sp
                         )
                         Text(
-                            "$completedUpTo of $totalLevels dishes solved · $regionsExplored of ${Region.entries.size} islands",
+                            "$completedUpTo of $totalLevels Dishes Solved · $regionsExplored of ${Region.entries.size} Islands",
                             color = LightOrange.copy(alpha = 0.92f),
                             fontFamily = BeVietnamPro,
                             fontWeight = FontWeight.Medium,
@@ -375,19 +377,23 @@ fun ExploreScreen(
                             .weight(1f)
                             .fillMaxWidth()
                             .coachAnchor("explore_map", coachAnchors)
-                            .background(
-                                Brush.verticalGradient(
-                                    listOf(
-                                        MapSeaTop,
-                                        MapSeaDeep,
-                                        MapSeaFoot
-                                    )
-                                )
-                            )
+                            // A kitchen table: the chart lies on warm wood,
+                            // the same browns as Home and the walkthrough cards.
+                            .drawBehind { drawKitchenTable() }
                     ) {
-                        // Open water: graticule + depth contours + a slow drifting
-                        // sheen, so the sea reads as a charted ocean, not a backdrop.
-                        OceanBackdrop(Modifier.matchParentSize())
+                        // The chart's parchment frame, a little larger than the art
+                        // so its stitched border shows around it.
+                        Box(
+                            Modifier
+                                .matchParentSize()
+                                .padding(
+                                    start = MapTableSide - MapFrameBorder,
+                                    end = MapTableSide - MapFrameBorder,
+                                    top = mapArtTop + MapTableTop - MapFrameBorder,
+                                    bottom = navPad + MapCtaRoom - MapFrameBorder - MapFrameLedge
+                                )
+                                .parchmentPlate(stitched = false)
+                        )
 
                         // The chart is the island art itself: the whole archipelago
                         // until a region is picked, then that region's own map.
@@ -396,10 +402,17 @@ fun ExploreScreen(
                             animationSpec = tween(420),
                             label = "map_region",
                             // The art stops above PLAY NOW and the bottom bar, so no island
-                            // ever sits under the button; the sea behind carries on below.
+                            // ever sits under the button; the table carries on below.
+                            // The pin layer below uses exactly these insets.
                             modifier = Modifier
                                 .matchParentSize()
-                                .padding(top = mapArtTop, bottom = navPad + MapCtaRoom)
+                                .padding(
+                                    start = MapTableSide,
+                                    end = MapTableSide,
+                                    top = mapArtTop + MapTableTop,
+                                    bottom = navPad + MapCtaRoom
+                                )
+                                .clip(RoundedCornerShape(MapArtCorner))
                         ) { region ->
                             Image(
                                 painter = painterResource(
@@ -408,23 +421,7 @@ fun ExploreScreen(
                                 ),
                                 contentDescription = region?.displayName
                                     ?: "Map of the Philippines",
-                                // The art's lower edge fades out, so it melts into the matching
-                                // sea behind it instead of ending on a hard line.
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
-                                    .drawWithContent {
-                                        drawContent()
-                                        drawRect(
-                                            brush = Brush.verticalGradient(
-                                                0f to Color.Transparent,
-                                                MapArtFadeTop to Color.Black,
-                                                (1f - MapArtFade) to Color.Black,
-                                                1f to Color.Transparent
-                                            ),
-                                            blendMode = BlendMode.DstIn
-                                        )
-                                    },
+                                modifier = Modifier.fillMaxSize(),
                                 contentScale = ContentScale.Crop
                             )
                         }
@@ -437,7 +434,12 @@ fun ExploreScreen(
                         BoxWithConstraints(
                             Modifier
                                 .matchParentSize()
-                                .padding(top = mapArtTop, bottom = navPad + MapCtaRoom)
+                                .padding(
+                                    start = MapTableSide,
+                                    end = MapTableSide,
+                                    top = mapArtTop + MapTableTop,
+                                    bottom = navPad + MapCtaRoom
+                                )
                         ) {
                             val cardW = maxWidth.value
                             val cardH = maxHeight.value
@@ -588,7 +590,7 @@ fun ExploreScreen(
                                         else -> "START HERE"
                                     },
                                     modifier = Modifier
-                                        .offset(x = stops[i].x.dp - 30.dp, y = stops[i].y.dp - 46.dp)
+                                        .offset(x = stops[i].x.dp - 30.dp, y = stops[i].y.dp - 54.dp)
                                         .then(
                                             if (region == Region.LUZON) {
                                                 Modifier.coachAnchor("explore_pin", coachAnchors)
@@ -684,7 +686,7 @@ fun ExploreScreen(
                                 canResume -> "Continue · $ctaLevel"
                                 completedUpTo >= totalLevels -> "Play again · $ctaLevel"
                                 else -> "Play now · $ctaLevel"
-                            },
+                            }.uppercase(),
                             onClick = clickSfx { onPlayLevel(nextLevel) },
                             tone = KusinaButtonTone.Brown,
                             height = 50.dp,
@@ -700,7 +702,11 @@ fun ExploreScreen(
                             },
                             modifier = Modifier
                                 .align(Alignment.BottomCenter)
-                                .padding(bottom = navPad + 12.dp)
+                                // Centred on the wood between the chart's frame and
+                                // the bottom bar. The bar's padding includes the
+                                // clear space its raised circle needs, above the
+                                // white bar itself, so this sits a little inside it.
+                                .padding(bottom = navPad - MapCtaDrop)
                                 .fillMaxWidth(MapCtaWidth)
                                 .widthIn(max = 360.dp)
                                 .coachAnchor("explore_cta", coachAnchors)
@@ -779,6 +785,7 @@ fun ExploreScreen(
                 ),
                 CoachStep(
                     anchorKey = "explore_level",
+                    round = true,
                     title = "Island levels",
                     body = "Each circle is a level. Solved ones show their dish, the chef " +
                         "stands on your next one, and the rest are mystery dishes."
@@ -1119,7 +1126,7 @@ private fun RegionKitchenSheet(
             val rest = regionLevels.drop(3)
             Column(headerModifier) {
                 Text(
-                    "${region.displayName} Kitchen",
+                    "${region.displayName} Dish List",
                     color = TextDark,
                     fontFamily = BeVietnamPro,
                     fontWeight = FontWeight.ExtraBold,
@@ -1320,7 +1327,7 @@ private fun RegionPanel(
             Spacer(Modifier.height(6.dp))
             Row {
                 Text(
-                    if (complete) "All $total dishes solved" else "$solved of $total dishes solved",
+                    if (complete) "All $total Dishes Solved" else "$solved of $total Dishes Solved",
                     color = if (complete) DarkBrown else HintGray,
                     fontSize = 11.sp,
                     fontWeight = if (complete) FontWeight.SemiBold else FontWeight.Normal
@@ -1370,63 +1377,6 @@ private fun ProgressTrack(fraction: Float, gold: Boolean = false) {
                         else listOf(ProgressFillStart, ProgressFillEnd)
                     )
                 )
-        )
-    }
-}
-
-/**
- * Charted open water: a graticule, depth contours ringing the archipelago, and
- * a sheen that drifts across the surface. Purely decorative — it exists to make
- * the empty half of the card feel like sea rather than dead space.
- */
-@Composable
-private fun OceanBackdrop(modifier: Modifier = Modifier) {
-    val drift by rememberInfiniteTransition(label = "ocean").animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(9000, easing = LinearEasing), RepeatMode.Reverse),
-        label = "ocean_drift"
-    )
-
-    Canvas(modifier) {
-        val grid = Color.White.copy(alpha = 0.07f)
-        val step = size.width / 5f
-
-        // Graticule.
-        var x = step
-        while (x < size.width) {
-            drawLine(grid, Offset(x, 0f), Offset(x, size.height), strokeWidth = 1f)
-            x += step
-        }
-        var y = step
-        while (y < size.height) {
-            drawLine(grid, Offset(0f, y), Offset(size.width, y), strokeWidth = 1f)
-            y += step
-        }
-
-        // Depth contours centred on the islands.
-        val heart = Offset(size.width * 0.56f, size.height * 0.5f)
-        val dash = PathEffect.dashPathEffect(floatArrayOf(9f, 12f))
-        listOf(0.34f, 0.46f, 0.58f, 0.70f).forEachIndexed { i, r ->
-            drawCircle(
-                color = Color.White.copy(alpha = 0.10f - i * 0.015f),
-                radius = size.minDimension * r,
-                center = heart,
-                style = Stroke(width = 1.4f, pathEffect = dash)
-            )
-        }
-
-        // Slow sheen sweeping the surface.
-        drawRect(
-            brush = Brush.linearGradient(
-                colors = listOf(
-                    Color.Transparent,
-                    Color.White.copy(alpha = 0.06f),
-                    Color.Transparent
-                ),
-                start = Offset(size.width * (drift - 0.35f), 0f),
-                end = Offset(size.width * (drift + 0.35f), size.height)
-            )
         )
     }
 }
@@ -1502,17 +1452,26 @@ private fun RegionPin(
         modifier = modifier.clickable(onClick = onClick),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Box(contentAlignment = Alignment.Center) {
+        // A fixed footprint: the pulse and the hop are drawn, not laid out, so
+        // the pin's measured size never changes. It used to grow and shrink
+        // with the ring every frame, and the walkthrough spotlight that
+        // measures this pin jumped along with it.
+        Box(Modifier.size(PinFootprint), contentAlignment = Alignment.Center) {
             // Expanding ring that fades as it grows.
             Box(
                 Modifier
-                    .size((28 + 26 * pulse).dp)
+                    .size(PinFootprint)
+                    .graphicsLayer {
+                        val s = (28f + 26f * pulse) / PinFootprint.value
+                        scaleX = s
+                        scaleY = s
+                    }
                     .clip(CircleShape)
                     .background(pinColor.copy(alpha = 0.32f * (1f - pulse)))
             )
             Box(
                 Modifier
-                    .offset(y = hop.dp)
+                    .graphicsLayer { translationY = hop.dp.toPx() }
                     .size(38.dp),
                 contentAlignment = Alignment.Center
             ) {
@@ -1723,11 +1682,14 @@ private fun IslandLevelsLayer(
         ) {
             // The island's name plate, on the same parchment as the app's
             // dialogs and the walkthrough.
-            ParchmentCard(contentPadding = 12.dp) {
+            ParchmentCard(contentPadding = 12.dp, ledge = false) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    // Wooden back medallion.
+                    // Wooden back medallion, centred on the island's name and
+                    // the count under it, not on the whole plate with its bar.
                     Box(
                         Modifier
+                            .align(Alignment.Top)
+                            .offset(y = PlateArrowNudge)
                             .size(36.dp)
                             .clip(CircleShape)
                             .background(PlayNowBrown)
@@ -1753,7 +1715,7 @@ private fun IslandLevelsLayer(
                             lineHeight = 20.sp
                         )
                         Text(
-                            if (complete) "All $total dishes solved" else "$solved of $total dishes solved",
+                            if (complete) "All $total Dishes Solved" else "$solved of $total Dishes Solved",
                             color = PlateInkSoft,
                             fontFamily = BeVietnamPro,
                             fontSize = 11.sp
@@ -1777,7 +1739,7 @@ private fun IslandLevelsLayer(
                             .padding(horizontal = 12.dp, vertical = 7.dp)
                     ) {
                         Text(
-                            "Dish list ›",
+                            "Dish List ›",
                             color = PlateCream,
                             fontFamily = BeVietnamPro,
                             fontWeight = FontWeight.ExtraBold,
@@ -2010,27 +1972,18 @@ private fun LevelNode(
                 .align(Alignment.BottomCenter)
                 .offset(y = 9.dp)
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp)
-            ) {
-                if (!lvl.isSolved && !isCurrent) {
-                    Icon(
-                        Icons.Default.Lock,
-                        contentDescription = "Locked",
-                        tint = Color.White.copy(alpha = 0.85f),
-                        modifier = Modifier.size(9.dp)
-                    )
-                    Spacer(Modifier.width(2.dp))
-                }
-                Text(
-                    "${lvl.displayNumber}",
-                    color = if (isCurrent) PlayNowBrown else Color.White,
-                    fontFamily = BeVietnamPro,
-                    fontWeight = FontWeight.ExtraBold,
-                    fontSize = 11.sp
-                )
-            }
+            // Just the number, centred; the "?" face already says it is locked.
+            Text(
+                "${lvl.displayNumber}",
+                color = if (isCurrent) PlayNowBrown else Color.White,
+                fontFamily = BeVietnamPro,
+                fontWeight = FontWeight.ExtraBold,
+                fontSize = 11.sp,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .padding(horizontal = 6.dp, vertical = 1.dp)
+                    .widthIn(min = 10.dp)
+            )
         }
     }
 }
@@ -2139,22 +2092,71 @@ private val MapSearchTop = 12.dp
 private val MapCtaRoom = 76.dp
 /** Share of the map's width the PLAY NOW button takes. */
 private const val MapCtaWidth = 0.8f
+/**
+ * The name (20sp line) and count (about 15sp) stack to roughly 35dp, so a 36dp
+ * button whose top sits this far above them has its centre between the two lines.
+ */
+private val PlateArrowNudge = (-1).dp
+/** The island pin's fixed size: the widest its pulse ring grows (28 + 26 dp). */
+private val PinFootprint = 54.dp
+/** How far the button's foot sits inside the bottom bar's padding, to centre it on the wood. */
+private val MapCtaDrop = 6.dp
 
 
 
 /**
- * The open sea behind the map, matched to the island art's own deep water
- * (sampled from its lower edge) so the art can fade into it without a seam.
+ * The chart lies on a kitchen table: the art is inset from the screen's edges
+ * by these, and the pin layer uses the same insets so pins stay on their islands.
  */
-private val MapSeaTop = Color(0xFF22B6D0)
-private val MapSeaDeep = Color(0xFF20B4CE)
-private val MapSeaFoot = Color(0xFF1B9FBA)
+private val MapTableSide = 16.dp
+private val MapTableTop = 14.dp
+/** How far the parchment frame reaches past the art, and its ledge underneath. */
+private val MapFrameBorder = 10.dp
+private val MapFrameLedge = 6.dp
+private val MapArtCorner = 16.dp
 
-/** How much of the art's height, at its foot, fades into the sea. */
-private const val MapArtFade = 0.12f
+private val TablePlankA = Color(0xFF6E3F1E)
+private val TablePlankB = Color(0xFF7A4724)
+private val TableSeam = Color(0xFF3B1E0C)
+private val TableGrain = Color(0xFF9A6236)
 
-/** And at its head, where it meets the sea under the top panel. */
-private const val MapArtFadeTop = 0.06f
+/**
+ * Warm wooden planks, running across the screen with dark seams and a little
+ * grain, darkening toward the edges. Deterministic, so the grain never shifts.
+ */
+private fun DrawScope.drawKitchenTable() {
+    val plank = 58.dp.toPx()
+    val rows = (size.height / plank).toInt() + 1
+    for (r in 0..rows) {
+        val top = r * plank
+        drawRect(if (r % 2 == 0) TablePlankA else TablePlankB, Offset(0f, top), Size(size.width, plank))
+        // Grain: a few long, faint strokes per plank, placed from the row number.
+        for (g in 0 until 4) {
+            val y = top + plank * (0.18f + 0.2f * g) + ((r * 7 + g * 3) % 5) * 0.6f.dp.toPx()
+            val startX = ((r * 53 + g * 97) % 100) / 100f * size.width * 0.5f
+            drawLine(
+                TableGrain.copy(alpha = 0.22f),
+                Offset(startX, y),
+                Offset(startX + size.width * (0.35f + 0.1f * g), y + 1.dp.toPx()),
+                strokeWidth = 1.dp.toPx()
+            )
+        }
+        // Butt joint on alternate rows, so the planks read as boards.
+        val joint = if (r % 2 == 0) size.width * 0.3f else size.width * 0.72f
+        drawLine(TableSeam.copy(alpha = 0.6f), Offset(joint, top), Offset(joint, top + plank), 1.5.dp.toPx())
+        drawLine(TableSeam, Offset(0f, top), Offset(size.width, top), 2.dp.toPx())
+    }
+    // Warm vignette, so the eye settles on the chart in the middle.
+    drawRect(
+        Brush.radialGradient(
+            0f to Color.Transparent,
+            0.65f to Color.Transparent,
+            1f to Color.Black.copy(alpha = 0.45f),
+            center = center,
+            radius = size.maxDimension * 0.75f
+        )
+    )
+}
 
 /**
  * The whole map's single top panel, on parchment: the instruction, or while

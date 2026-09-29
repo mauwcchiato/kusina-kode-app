@@ -138,11 +138,10 @@ fun NextLevelBanner(
             ) {
                 BoxWithConstraints(Modifier.fillMaxWidth()) {
                     val imageHeight = maxWidth * (562f / 1000f)
-                    // Chains meet the top edge like a hanging banner. A few dp
-                    // stay on screen so the wooden bar is not sliced off.
-                    val pullUp = (
-                        imageHeight * (88f / 562f) * SIGN_SCALE - 8.dp
-                    ).coerceAtLeast(0.dp)
+                    // Chains meet the top edge like a hanging banner, with the
+                    // wooden bar flush against the top: no strip of dim above it.
+                    val pullUp = (imageHeight * (88f / 562f) * SIGN_SCALE)
+                        .coerceAtLeast(0.dp)
                     Image(
                         painter = painterResource(R.drawable.next_level_sign),
                         contentDescription = "Next level",

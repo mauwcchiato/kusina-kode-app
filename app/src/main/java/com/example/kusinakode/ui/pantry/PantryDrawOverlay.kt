@@ -12,6 +12,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -116,6 +117,11 @@ fun PantryDrawOverlay(
     onPick: () -> Unit,
     onDismissReveal: () -> Unit,
     onSkip: () -> Unit,
+    /**
+     * Offers OPEN LATER under the pots after a win: the palayok stays unopened
+     * on the pantry shelf. Null hides the choice.
+     */
+    onOpenLater: (() -> Unit)? = null,
     asDialog: Boolean = false,
     oneShot: Boolean = false,
     drawingAll: Boolean = false,
@@ -319,6 +325,14 @@ fun PantryDrawOverlay(
                 drawsAvailable = drawsAvailable,
                 earnedBauls = earnedBauls,
                 drawingAll = drawingAll,
+                onLater = if (oneShot) onOpenLater?.let { later ->
+                    {
+                        if (chosen < 0 && !drawing) {
+                            SoundFx.play(ctx, SoundFx.Cue.Nav)
+                            later()
+                        }
+                    }
+                } else null,
                 onOpenAll = onOpenAll?.let { open ->
                     {
                         if (chosen < 0 && !drawing && !drawingAll && !openingAll) {
@@ -415,6 +429,8 @@ private fun ChooseGrid(
     earnedBauls: Int,
     drawingAll: Boolean,
     onOpenAll: (() -> Unit)?,
+    /** Keeps the palayok for the Pantry instead of opening it now; null hides the choice. */
+    onLater: (() -> Unit)? = null,
     onPick: (Int) -> Unit
 ) {
     Column(
@@ -502,9 +518,9 @@ private fun ChooseGrid(
             Spacer(Modifier.height(10.dp))
             Text(
                 when {
-                    earnedBauls <= 1 -> "Pick the one you like — it opens right now."
-                    earnedBauls == 2 -> "Pick one to open now. The other is waiting on your pantry shelf."
-                    else -> "Pick one to open now. The other ${earnedBauls - 1} are waiting on your pantry shelf."
+                    earnedBauls <= 1 -> "Pick the one you like — it opens right now"
+                    earnedBauls == 2 -> "Pick one to open now. The other is waiting on your pantry shelf"
+                    else -> "Pick one to open now. The other ${earnedBauls - 1} are waiting on your pantry shelf"
                 },
                 color = Color(0xFFE8C9A0),
                 fontFamily = BeVietnamPro,
@@ -541,6 +557,37 @@ private fun ChooseGrid(
                         }
                     }
                 }
+            }
+            if (onLater != null) {
+                // The quieter choice: an outline, not a filled button, so the
+                // pots stay the obvious thing to tap.
+                Spacer(Modifier.height(20.dp))
+                Surface(
+                    shape = RoundedCornerShape(50),
+                    color = Color.Transparent,
+                    border = BorderStroke(1.5.dp, Color(0xFFE8C9A0).copy(alpha = 0.8f)),
+                    modifier = Modifier.clickable(
+                        enabled = chosen < 0 && !drawing,
+                        onClick = onLater
+                    )
+                ) {
+                    Text(
+                        "OPEN LATER",
+                        color = Color(0xFFE8C9A0),
+                        fontFamily = BeVietnamPro,
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 12.sp,
+                        letterSpacing = 1.2.sp,
+                        modifier = Modifier.padding(horizontal = 22.dp, vertical = 10.dp)
+                    )
+                }
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "It will wait on your pantry shelf",
+                    color = Color(0xFFE8C9A0).copy(alpha = 0.7f),
+                    fontFamily = BeVietnamPro,
+                    fontSize = 11.sp
+                )
             }
         } else {
             BobbingBaul(

@@ -1014,6 +1014,12 @@ fun GameScreen(
                 onPick = { pantry.drawWhenReady(powerUpsUsed = uiState.powerUpsUsed) },
                 onDismissReveal = pantry::dismissReveal,
                 onSkip = { finishPot() },
+                // Leave it unopened: the win screen then says it is waiting in
+                // the Pantry, which is where it can be opened any time.
+                onOpenLater = {
+                    palayokMissed = true
+                    finishPot()
+                },
                 oneShot = true,
                 earnedBauls = PalayokGrantRules.PER_WIN,
                 // The palayok opened straight after a win reveals a card the
@@ -1557,7 +1563,7 @@ private fun WinOverlay(
                     )
                     Spacer(Modifier.width(8.dp))
                     Text(
-                        "Your palayok for this dish will be waiting in your Pantry.",
+                        "Your palayok for this dish will be waiting in your Pantry",
                         color = LightOrange.copy(alpha = 0.9f),
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold

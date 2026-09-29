@@ -175,7 +175,7 @@ fun NotificationsScreen(
             add(
                 ClaimRow(
                     glyph = NotificationGlyph.Art(R.drawable.baul_closed, fill = false),
-                    title = if (toOpen == 1) "A palayok to open" else "$toOpen palayoks to open",
+                    title = if (toOpen == 1) "A Palayok to Open" else "$toOpen Palayoks to Open",
                     detail = "Waiting in your Pantry",
                     action = onOpenMarketRun
                 )

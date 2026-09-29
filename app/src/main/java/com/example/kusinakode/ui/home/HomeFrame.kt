@@ -15,7 +15,6 @@ import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.LocalTextStyle
@@ -59,11 +58,6 @@ internal val ChromeStroke = Color(0xFFBFAE9D)
 internal val ChromeInk = Color(0xFF78592B)
 private val AvatarRing = Color(0xFFBEAD9C)
 
-/**
- * The level bar's old length, back when the KK pill sat beside it: the header
- * row minus avatar, chrome buttons, the pill's own footprint and the LVL label.
- */
-private val LevelBarWidth = 90.dp
 /** The unread dot on the bell — the one alarm colour in the header. */
 private val NotifyRed = Color(0xFFD1362F)
 
@@ -88,9 +82,6 @@ fun HomeHeader(
     chefName: String,
     /** The chef rank title (see ChefRank), shown where the old LVL was. */
     rankTitle: String,
-    /** Tapping the rank badge opens the rank ladder. */
-    onRank: () -> Unit = {},
-    levelProgress: Float,
     balanceKk: Long,
     portrait: @Composable () -> Unit,
     onPortrait: () -> Unit,
@@ -146,33 +137,25 @@ fun HomeHeader(
                     fontWeight = FontWeight.Bold,
                     maxLines = 1
                 )
-                Spacer(Modifier.height(5.dp))
+                Spacer(Modifier.height(1.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    // The rank's badge, not its name as text: the ribbon on
-                    // the badge already says it.
-                    RankBadge(rankTitle, size = 26.dp, onClick = onRank)
+                    // Rank badge and name, then the balance: "Sous Chef | 370 KK".
+                    // A readout only here; the ladder opens from Profile.
+                    RankBadge(rankTitle, size = 26.dp)
                     Spacer(Modifier.width(6.dp))
-                    LinearProgressIndicator(
-                        progress = { levelProgress.coerceIn(0f, 1f) },
-                        color = LightOrange,
-                        trackColor = Color.Black.copy(alpha = 0.28f),
-                        modifier = Modifier
-                            // Capped rather than greedy: with the KK pill gone
-                            // the bar would stretch across the space the pill
-                            // used to hold. The level reads at the length it
-                            // always had; the name keeps the freed room.
-                            .weight(1f, fill = false)
-                            .widthIn(max = LevelBarWidth)
-                            .height(8.dp)
-                            .clip(CircleShape)
+                    Text(
+                        rankTitle,
+                        color = LightOrange.copy(alpha = 0.95f),
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1
                     )
-
-                    // The balance rides the level line rather than the middle
-                    // of the header. Capping the bar left a pocket of empty
-                    // column between it and the chrome, and a number sitting
-                    // alone in that pocket read as dropped there. Here it is
-                    // anchored to something, and the slack falls after it.
-                    Spacer(Modifier.width(12.dp))
+                    Text(
+                        "|",
+                        color = LightOrange.copy(alpha = 0.45f),
+                        fontSize = 13.sp,
+                        modifier = Modifier.padding(horizontal = 8.dp)
+                    )
                     Text(
                         "$balanceKk",
                         // The same cream as LVL beside it: both are quiet

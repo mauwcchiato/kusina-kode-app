@@ -281,9 +281,16 @@ fun MyProfileScreen(
                                 size = 112.dp
                             )
                         }
-                        // The player's chef title (Kusinero up to Kusina
-                        // Master), the same one the Home header shows. The
-                        // leaderboard #N stays on the Global Leaderboard card.
+                        // The player's chef rank badge (Kusinero up to Kusina
+                        // Master), where the old LVL tag sat. Its ribbon names
+                        // the rank; tap it for the whole ladder. The
+                        // leaderboard #N stays on its own card.
+                        com.example.kusinakode.ui.home.RankBadge(
+                            ChefRank.forSolved(LevelProvider.visibleSolved(solvedLevels), totalLevels).title,
+                            size = 44.dp,
+                            modifier = Modifier.offset(x = 10.dp, y = 6.dp),
+                            onClick = { showRanks = true }
+                        )
                     }
 
                     Spacer(Modifier.height(14.dp))
@@ -295,15 +302,6 @@ fun MyProfileScreen(
                             if (!ui.isSaving) viewModel.startEdit()
                         }
                     ) {
-                        // The player's chef rank (Kusinero up to Kusina Master),
-                        // the same one the Home header shows. Tap it for the
-                        // whole ladder.
-                        com.example.kusinakode.ui.home.RankBadge(
-                            ChefRank.forSolved(LevelProvider.visibleSolved(solvedLevels), totalLevels).title,
-                            size = 44.dp,
-                            onClick = { showRanks = true }
-                        )
-                        Spacer(Modifier.width(6.dp))
                         Text(
                             "Chef $chefName",
                             color = Color.White,

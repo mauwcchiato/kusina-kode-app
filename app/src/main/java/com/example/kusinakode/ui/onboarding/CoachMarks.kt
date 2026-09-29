@@ -81,7 +81,9 @@ data class CoachStep(
      * Sit the card at the foot of the screen instead of beside the spotlight,
      * for a spotlight too tall to leave room above or below it.
      */
-    val cardAtBottom: Boolean = false
+    val cardAtBottom: Boolean = false,
+    /** Spotlight a round element with a round hole rather than a square one. */
+    val round: Boolean = false
 )
 
 /**
@@ -200,6 +202,13 @@ fun CoachMarkOverlay(
                         10.dp.toPx().coerceAtMost(holeRect.minDimension / 4f)
                     }
                     val ring = 3.dp.toPx()
+                    if (step.round) {
+                        // A circle hugging the element, for a round button.
+                        val radius = maxOf(r.width, r.height) / 2f + 6.dp.toPx()
+                        drawCircle(Color.Transparent, radius, r.center, blendMode = BlendMode.Clear)
+                        drawCircle(LightOrange, radius, r.center, style = Stroke(width = ring))
+                        return@let
+                    }
                     val topLeft = Offset(holeRect.left, holeRect.top)
                     val hole = Size(holeRect.width, holeRect.height)
                     drawRoundRect(

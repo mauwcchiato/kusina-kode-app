@@ -220,14 +220,6 @@ fun HomeScreen(
 
     val anchors = rememberCoachAnchors()
     var showTour by remember { mutableStateOf(false) }
-    var showRanks by remember { mutableStateOf(false) }
-    if (showRanks) {
-        com.example.kusinakode.ui.home.RankLadderDialog(
-            solved = LevelProvider.visibleSolved(game.progress.solvedLevels),
-            total = totalLevels,
-            onDismiss = { showRanks = false }
-        )
-    }
     val homeScroll = rememberScrollState()
     var tourAnchor by remember { mutableStateOf<String?>(null) }
     var scrollOrigin by remember { mutableIntStateOf(0) }
@@ -284,9 +276,6 @@ fun HomeScreen(
                     HomeHeader(
                         chefName = chefName,
                         rankTitle = ChefRank.forSolved(LevelProvider.visibleSolved(game.progress.solvedLevels), totalLevels).title,
-                        onRank = { showRanks = true },
-                        // Dishes solved out of every dish in the game.
-                        levelProgress = LevelProvider.visibleSolved(game.progress.solvedLevels) / totalLevels.coerceAtLeast(1).toFloat(),
                         balanceKk = wallet.balanceKk,
                         portrait = {
                             EquippedAvatarPortrait(
@@ -408,6 +397,7 @@ fun HomeScreen(
               steps = listOf(
                   CoachStep(
                       anchorKey = "home_notif",
+                      round = true,
                       title = "Notifications",
                       body = "The number is how many are waiting. Open them for minted " +
                           "badges and receipts, and report an issue if a reward looks wrong."

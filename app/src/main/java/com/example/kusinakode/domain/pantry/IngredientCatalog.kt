@@ -1,12 +1,23 @@
 package com.example.kusinakode.domain.pantry
 
 /**
- * Local ingredient book. The server stores ids and quantities only —
- * names and lore never leave the device. Ids match REST/lib/ingredients.php.
+ * The ingredient book: the web panel's Published ingredients when the app has
+ * them (see IngredientSync), the book compiled into the APK when it does not.
+ *
+ * The web's Ingredients page used to edit a table the game never read, so a
+ * rename or a new ingredient there never reached a player. Now the panel's list
+ * overlays this one: its names, local names, rarities and descriptions win, and
+ * only what it publishes is counted in the book. Ids are the same stable keys
+ * the server uses for draws and sales (REST/lib/ingredients.php).
+ *
+ * Whatever the lists say, [get] never loses an ingredient a player owns: an id
+ * missing from both lists still resolves (see [getOrStub]), so a jar is never
+ * dropped from the pantry and never blocks a sale.
  */
 object IngredientCatalog {
 
-    val all: List<Ingredient> = listOf(
+    /** The ingredient book compiled into the APK: the offline fallback. */
+    private val bundled: List<Ingredient> = listOf(
         ing("ing_all_purpose_flour", "All-purpose Flour", "Harina", "Grain/Baking", Rarity.COMMON,
             "All-purpose Flour (Harina) is a grain/baking on a Filipino table."),
         ing("ing_annatto_oil", "Annatto Oil", "Atsuete Oil", "Spice/Condiment", Rarity.COMMON,
@@ -255,13 +266,104 @@ object IngredientCatalog {
             "White Pepper (Puting Paminta) is a spice on a Filipino table.")
     )
 
-    val byId: Map<String, Ingredient> = all.associateBy { it.id }
+    private val bundledById: Map<String, Ingredient> = bundled.associateBy { it.id }
 
-    val total: Int get() = all.size
+    /** One ingredient as the web panel publishes it. */
+    data class Remote(
+        val id: String,
+        val name: String,
+        val localName: String = "",
+        val category: String = "",
+        val rarity: String = "common",
+        val description: String = "",
+        /** Absolute URL of the panel's picture, or null. */
+        val imageUrl: String? = null
+    )
 
-    fun get(id: String): Ingredient? = byId[id]
+    /** The book as shown, and every ingredient the app can name, swapped together. */
+    private class State(
+        val shown: List<Ingredient>,
+        val known: Map<String, Ingredient>,
+        val imageUrls: Map<String, String>
+    )
+
+    @Volatile
+    private var state = State(bundled, bundledById, emptyMap())
+
+    /** The ingredients in the book: the panel's Published list, or the bundled one. */
+    val all: List<Ingredient> get() = state.shown
+
+    val byId: Map<String, Ingredient> get() = state.known
+
+    val total: Int get() = state.shown.size
+
+    /** The ingredient for [id], from the panel's list or the bundled book. */
+    fun get(id: String): Ingredient? = state.known[id]
+
+    /**
+     * Like [get], but never null: an id neither list knows (added on the web
+     * after this app's last fetch, or taken off it) becomes a plain ingredient
+     * named from its id. A player's jar must never vanish or refuse to sell.
+     */
+    fun getOrStub(id: String): Ingredient = get(id) ?: stub(id)
+
+    /** The panel's picture for [id], when it has one. */
+    fun imageUrl(id: String): String? = state.imageUrls[id]
 
     fun ids(): List<String> = all.map { it.id }
+
+    /**
+     * Uses the panel's Published list. Its order follows the bundled book, with
+     * anything new after it. A bundled ingredient the panel no longer lists
+     * leaves the book but stays nameable, since players may still own it. An
+     * empty list keeps the bundled book (a panel never publishes zero).
+     */
+    fun applyRemote(rows: List<Remote>) {
+        if (rows.isEmpty()) {
+            clearRemote()
+            return
+        }
+        val fromPanel = rows
+            .filter { it.id.isNotBlank() && it.name.isNotBlank() }
+            .associateBy({ it.id }) { it.toIngredient() }
+        val order = bundled.map { it.id }.filter { it in fromPanel } +
+            fromPanel.keys.filter { it !in bundledById }
+        val shown = order.map { fromPanel.getValue(it) }
+        state = State(
+            shown = shown,
+            known = bundledById + fromPanel,
+            imageUrls = rows.mapNotNull { r -> r.imageUrl?.let { r.id to it } }.toMap()
+        )
+    }
+
+    /** Back to the bundled book alone. */
+    fun clearRemote() {
+        state = State(bundled, bundledById, emptyMap())
+    }
+
+    private fun Remote.toIngredient(): Ingredient {
+        val tier = Rarity.entries.firstOrNull { it.name.equals(rarity.trim(), ignoreCase = true) }
+            ?: Rarity.COMMON
+        val origin = category.ifBlank { bundledById[id]?.origin.orEmpty() }
+        return Ingredient(
+            id = id,
+            name = name.trim(),
+            localName = localName.trim(),
+            origin = origin,
+            // The panel's own description when it has one; otherwise the
+            // same line the bundled book builds.
+            lore = description.trim().ifBlank { tidyLore(name.trim(), localName.trim(), origin) },
+            rarity = tier
+        )
+    }
+
+    private fun stub(id: String): Ingredient {
+        val name = id.removePrefix("ing_").split('_')
+            .filter { it.isNotBlank() }
+            .joinToString(" ") { it.replaceFirstChar { c -> c.uppercase() } }
+            .ifBlank { "Ingredient" }
+        return Ingredient(id, name, "", "Ingredient", "$name is an ingredient on a Filipino table.", Rarity.COMMON)
+    }
 
     private fun ing(
         id: String,
