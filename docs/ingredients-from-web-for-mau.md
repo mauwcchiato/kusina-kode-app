@@ -1,7 +1,7 @@
 # Ingredients: make the app read the web's ingredients
 
 **For:** Mau (app) · **Also needs:** Alyssa (draw and sell rules) and the API/VM owner
-**Status:** proposal; the API half is built (see section 8) · **Written:** 2026-09-29
+**Status:** proposal; the API half is live (see section 8) · **Written:** 2026-09-29
 
 > The file and class names below were checked against `main` at commit `65b65c5` (29 Sep 2026).
 > If `main` has moved on since, please re-check them before starting.
@@ -70,7 +70,7 @@ If this is too big right now: leave the game as is and make the web Ingredients 
 
 ## 8. Update: the API half is built (29 Sep 2026)
 
-The read-only endpoint from section 4 now exists in our repo. It is not on the VM yet: it goes live after the one-off code backfill has run.
+The read-only endpoint from section 4 is **live**: `https://api.kusinakode.com/kusinakode/REST/get_ingredients.php`. It returns all 123 current ingredients, and they match the game's list exactly: the same ids and the same rarities (105 common, 11 uncommon, 6 rare, 1 legendary). Only 9 names differ from `IngredientCatalog.kt`, and only in capital letters (for example "Bay leaves" against "Bay Leaves").
 
 `GET /api/get_ingredients.php`: public and read-only, the same style as `get_equipment.php`.
 
