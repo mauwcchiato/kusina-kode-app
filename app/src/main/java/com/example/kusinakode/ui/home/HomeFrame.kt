@@ -88,6 +88,8 @@ fun HomeHeader(
     chefName: String,
     /** The chef rank title (see ChefRank), shown where the old LVL was. */
     rankTitle: String,
+    /** Tapping the rank badge opens the rank ladder. */
+    onRank: () -> Unit = {},
     levelProgress: Float,
     balanceKk: Long,
     portrait: @Composable () -> Unit,
@@ -146,13 +148,10 @@ fun HomeHeader(
                 )
                 Spacer(Modifier.height(5.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        rankTitle.uppercase(),
-                        color = LightOrange.copy(alpha = 0.95f),
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(Modifier.width(8.dp))
+                    // The rank's badge, not its name as text: the ribbon on
+                    // the badge already says it.
+                    RankBadge(rankTitle, size = 26.dp, onClick = onRank)
+                    Spacer(Modifier.width(6.dp))
                     LinearProgressIndicator(
                         progress = { levelProgress.coerceIn(0f, 1f) },
                         color = LightOrange,

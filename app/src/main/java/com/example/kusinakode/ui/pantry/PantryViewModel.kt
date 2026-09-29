@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.kusinakode.Session
 import com.example.kusinakode.SoundFx
+import com.example.kusinakode.data.repository.KkBalance
 import com.example.kusinakode.data.repository.RemotePantryRepository
 import com.example.kusinakode.domain.pantry.DrawResult
 import com.example.kusinakode.domain.pantry.Ingredient
@@ -94,7 +95,7 @@ class PantryViewModel(
             }
         }
         viewModelScope.launch {
-            PantrySnapshotBus.balanceKk.collect { shared ->
+            KkBalance.kk.collect { shared ->
                 if (shared != null && shared != _uiState.value.balanceKk) {
                     _uiState.update { it.copy(balanceKk = shared) }
                 }

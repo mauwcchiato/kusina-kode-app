@@ -28,6 +28,14 @@ object ChefRank {
 
     const val MASTER = "Kusina Master"
 
+    /**
+     * Every rank a player can reach in a game of [total] dishes, lowest first,
+     * ending at Kusina Master. The same steps [forSolved] climbs.
+     */
+    fun ladder(total: Int): List<Rank> =
+        ladder.filter { (_, from) -> total <= 0 || from < total }.map { (t, f) -> Rank(t, f) } +
+            (if (total > 0) listOf(Rank(MASTER, total)) else emptyList())
+
     /** The rank for [solved] dishes out of [total] in the game. */
     fun forSolved(solved: Int, total: Int): Rank {
         val all = total > 0 && solved >= total

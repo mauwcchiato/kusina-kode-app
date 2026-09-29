@@ -135,6 +135,9 @@ fun RewardsScreen(
         if (!CoachMarkManager.isDone(tourCtx, CoachMarkManager.TOUR_WALLET)) {
             delay(500)
             showTour = true
+            // Seen once it opens, not only when finished: leaving by Back or
+            // closing the app used to bring the tour back on every launch.
+            CoachMarkManager.markDone(tourCtx, CoachMarkManager.TOUR_WALLET)
         }
     }
     LaunchedEffect(tourAnchor, filmsTop, pantryTop, marketTop) {
@@ -501,7 +504,7 @@ internal fun mergeIslandEarnRows(
     solvedLevels: Set<Int>
 ): List<EarnIslandData> =
     Region.entries.map { region ->
-        val levelIds = (1..LevelProvider.levelCount).filter {
+        val levelIds = LevelProvider.visibleIds.filter {
             LevelProvider.forLevel(it).region == region
         }
         val fromApi = islands.firstOrNull { row ->

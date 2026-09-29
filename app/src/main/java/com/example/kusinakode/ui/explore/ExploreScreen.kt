@@ -190,7 +190,7 @@ fun ExploreScreen(
     onSettings: () -> Unit = {},
     initialRegion: Region? = null
 ) {
-    val totalLevels = LevelProvider.levelCount
+    val totalLevels = LevelProvider.visibleCount
     // Per-region levels. Each region's dishes are ordered by word length
     // ascending (Level 1 = shortest tiles, longer words as the level climbs),
     // then numbered 1..N *within that region*. The global id underneath is
@@ -200,7 +200,7 @@ fun ExploreScreen(
     // so the three islands progress independently.
     val allLevels = remember(solvedLevels) {
         Region.entries.flatMap { region ->
-            val inRegion = (1..totalLevels)
+            val inRegion = LevelProvider.visibleIds
                 .map { gid -> gid to LevelProvider.forLevel(gid) }
                 .filter { it.second.region == region }
                 .sortedWith(compareBy({ it.second.answer.length }, { it.first }))
@@ -238,6 +238,9 @@ fun ExploreScreen(
         if (!CoachMarkManager.isDone(ctx, CoachMarkManager.TOUR_EXPLORE)) {
             delay(500)
             showTour = true
+            // Seen once it opens, not only when finished: leaving by Back or
+            // closing the app used to bring the tour back on every launch.
+            CoachMarkManager.markDone(ctx, CoachMarkManager.TOUR_EXPLORE)
         }
     }
 

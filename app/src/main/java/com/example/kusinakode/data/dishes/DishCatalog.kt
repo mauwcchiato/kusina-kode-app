@@ -40,7 +40,14 @@ data class DishEntry(
     val reference: String,
     @DrawableRes val photo: Int,
     @DrawableRes val card: Int,
-    val reserved: Boolean = false
+    val reserved: Boolean = false,
+    /**
+     * A level whose number is fixed here but which stays hidden until the web
+     * admin panel publishes it. Set it to Draft there and it disappears from
+     * its island again. The number never moves either way, so nobody's saved
+     * progress is re-pointed at another dish.
+     */
+    val waitsForPanel: Boolean = false
 )
 
 object DishCatalog {
@@ -878,7 +885,7 @@ object DishCatalog {
             reference = "Newman, Y. (2015, June 25). Muscovado flatbreads (piaya). SBS Food\n\nDy-Zulueta, D. (2023, December 28). Recipe: Chef Edward David Mateo's Iloilo Piaya. Philstar.com\n\nPepper.ph. (2021, October 22). Ube Piaya recipe: How to make the famous pasalubong from Negros Occidental [Video]. YouTube\n\nBongBong's Piaya and Barquillos. (n.d.). The best piaya in the Philippines. BongBong's Piaya and Barquillos",
             photo = R.drawable.dish_piaya,
             card = R.drawable.card_piaya,
-            reserved = true
+            reserved = false
         ),
         DishEntry(
             slug = "tiyula_itum",
@@ -1068,7 +1075,8 @@ object DishCatalog {
             reference = "BiteSized PH. (2023, April 28). How to make Sinuglaw | Grilled pork and kinilaw recipe [Video]. YouTube\n\nMerano, V. (2025, January 4). Sinuglaw recipe. Panlasang Pinoy. https://panlasangpinoy.com/sinuglaw-recipe/\n\nSimpol PH. (2025, September 24). How to make Sinuglaw | Visayan grilled pork and fish kinilaw recipe [Video]. YouTube\n\nPinoy Recipe. (2012, December 27). Sinuglaw recipe. Pinoy Recipe",
             photo = R.drawable.dish_sinuglaw,
             card = R.drawable.card_sinuglaw,
-            reserved = false
+            reserved = false,
+            waitsForPanel = true
         ),
         DishEntry(
             slug = "kulma",
@@ -1121,7 +1129,7 @@ object DishCatalog {
             reference = "Nestlé Professional Philippines. (n.d.). Beef Kulma. Nestlé Professional. Nestlé Professional Philippines\n\nPepper.ph. (2022). Cheat Tausug beef kulma. Pepper.ph\n\nSimpol PH. (2025, September 15). Rich & flavorful beef kulma recipe | Chef Tatung's Mindanao-inspired special [Video]. YouTube\n\nTausug Beef Kulma. (2018, February 28). Tausug beef kulma. Ang Sarap. https://www.angsarap.net/2018/02/28/tausug-beef-kulma/",
             photo = R.drawable.dish_kulma,
             card = R.drawable.card_kulma,
-            reserved = true
+            reserved = false
         ),
         DishEntry(
             slug = "satti",
@@ -1183,7 +1191,7 @@ object DishCatalog {
         DishEntry(
             slug = "pigar_pigar",
             name = "Pigar-Pigar",
-            answer = "PIGAR",
+            answer = "PIGARPIGAR",
             region = Region.LUZON,
             origin = "Dagupan City, Pangasinan, Ilocos Region",
             rating = "4.7",
@@ -1219,7 +1227,8 @@ object DishCatalog {
             reference = "City Government of Dagupan. (n.d.). Tourism. City Government of Dagupan. Official Website of the City Government of Dagupan\n\nKawaling Pinoy. (2024, November 22). Pigar-pigar | Dagupan street food [Video]. YouTube. YouTube video\n\nPanlasang Pinoy Meaty Recipes. (2023, January 3). Pigar-pigar recipe. Panlasang Pinoy Meaty Recipes\n\nGMA Network. (2021, May 10). Farm to Table: How to cook Pangasinan's very own pigar-pigar [Video]. YouTube. YouTube video",
             photo = R.drawable.dish_pigar_pigar,
             card = R.drawable.card_pigar_pigar,
-            reserved = true
+            reserved = false,
+            waitsForPanel = true
         ),
         DishEntry(
             slug = "bulalo",
@@ -1299,7 +1308,8 @@ object DishCatalog {
             reference = "City Government of Carcar. (n.d.). History of Carcar. City Government of Carcar\n\nCebuano Camera Moments. (2022, August 28). Chicharon | Carcar City, Cebu, Philippines [Video]. YouTube. YouTube video\n\nKawaling Pinoy. (2024, August 10). Homemade chicharon | Crispy pork rind cracklings | Tsitsaron baboy [Video]. YouTube. YouTube video\n\nVillage People Philippines. (2018, December 5). Chicharon, CarCar, Cebu, Philippines [Video]. YouTube. YouTube video",
             photo = R.drawable.dish_chicharon_carcar,
             card = R.drawable.card_chicharon_carcar,
-            reserved = false
+            reserved = false,
+            waitsForPanel = true
         ),
         DishEntry(
             slug = "lechon",
@@ -1431,8 +1441,19 @@ object DishCatalog {
         ),
     )
 
+    /**
+     * Dishes that became levels after the first 27 shipped, in the order they
+     * were numbered: Piaya 28, Kulma 29, Pigar-Pigar 30 - the same ids the web
+     * panel gives them. They sit mid-list in [all] (grouped with their island),
+     * so they are pulled out and put back at the end, where adding them cannot
+     * move any existing level's number.
+     */
+    private val lateLevels = listOf("piaya", "kulma", "pigar_pigar")
+
     /** The dishes that are playable levels, in level order. */
-    val playable: List<DishEntry> = all.filter { !it.reserved }
+    val playable: List<DishEntry> =
+        all.filter { !it.reserved && it.slug !in lateLevels } +
+            lateLevels.map { slug -> all.first { it.slug == slug } }
 
     /** Content that exists but is waiting on the admin upload path. */
     val reserved: List<DishEntry> = all.filter { it.reserved }

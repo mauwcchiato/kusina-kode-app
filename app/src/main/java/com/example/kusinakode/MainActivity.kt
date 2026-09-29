@@ -240,6 +240,7 @@ private fun AppNavigator() {
         scope.launch { runCatching { KusinaApi.logout() } }
         SessionStore.clear(ctx)
         PantrySnapshotBus.clear()
+        com.example.kusinakode.data.repository.KkBalance.clear()
         nav.navigate("welcome") { popUpTo("home") { inclusive = true } }
     }
 

@@ -38,7 +38,7 @@ class ResumeViewModel(application: Application) : AndroidViewModel(application) 
      */
     fun refresh() {
         viewModelScope.launch {
-            _resumableLevels.value = (1..LevelProvider.levelCount)
+            _resumableLevels.value = LevelProvider.visibleIds
                 .filter { roundStore.load(it)?.isInProgress == true }
                 .toSet()
         }

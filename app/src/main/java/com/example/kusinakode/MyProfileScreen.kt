@@ -147,7 +147,7 @@ fun MyProfileScreen(
     val chefName = Session.nickname?.takeIf { it.isNotBlank() } ?: username
     val handle = "@${username.replace(" ", "").lowercase()}"
 
-    val totalLevels = LevelProvider.levelCount
+    val totalLevels = LevelProvider.visibleCount
     val completed = game.progress.roundsCompleted
     val solvedLevels = game.progress.solvedLevels
     val regionsExplored = remember(solvedLevels) {
@@ -169,7 +169,7 @@ fun MyProfileScreen(
     }
     val continueRegions = remember(solvedLevels) {
         Region.entries.map { region ->
-            val levels = (1..totalLevels).filter { LevelProvider.forLevel(it).region == region }
+            val levels = LevelProvider.visibleIds.filter { LevelProvider.forLevel(it).region == region }
             Triple(region, levels.count { it in solvedLevels }, levels.size)
         }.filter { it.third > 0 }
             .sortedWith(
@@ -181,10 +181,21 @@ fun MyProfileScreen(
     // First-visit tour of the profile.
     val coachAnchors = rememberCoachAnchors()
     var showTour by remember { mutableStateOf(false) }
+    var showRanks by remember { mutableStateOf(false) }
+    if (showRanks) {
+        com.example.kusinakode.ui.home.RankLadderDialog(
+            solved = LevelProvider.visibleSolved(solvedLevels),
+            total = totalLevels,
+            onDismiss = { showRanks = false }
+        )
+    }
     LaunchedEffect(Unit) {
         if (!CoachMarkManager.isDone(ctx, CoachMarkManager.TOUR_PROFILE)) {
             delay(500)
             showTour = true
+            // Seen once it opens, not only when finished: leaving by Back or
+            // closing the app used to bring the tour back on every launch.
+            CoachMarkManager.markDone(ctx, CoachMarkManager.TOUR_PROFILE)
         }
     }
 
@@ -273,19 +284,6 @@ fun MyProfileScreen(
                         // The player's chef title (Kusinero up to Kusina
                         // Master), the same one the Home header shows. The
                         // leaderboard #N stays on the Global Leaderboard card.
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = TanBadge,
-                            modifier = Modifier.offset(x = 6.dp, y = 4.dp)
-                        ) {
-                            Text(
-                                ChefRank.forSolved(solvedLevels.size, totalLevels).title.uppercase(),
-                                color = ThemeBrown,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Black,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                            )
-                        }
                     }
 
                     Spacer(Modifier.height(14.dp))
@@ -297,6 +295,15 @@ fun MyProfileScreen(
                             if (!ui.isSaving) viewModel.startEdit()
                         }
                     ) {
+                        // The player's chef rank (Kusinero up to Kusina Master),
+                        // the same one the Home header shows. Tap it for the
+                        // whole ladder.
+                        com.example.kusinakode.ui.home.RankBadge(
+                            ChefRank.forSolved(LevelProvider.visibleSolved(solvedLevels), totalLevels).title,
+                            size = 44.dp,
+                            onClick = { showRanks = true }
+                        )
+                        Spacer(Modifier.width(6.dp))
                         Text(
                             "Chef $chefName",
                             color = Color.White,

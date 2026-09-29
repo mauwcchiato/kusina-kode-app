@@ -79,6 +79,8 @@ fun LeadershipScreen(
     window: LeaderboardWindow = LeaderboardWindow.AllTime,
     onSelectWindow: (LeaderboardWindow) -> Unit = {},
     isLoading: Boolean = false,
+    /** All-time dishes solved by lower-cased name, for each player's rank badge. */
+    dishesByName: Map<String, Int> = emptyMap(),
     onBack: () -> Unit,
     onHome: () -> Unit,
     onProfile: () -> Unit,
@@ -95,6 +97,17 @@ fun LeadershipScreen(
         else "${row.correctCount} " + if (row.correctCount == 1) "dish" else "dishes"
 
     fun isMe(row: LeaderboardRow) = row.name.equals(myName, ignoreCase = true)
+
+    // Each player's chef rank, from their all-time dishes solved. Capped at the
+    // dishes currently shown: a solve of a dish now held back still counts,
+    // but cannot lift anyone past Kusina Master.
+    val shownDishes = LevelProvider.visibleCount
+    fun rankOf(row: LeaderboardRow): String? {
+        val solved = if (byPoints) row.correctCount
+        else dishesByName[row.name.lowercase()] ?: return null
+        return com.example.kusinakode.domain.gamification.ChefRank
+            .forSolved(minOf(solved, shownDishes), shownDishes).title
+    }
 
     Scaffold(
         containerColor = CreamBg,
@@ -167,6 +180,7 @@ fun LeadershipScreen(
                             avatarSize = 56.dp,
                             blockHeight = 58.dp,
                             isMe = entries.getOrNull(1)?.let(::isMe) == true,
+                            rankTitle = entries.getOrNull(1)?.let(::rankOf),
                             modifier = Modifier.weight(1f)
                         )
                         PodiumSlot(
@@ -176,6 +190,7 @@ fun LeadershipScreen(
                             avatarSize = 76.dp,
                             blockHeight = 86.dp,
                             isMe = entries.getOrNull(0)?.let(::isMe) == true,
+                            rankTitle = entries.getOrNull(0)?.let(::rankOf),
                             modifier = Modifier.weight(1f)
                         )
                         PodiumSlot(
@@ -185,6 +200,7 @@ fun LeadershipScreen(
                             avatarSize = 56.dp,
                             blockHeight = 46.dp,
                             isMe = entries.getOrNull(2)?.let(::isMe) == true,
+                            rankTitle = entries.getOrNull(2)?.let(::rankOf),
                             modifier = Modifier.weight(1f)
                         )
                     }
@@ -245,7 +261,8 @@ fun LeadershipScreen(
                         rank = i + 4,
                         row = row,
                         scoreLabel = score(row),
-                        isMe = isMe(row)
+                        isMe = isMe(row),
+                        rankTitle = rankOf(row)
                     )
                     Spacer(Modifier.height(8.dp))
                 }
@@ -374,6 +391,8 @@ private fun PodiumSlot(
     avatarSize: Dp,
     blockHeight: Dp,
     isMe: Boolean,
+    /** The player's chef rank, shown as its badge after the name. */
+    rankTitle: String? = null,
     modifier: Modifier = Modifier
 ) {
     val medal = medalColor(rank)
@@ -388,15 +407,22 @@ private fun PodiumSlot(
             BoardPortrait(row = row, isMe = isMe, size = avatarSize)
         }
         Spacer(Modifier.height(12.dp))
-        Text(
-            (row?.name ?: "—") + if (isMe) " (You)" else "",
-            color = Color.White,
-            fontFamily = BeVietnamPro,
-            fontSize = if (rank == 1) 12.sp else 11.sp,
-            fontWeight = FontWeight.ExtraBold,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                (row?.name ?: "—") + if (isMe) " (You)" else "",
+                color = Color.White,
+                fontFamily = BeVietnamPro,
+                fontSize = if (rank == 1) 12.sp else 11.sp,
+                fontWeight = FontWeight.ExtraBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false)
+            )
+            if (rankTitle != null) {
+                Spacer(Modifier.width(3.dp))
+                com.example.kusinakode.ui.home.RankBadge(rankTitle, size = 22.dp)
+            }
+        }
         Text(
             if (row != null) scoreLabel else "",
             color = medal.copy(alpha = 0.95f),
@@ -428,7 +454,9 @@ private fun RankRow(
     rank: Int,
     row: LeaderboardRow,
     scoreLabel: String,
-    isMe: Boolean
+    isMe: Boolean,
+    /** The player's chef rank, shown as its badge after the name. */
+    rankTitle: String? = null
 ) {
     Surface(
         shape = RoundedCornerShape(16.dp),
@@ -467,15 +495,22 @@ private fun RankRow(
             )
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
-                Text(
-                    row.name,
-                    fontFamily = BeVietnamPro,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = TextDark,
-                    fontSize = 14.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        row.name,
+                        fontFamily = BeVietnamPro,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = TextDark,
+                        fontSize = 14.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+                    if (rankTitle != null) {
+                        Spacer(Modifier.width(4.dp))
+                        com.example.kusinakode.ui.home.RankBadge(rankTitle, size = 26.dp)
+                    }
+                }
                 if (isMe) {
                     Surface(
                         shape = RoundedCornerShape(8.dp),

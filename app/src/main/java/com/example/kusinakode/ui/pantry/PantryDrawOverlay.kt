@@ -218,6 +218,14 @@ fun PantryDrawOverlay(
         Modifier
             .fillMaxSize()
             .background(BaulScrim)
+            // Swallow taps on the dark background. It was only paint, so a tap
+            // beside the card fell through to the Pantry underneath. The card
+            // and its buttons sit above this and still take their own taps.
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = {}
+            )
     ) {
         when {
             beat == BaulBeat.Opening -> OpeningBeat(

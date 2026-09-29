@@ -109,7 +109,7 @@ fun LearnScreen(
     val solvedLevels = game.progress.solvedLevels
     val favorites = FavoritesManager.favorites(ctx, Session.userId)
     val entries = remember(solvedLevels, favorites) {
-        (1..LevelProvider.levelCount).map { n ->
+        LevelProvider.visibleIds.map { n ->
             val d = LevelProvider.forLevel(n)
             KodexEntry(
                 level = n,

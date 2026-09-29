@@ -78,14 +78,49 @@ object LevelProvider {
     val baseCount: Int get() = base.size
 
     /**
-     * What the app actually reads. Swapped wholesale when an overlay arrives,
-     * so readers never observe a half-applied list.
+     * The level list and which of its numbers are hidden, swapped together as
+     * one value when an overlay arrives, so readers never observe a
+     * half-applied list.
      */
-    @Volatile
-    private var levels: List<LevelData> = base
+    private class State(val levels: List<LevelData>, val hidden: Set<Int>)
 
-    /** Total number of levels, including any the panel has added. */
-    val levelCount get() = levels.size
+    /**
+     * Levels that wait for the panel start hidden: with no word from the
+     * server yet (first launch, offline), they have not been published.
+     */
+    private val waitingInBase: Set<Int> =
+        base.indices.filter { base[it].dish.waitsForPanel }.mapTo(HashSet()) { it + 1 }
+
+    @Volatile
+    private var state = State(base, waitingInBase)
+
+    private val levels: List<LevelData> get() = state.levels
+
+    /**
+     * The highest level number, hidden ones included. Numbers are positions,
+     * so this is what bounds a level id. For "how many dishes can a player
+     * play" use [visibleCount].
+     */
+    val levelCount get() = state.levels.size
+
+    /** Level numbers a player can see and play, in number order. */
+    val visibleIds: List<Int>
+        get() = state.let { s -> (1..s.levels.size).filter { it !in s.hidden } }
+
+    /** How many levels are currently shown - what totals and ranks count. */
+    val visibleCount: Int get() = state.let { it.levels.size - it.hidden.size }
+
+    /**
+     * False for a level that waits for the panel and is not published there.
+     * Its number stays reserved; it just is not shown or counted.
+     */
+    fun isVisible(level: Int): Boolean = level in 1..levelCount && level !in state.hidden
+
+    /**
+     * How many of [solved] are currently shown. A dish solved and later set
+     * back to Draft stays solved, but is not counted against [visibleCount].
+     */
+    fun visibleSolved(solved: Set<Int>): Int = solved.count { isVisible(it) }
 
     /** Dishes that exist in the catalogue but are not levels. */
     val reservedCount get() = DishCatalog.reserved.size
@@ -111,7 +146,7 @@ object LevelProvider {
      * derive it from here to stay consistent with the map.
      */
     fun regionOrder(region: Region): List<Int> =
-        (1..levelCount)
+        visibleIds
             .filter { forLevel(it).region == region }
             .sortedWith(compareBy({ forLevel(it).answer.length }, { it }))
 
@@ -223,34 +258,43 @@ object LevelProvider {
      */
     fun applyRemote(rows: List<RemoteText>) {
         if (rows.isEmpty()) {
-            levels = base
+            state = State(base, waitingInBase)
             return
         }
-        val byWord = rows.associateBy { it.word.trim().lowercase() }
+        val byWord = rows.associateBy { joinKey(it.word) }
 
-        // 1. the compiled levels, re-worded but never moved
-        val merged = base.map { level ->
-            val remote = byWord[level.word] ?: return@map level
-            level.withRemote(remote)
+        // 1. the compiled levels, re-worded but never moved. One that waits
+        //    for the panel is shown only while its row there is Published.
+        val hidden = HashSet<Int>()
+        val merged = base.mapIndexed { i, level ->
+            val remote = byWord[joinKey(level.word)]
+            if (level.dish.waitsForPanel && remote?.published != true) hidden += i + 1
+            if (remote == null) level else level.withRemote(remote)
         }
 
         // 2. anything the panel added, after them
-        val baseWords = base.mapTo(HashSet()) { it.word }
+        val baseWords = base.mapTo(HashSet()) { joinKey(it.word) }
         val extras = rows
             .asSequence()
-            .filter { it.word.trim().lowercase() !in baseWords }
+            .filter { joinKey(it.word) !in baseWords }
             .filter { it.published }
             .filter { !it.name.isNullOrBlank() }
             .sortedBy { it.sortKey }
             .mapNotNull { it.toAppendedLevel() }
             .toList()
 
-        levels = if (extras.isEmpty()) merged else merged + extras
+        state = State(if (extras.isEmpty()) merged else merged + extras, hidden)
     }
+
+    /**
+     * The panel may store a word with its hyphen ("pigar-pigar") while the
+     * puzzle answer is letters only, so the two are matched on letters alone.
+     */
+    private fun joinKey(word: String): String = word.lowercase().filter { it.isLetter() }
 
     /** Drops any overlay and goes back to the compiled-in catalogue. */
     fun clearRemote() {
-        levels = base
+        state = State(base, waitingInBase)
     }
 
     /** True when an overlay is currently applied. For diagnostics. */

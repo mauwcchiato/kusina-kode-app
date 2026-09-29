@@ -16,7 +16,14 @@ data class LeaderboardUiState(
     val entries: List<LeaderboardRow> = emptyList(),
     val isLoading: Boolean = true,
     val errorMessage: String? = null,
-    val window: LeaderboardWindow = LeaderboardWindow.AllTime
+    val window: LeaderboardWindow = LeaderboardWindow.AllTime,
+    /**
+     * Every listed player's all-time dishes solved, by lower-cased name - what
+     * their chef rank badge is worked out from. Kept apart from [entries]
+     * because the Today and Weekly boards count only dishes cooked in that
+     * period, which would put a Kusina Master down as a Kusinero.
+     */
+    val dishesByName: Map<String, Int> = emptyMap()
 )
 
 class LeaderboardViewModel(
@@ -41,10 +48,27 @@ class LeaderboardViewModel(
         }
         viewModelScope.launch {
             leaderboardRepository.topPlayers(window = window)
-                .onSuccess { rows -> _uiState.update { it.copy(isLoading = false, entries = rows) } }
+                .onSuccess { rows ->
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            entries = rows,
+                            dishesByName = if (window == LeaderboardWindow.AllTime) rows.dishCounts()
+                            else it.dishesByName
+                        )
+                    }
+                }
                 .onFailure { e -> _uiState.update { it.copy(isLoading = false, errorMessage = e.message) } }
+            // A period board opened first still needs the all-time counts.
+            if (window != LeaderboardWindow.AllTime && _uiState.value.dishesByName.isEmpty()) {
+                leaderboardRepository.topPlayers(window = LeaderboardWindow.AllTime)
+                    .onSuccess { rows -> _uiState.update { it.copy(dishesByName = rows.dishCounts()) } }
+            }
         }
     }
+
+    private fun List<LeaderboardRow>.dishCounts(): Map<String, Int> =
+        associate { it.name.lowercase() to it.correctCount }
 
     /** Switches the board's period and reloads it from the server. */
     fun selectWindow(window: LeaderboardWindow) {

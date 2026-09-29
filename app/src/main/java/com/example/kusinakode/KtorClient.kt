@@ -9,11 +9,11 @@ import io.ktor.client.plugins.*
 import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
-import io.ktor.client.engine.cio.*
+import io.ktor.client.engine.okhttp.*
 import kotlinx.serialization.json.Json
 
 object KtorClient {
-    val client = HttpClient(CIO) {
+    val client = HttpClient(OkHttp) {
         install(ContentNegotiation) {
             json(Json {
                 prettyPrint = true

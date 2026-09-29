@@ -644,7 +644,13 @@ fun GameScreen(
                 val rowPad = 1.dp
                 val cols = uiState.wordLength
                 val rows = uiState.maxAttempts
-                val tileByWidth = (maxWidth - rowPad * 2 - gridGap * (cols - 1)) / cols
+                // A hyphenated dish (PIGAR-PIGAR) shows a "-" between tiles. It
+                // is a slot of its own in each row, so its width and the extra
+                // gap it brings come out of the tiles' share.
+                val hyphens = uiState.level.hyphenAfter
+                val dashWidth = 10.dp
+                val tileByWidth = (maxWidth - rowPad * 2 - gridGap * (cols - 1 + hyphens.size) -
+                    dashWidth * hyphens.size) / cols
                 val tileByHeight =
                     (maxHeight - gridGap * (rows - 1) - rowPad * 2 * rows) / rows
                 // No floor: forcing a minimum is what overflows a short screen,
@@ -689,6 +695,22 @@ fun GameScreen(
                                     reduceMotion = reduceMotion,
                                     holdTiles = holdTiles
                                 )
+                                if (c in hyphens) {
+                                    Box(
+                                        Modifier.size(width = dashWidth, height = tileSize),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        // A cream bar rather than a text "-": the
+                                        // board is dark brown, and a glyph at this
+                                        // size read as a smudge.
+                                        Box(
+                                            Modifier
+                                                .size(width = dashWidth, height = 4.dp)
+                                                .clip(RoundedCornerShape(2.dp))
+                                                .background(Color(0xFFF3E4C8))
+                                        )
+                                    }
+                                }
                             }
                         }
                     }

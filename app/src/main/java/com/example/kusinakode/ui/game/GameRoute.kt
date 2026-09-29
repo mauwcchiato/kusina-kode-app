@@ -78,7 +78,7 @@ fun GameRoute(
     val finishesGame = remember(progress.solvedLevels, solvedAtOpen, level) {
         val before = solvedAtOpen
         before != null && level !in before &&
-            (1..LevelProvider.levelCount).all { it == level || it in progress.solvedLevels }
+            LevelProvider.visibleIds.all { it == level || it in progress.solvedLevels }
     }
 
     // Every round opens with an intro over a dim; the round only becomes

@@ -38,6 +38,17 @@ class ChefRankTest {
     }
 
     @Test
+    fun `the ladder lists every rank up to Kusina Master at the total`() {
+        val ladder = ChefRank.ladder(27)
+        assertEquals(
+            listOf("Kusinero", "Line Cook", "Sous Chef", "Head Chef", ChefRank.MASTER),
+            ladder.map { it.title }
+        )
+        assertEquals(listOf(0, 5, 10, 20, 27), ladder.map { it.from })
+        assertEquals(listOf("Kusinero", "Line Cook", ChefRank.MASTER), ChefRank.ladder(8).map { it.title })
+    }
+
+    @Test
     fun `a short catalogue skips steps it cannot reach`() {
         // With 8 dishes, Sous Chef (10) and Head Chef (20) never come.
         assertEquals("Line Cook", ChefRank.forSolved(7, 8).title)

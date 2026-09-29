@@ -73,7 +73,10 @@ class AttemptOutbox(context: Context) {
                         timeTakenMs = win.timeTakenMs
                     )
                     if (resp.status == "success") {
-                        resp.tx_ref?.let { ref -> ChainQueue.serialized { KusinaApi.settleReward(ref) } }
+                        resp.tx_ref?.let { ref ->
+                            ChainQueue.serialized { KusinaApi.settleReward(ref) }
+                            KkBalance.refresh()
+                        }
                     } else {
                         Log.w(TAG, "parked win (level=${win.levelId}) rejected: ${resp.message}")
                     }

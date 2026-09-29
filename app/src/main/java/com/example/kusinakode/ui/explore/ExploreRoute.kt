@@ -2,6 +2,7 @@ package com.example.kusinakode.ui.explore
 
 import androidx.compose.runtime.*
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.kusinakode.LevelProvider
 import com.example.kusinakode.domain.model.Region
 import com.example.kusinakode.ui.game.ResumeViewModel
 import com.example.kusinakode.ui.gamification.GamificationViewModel
@@ -25,7 +26,8 @@ fun ExploreRoute(
     val gamification: GamificationViewModel = viewModel()
     val game by gamification.uiState.collectAsState()
     // Reactive, so the map fills in as the account syncs.
-    val completed = game.progress.solvedLevels.size
+    // Only dishes currently shown count, so it lines up with the total.
+    val completed = LevelProvider.visibleSolved(game.progress.solvedLevels)
 
     // This screen survives on the back stack while a round is played and
     // abandoned, so re-check for resumable boards on the way back in.

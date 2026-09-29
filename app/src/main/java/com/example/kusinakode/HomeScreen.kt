@@ -132,7 +132,7 @@ fun HomeScreen(
     }
     val gamification: GamificationViewModel = viewModel()
     val game by gamification.uiState.collectAsState()
-    val totalLevels = LevelProvider.levelCount
+    val totalLevels = LevelProvider.visibleCount
     val completed = game.progress.roundsCompleted
     // The dish the "Play / Continue" card points at. It follows the island the
     // player last opened a round in: after a Visayas level, Home offers the next
@@ -194,7 +194,7 @@ fun HomeScreen(
     // Per-region completion drives the Continue Learning rail.
     val regionProgress = remember(game.progress.solvedLevels) {
         Region.entries.map { region ->
-            val levels = (1..totalLevels).filter { LevelProvider.forLevel(it).region == region }
+            val levels = LevelProvider.visibleIds.filter { LevelProvider.forLevel(it).region == region }
             Triple(region, levels.count { it in game.progress.solvedLevels }, levels.size)
         }.filter { it.third > 0 }
     }
@@ -204,7 +204,7 @@ fun HomeScreen(
     // hand the player the answer before they had guessed a letter.
     val heroImages = remember(game.progress.solvedLevels) {
         game.progress.solvedLevels
-            .filter { it in 1..totalLevels }
+            .filter { it in 1..LevelProvider.levelCount }
             .sorted()
             .map { LevelProvider.forLevel(it).photo }
     }
@@ -220,6 +220,14 @@ fun HomeScreen(
 
     val anchors = rememberCoachAnchors()
     var showTour by remember { mutableStateOf(false) }
+    var showRanks by remember { mutableStateOf(false) }
+    if (showRanks) {
+        com.example.kusinakode.ui.home.RankLadderDialog(
+            solved = LevelProvider.visibleSolved(game.progress.solvedLevels),
+            total = totalLevels,
+            onDismiss = { showRanks = false }
+        )
+    }
     val homeScroll = rememberScrollState()
     var tourAnchor by remember { mutableStateOf<String?>(null) }
     var scrollOrigin by remember { mutableIntStateOf(0) }
@@ -229,6 +237,9 @@ fun HomeScreen(
         if (!CoachMarkManager.isDone(ctx, CoachMarkManager.TOUR_HOME)) {
             delay(450)
             showTour = true
+            // Seen once it opens, not only when finished: leaving by Back or
+            // closing the app used to bring the tour back on every launch.
+            CoachMarkManager.markDone(ctx, CoachMarkManager.TOUR_HOME)
         }
     }
     LaunchedEffect(tourAnchor, statsTop, guidesTop) {
@@ -272,9 +283,10 @@ fun HomeScreen(
                 Box {
                     HomeHeader(
                         chefName = chefName,
-                        rankTitle = ChefRank.forSolved(game.progress.solvedLevels.size, totalLevels).title,
+                        rankTitle = ChefRank.forSolved(LevelProvider.visibleSolved(game.progress.solvedLevels), totalLevels).title,
+                        onRank = { showRanks = true },
                         // Dishes solved out of every dish in the game.
-                        levelProgress = game.progress.solvedLevels.size / totalLevels.coerceAtLeast(1).toFloat(),
+                        levelProgress = LevelProvider.visibleSolved(game.progress.solvedLevels) / totalLevels.coerceAtLeast(1).toFloat(),
                         balanceKk = wallet.balanceKk,
                         portrait = {
                             EquippedAvatarPortrait(

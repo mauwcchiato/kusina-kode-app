@@ -23,7 +23,8 @@ class LocalLevelRepository : LevelRepository {
             cardRes = data.card,
             region = data.region,
             imageUrl = data.photoUrl,
-            cardUrl = data.cardUrl
+            cardUrl = data.cardUrl,
+            hyphenAfter = PuzzleLevel.hyphensOf(data.name, data.answer)
         )
     }
 }

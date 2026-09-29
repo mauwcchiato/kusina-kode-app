@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.kusinakode.Session
 import com.example.kusinakode.SoundFx
 import com.example.kusinakode.api.KusinaApi
+import com.example.kusinakode.data.repository.KkBalance
 import com.example.kusinakode.data.repository.ReelCatalogStore
 import com.example.kusinakode.data.repository.publishedIds
 import com.example.kusinakode.data.repository.toShopItems
@@ -46,6 +47,11 @@ class ShopViewModel(app: Application) : AndroidViewModel(app) {
     val uiState: StateFlow<ShopUiState> = _uiState.asStateFlow()
 
     init {
+        viewModelScope.launch {
+            KkBalance.kk.collect { kk ->
+                if (kk != null) _uiState.update { it.copy(balanceKk = kk) }
+            }
+        }
         refresh()
     }
 
@@ -68,10 +74,7 @@ class ShopViewModel(app: Application) : AndroidViewModel(app) {
                     }
                 }
 
-            runCatching { KusinaApi.getWalletBalance().data }
-                .onSuccess { data ->
-                    if (data != null) _uiState.update { it.copy(balanceKk = data.balance_kk) }
-                }
+            KkBalance.refresh()
             val remote = runCatching { KusinaApi.getShopOwned().data }.getOrNull()
             val remoteOwned = remote?.owned.orEmpty()
             val local = loadOwned()

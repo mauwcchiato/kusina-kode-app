@@ -217,6 +217,9 @@ fun KodexHubScreen(
         if (!CoachMarkManager.isDone(ctx, CoachMarkManager.TOUR_LEARN)) {
             delay(500)
             showTour = true
+            // Seen once it opens, not only when finished: leaving by Back or
+            // closing the app used to bring the tour back on every launch.
+            CoachMarkManager.markDone(ctx, CoachMarkManager.TOUR_LEARN)
         }
     }
 

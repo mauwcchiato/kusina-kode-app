@@ -12,6 +12,7 @@ import com.example.kusinakode.api.EarnIslandData
 import com.example.kusinakode.api.KusinaApi
 import com.example.kusinakode.api.RewardHistoryItem
 import com.example.kusinakode.api.alreadyClaimed
+import com.example.kusinakode.data.repository.KkBalance
 import com.example.kusinakode.data.repository.RemotePantryRepository
 import com.example.kusinakode.data.repository.RemoteWalletRepository
 import com.example.kusinakode.domain.ChainQueue
@@ -56,13 +57,21 @@ class RewardsViewModel(app: Application) : AndroidViewModel(app) {
     val uiState: StateFlow<RewardsUiState> = _uiState.asStateFlow()
 
     init {
+        // Home's header and the wallet read the one app-wide balance, so a
+        // win, a purchase or a palayok elsewhere shows here without a reload.
+        viewModelScope.launch {
+            KkBalance.kk.collect { kk ->
+                if (kk != null) _uiState.update { it.copy(balanceKk = kk) }
+            }
+        }
         refresh()
     }
 
     fun refresh() {
         viewModelScope.launch {
             walletRepository.walletStatus(Session.userId).onSuccess { status ->
-                _uiState.update { it.copy(balanceKk = status.balanceKk, isLive = status.isLive) }
+                KkBalance.publish(status.balanceKk)
+                _uiState.update { it.copy(isLive = status.isLive) }
             }
             runCatching { KusinaApi.getEarnStatus() }
                 .onSuccess { resp ->

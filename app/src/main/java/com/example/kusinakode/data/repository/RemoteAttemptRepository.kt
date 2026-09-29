@@ -52,7 +52,12 @@ class RemoteAttemptRepository(
                 } else {
                     // Serialised: a winning attempt and the badges it unlocks
                     // otherwise append to the chain at the same instant (D-31).
-                    resp.tx_ref?.let { ref -> ChainQueue.serialized { KusinaApi.settleReward(ref) } }
+                    resp.tx_ref?.let { ref ->
+                        ChainQueue.serialized { KusinaApi.settleReward(ref) }
+                        // The win's KK has landed: tell every screen showing
+                        // the balance, so the next level opens with it.
+                        KkBalance.refresh()
+                    }
                 }
                 parked?.let { outbox?.settled(it) }
                 return

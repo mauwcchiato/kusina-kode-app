@@ -1,5 +1,6 @@
 package com.example.kusinakode.ui.pantry
 
+import com.example.kusinakode.data.repository.KkBalance
 import com.example.kusinakode.domain.pantry.PantrySnapshot
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -37,6 +38,9 @@ object PantrySnapshotBus {
     fun publish(snapshot: PantrySnapshot, balanceKk: Long) {
         _snapshot.value = snapshot
         _balanceKk.value = balanceKk
+        // The pantry's reply carries the wallet balance too; every other
+        // screen showing KK should hear it.
+        KkBalance.publish(balanceKk)
     }
 
     /** Signing out must not leave the next account reading these numbers. */

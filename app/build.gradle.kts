@@ -39,8 +39,8 @@ android {
         applicationId = "ph.kusinakode.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 20
-        versionName = "1.19"
+        versionCode = 21
+        versionName = "1.20"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -117,7 +117,10 @@ dependencies {
 
     // --- Ktor Client & Serialization ---
     implementation("io.ktor:ktor-client-core:2.3.1")
-    implementation("io.ktor:ktor-client-cio:2.3.1")
+    // OkHttp, not CIO: CIO kept reusing a pooled connection after the server
+    // or a Wi-Fi/data switch had dropped it, so calls hung until timeout and
+    // the balance and palayok stayed broken until the app was restarted.
+    implementation("io.ktor:ktor-client-okhttp:2.3.1")
     implementation("io.ktor:ktor-client-content-negotiation:2.3.1")
     implementation("io.ktor:ktor-serialization-kotlinx-json:2.3.1")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.5.1")

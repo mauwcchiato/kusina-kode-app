@@ -6,7 +6,7 @@ import com.example.kusinakode.domain.model.Region
 /** Level ids per island, matching LevelProvider and api/lib/islands.php. */
 object IslandCatalog {
     fun dishesByIsland(): Map<String, Set<Int>> =
-        (1..LevelProvider.levelCount)
+        LevelProvider.visibleIds
             .groupBy { LevelProvider.forLevel(it).region.apiKey() }
             .mapValues { it.value.toSet() }
 }
