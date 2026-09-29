@@ -1,7 +1,7 @@
 # Ingredients: make the app read the web's ingredients
 
 **For:** Mau (app) · **Also needs:** Alyssa (draw and sell rules) and the API/VM owner
-**Status:** proposal, nothing built yet · **Written:** 2026-09-29
+**Status:** proposal; the API half is built (see section 8) · **Written:** 2026-09-29
 
 > The file and class names below were checked against `main` at commit `65b65c5` (29 Sep 2026).
 > If `main` has moved on since, please re-check them before starting.
@@ -67,3 +67,35 @@ If this is too big right now: leave the game as is and make the web Ingredients 
 - [ ] A player who owns an ingredient the app has never seen still sees it in the pantry and can sell it.
 - [ ] With no network, the bundled book still works.
 - [ ] The 123 existing ingredients behave exactly as before.
+
+## 8. Update: the API half is built (29 Sep 2026)
+
+The read-only endpoint from section 4 now exists in our repo. It is not on the VM yet: it goes live after the one-off code backfill has run.
+
+`GET /api/get_ingredients.php`: public and read-only, the same style as `get_equipment.php`.
+
+```json
+{
+  "status": "success",
+  "version": "a1b2c3d4e5f6",
+  "count": 123,
+  "data": [
+    {
+      "id": "ing_salt",
+      "name": "Salt",
+      "local_name": "Asin",
+      "category": "Seasoning",
+      "rarity": "common",
+      "description": "Short description from the web page.",
+      "image_path": "images/ingredients/salt.png"
+    }
+  ]
+}
+```
+
+- **`id` is the stable code** (decision 1, the recommended option): derived from the name once, when the ingredient is created, then stored and never changed by a rename. The same rule produced all 123 ids the game uses today, and it is tested against every one of them.
+- Only **Published** ingredients are listed. An unknown rarity reads as `common`. `image_path` is relative (or `null`), so the app adds its own host, as it does for equipment.
+- `version` changes whenever the list changes, so the app can skip a refetch.
+- On failure it answers HTTP 500 with `{"status":"error"}`. The app should then keep its bundled book.
+
+**What is deliberately not connected yet (decision 2, Alyssa's call):** the API's draw and sell rules (`lib/ingredients.php`) still use the generated list, by rarity. So an ingredient added on the web will appear in the app's book once this ships, but **cannot be drawn or sold until those rules include it**. The web's `kk_price` is still not used by the game.
