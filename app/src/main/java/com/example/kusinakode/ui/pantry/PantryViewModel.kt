@@ -27,6 +27,16 @@ data class PantryUiState(
     val drawing: Boolean = false,
     /** A just-earned palayok never arrived in time to open ([PantryViewModel.drawWhenReady]). */
     val drawGaveUp: Boolean = false,
+    /**
+     * Set only when opening a palayok really failed. [notice] also carries
+     * pantry-load hiccups, which must not read as "the palayok didn't open".
+     */
+    val drawFailed: String? = null,
+    /**
+     * The palayok opened on the server but its answer was lost on the way
+     * back, so there is no reveal to show; the ingredient is in the Pantry.
+     */
+    val drawOpenedUnseen: Boolean = false,
     val sellingId: String? = null,
     /** Set while the wheel is turning. */
     val spinning: Boolean = false,
@@ -219,7 +229,9 @@ class PantryViewModel(
         if (_uiState.value.drawing || _uiState.value.isGuest) return
         if ((_uiState.value.snapshot.drawsAvailable) <= 0) return
         viewModelScope.launch {
-            _uiState.update { it.copy(drawing = true, notice = null) }
+            _uiState.update {
+                it.copy(drawing = true, notice = null, drawFailed = null, drawOpenedUnseen = false)
+            }
             performDraw()
         }
     }
@@ -240,7 +252,15 @@ class PantryViewModel(
     fun drawWhenReady(powerUpsUsed: Int = 0, maxWaitMs: Long = 12_000L) {
         if (_uiState.value.drawing || _uiState.value.isGuest) return
         viewModelScope.launch {
-            _uiState.update { it.copy(drawing = true, notice = null, drawGaveUp = false) }
+            _uiState.update {
+                it.copy(
+                    drawing = true,
+                    notice = null,
+                    drawGaveUp = false,
+                    drawFailed = null,
+                    drawOpenedUnseen = false
+                )
+            }
             val started = System.currentTimeMillis()
             var available = _uiState.value.snapshot.drawsAvailable
             while (available <= 0 && System.currentTimeMillis() - started < maxWaitMs) {
@@ -257,6 +277,7 @@ class PantryViewModel(
 
     /** The draw itself. The caller has already set [PantryUiState.drawing]. */
     private suspend fun performDraw() {
+        val before = _uiState.value.snapshot.drawsAvailable
         repository.draw(levelId)
             .onSuccess { (result, snap, balance) ->
                 PantrySnapshotBus.publish(snap, balance)
@@ -271,8 +292,27 @@ class PantryViewModel(
                 }
             }
             .onFailure { e ->
+                // The request may have reached the server and opened the
+                // palayok even though its answer never came back (a slow or
+                // dropped connection). If the shelf now holds one fewer, it
+                // did open: say so instead of asking the player to try again.
+                val after = repository.snapshot().getOrNull()
+                if (after != null && after.first.drawsAvailable < before) {
+                    PantrySnapshotBus.publish(after.first, after.second)
+                    _uiState.update {
+                        it.copy(
+                            drawing = false,
+                            snapshot = after.first,
+                            balanceKk = after.second,
+                            drawOpenedUnseen = true,
+                            notice = "Your palayok opened. The ingredient is in your Pantry."
+                        )
+                    }
+                    return@onFailure
+                }
+                val message = e.message ?: "The palayok would not open"
                 _uiState.update {
-                    it.copy(drawing = false, notice = e.message ?: "The palayok would not open")
+                    it.copy(drawing = false, notice = message, drawFailed = message)
                 }
             }
     }

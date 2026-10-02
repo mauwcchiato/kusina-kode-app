@@ -400,7 +400,11 @@ fun HomeScreen(
                       round = true,
                       title = "Notifications",
                       body = "The number is how many are waiting. Open them for minted " +
-                          "badges and receipts, and report an issue if a reward looks wrong."
+                          if (Features.PLAYER_REPORTS) {
+                              "badges and receipts, and report an issue if a reward looks wrong."
+                          } else {
+                              "badges and receipts."
+                          }
                   ),
                   CoachStep(
                       anchorKey = "home_play",

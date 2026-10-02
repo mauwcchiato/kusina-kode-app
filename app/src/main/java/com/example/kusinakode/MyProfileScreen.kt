@@ -849,41 +849,33 @@ private fun ChangeLookDialog(
     onConfirm: () -> Unit
 ) {
     Dialog(onDismissRequest = onDismiss) {
-        Surface(
-            shape = RoundedCornerShape(26.dp),
-            color = CreamBg,
-            shadowElevation = 16.dp,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                // A band of the app's brown behind the portrait, so the
-                // circle reads as a portrait on a wall rather than a cut-out.
+        // The same parchment plate as the app's other overlays (rank ladder,
+        // badges, coach marks), with the portrait framed in narra brown.
+        ParchmentCard(contentPadding = 22.dp) {
+            Column(
+                Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Spacer(Modifier.height(4.dp))
                 Box(
                     Modifier
-                        .fillMaxWidth()
-                        .height(74.dp)
-                        .background(Brush.verticalGradient(listOf(HeaderTop, HeaderBottom)))
-                )
-                Box(
-                    Modifier
-                        .offset(y = (-46).dp)
-                        .size(92.dp)
+                        .size(98.dp)
                         .clip(CircleShape)
-                        .border(3.dp, CreamBg, CircleShape)
+                        .border(3.dp, HeaderBottom, CircleShape)
+                        .padding(3.dp)
                 ) {
                     EquippedAvatarPortrait(
                         initial = chefName.trim().take(1).uppercase(),
                         size = 92.dp
                     )
                 }
+                Spacer(Modifier.height(14.dp))
                 Column(
-                    Modifier
-                        .offset(y = (-34).dp)
-                        .padding(horizontal = 24.dp),
+                    Modifier.padding(horizontal = 6.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        "Change your look?",
+                        "New look, Chef?",
                         color = TextDark,
                         fontFamily = BeVietnamPro,
                         fontWeight = FontWeight.ExtraBold,
@@ -892,7 +884,7 @@ private fun ChangeLookDialog(
                     )
                     Spacer(Modifier.height(6.dp))
                     Text(
-                        "Would you like to change avatars and frames?",
+                        "Try on a different avatar or frame for your profile.",
                         color = TextDark.copy(alpha = 0.72f),
                         fontFamily = BeVietnamPro,
                         fontSize = 13.sp,

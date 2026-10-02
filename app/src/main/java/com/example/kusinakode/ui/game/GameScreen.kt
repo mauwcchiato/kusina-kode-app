@@ -79,6 +79,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -257,9 +258,11 @@ fun GameScreen(
     }
     // Opening the pot can fail (a dropped connection); the ritual then goes
     // back to choosing. Say so, rather than leaving the player to wonder.
-    LaunchedEffect(pantryUi.notice) {
-        val notice = pantryUi.notice
-        if (showPot && notice != null) {
+    // Keyed on the draw's own failure, not the pantry's general notice: a
+    // hiccup while waiting for the grant used to raise this toast even when
+    // the palayok then opened fine.
+    LaunchedEffect(pantryUi.drawFailed) {
+        if (showPot && pantryUi.drawFailed != null && pantryUi.reveal == null) {
             android.widget.Toast.makeText(
                 ctx,
                 "The palayok didn't open. Tap it to try again.",
@@ -285,6 +288,18 @@ fun GameScreen(
     LaunchedEffect(pantryUi.drawGaveUp) {
         if (pantryUi.drawGaveUp && showPot) {
             palayokMissed = true
+            finishPot()
+        }
+    }
+    // It opened, but the answer was lost on the way back: there is nothing to
+    // reveal, so say where the ingredient went and carry on to the win.
+    LaunchedEffect(pantryUi.drawOpenedUnseen) {
+        if (pantryUi.drawOpenedUnseen && showPot) {
+            android.widget.Toast.makeText(
+                ctx,
+                "Your palayok opened. The ingredient is in your Pantry.",
+                android.widget.Toast.LENGTH_LONG
+            ).show()
             finishPot()
         }
     }
@@ -1612,19 +1627,14 @@ private fun WinOverlay(
                 // Last dish on this island. NEXT LEVEL stays within one island,
                 // so this only means the island is done — the others may
                 // still be waiting, hence no "every dish" claim.
-                Text(
-                    "Congrats! You've finished ${uiState.level.region.displayName}!",
-                    color = LightOrange,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Black,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth()
-                )
+                IslandCompleteNote(uiState.level.region.displayName)
                 Spacer(Modifier.height(12.dp))
                 Button(
                     onClick = clickSfx(onBackToMap),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = BurntOrange,
+                        // The same brown as NEXT LEVEL, so the main action on
+                        // the win screen looks the same either way.
+                        containerColor = PlayNowBrown,
                         contentColor = Color.White
                     ),
                     shape = RoundedCornerShape(26.dp),
@@ -2362,3 +2372,53 @@ private const val POT_WAIT_MS = 12_000L
 
 /** How long the palayok ask waits for the win itself to be saved first. */
 private const val WIN_SAVE_WAIT_MS = 8_000L
+
+/**
+ * The island-complete line on the win screen: a small gold kicker between
+ * hairlines, then one calm sentence with the island's name picked out. Sized
+ * to sit with the stat cards rather than shout over the button below it.
+ */
+@Composable
+private fun IslandCompleteNote(islandName: String) {
+    val gold = Color(0xFFE9B85C)
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                Modifier
+                    .width(28.dp)
+                    .height(1.dp)
+                    .background(Brush.horizontalGradient(listOf(Color.Transparent, gold)))
+            )
+            Text(
+                "CONGRATULATIONS!",
+                color = gold,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.ExtraBold,
+                letterSpacing = 3.sp,
+                modifier = Modifier.padding(horizontal = 10.dp)
+            )
+            Box(
+                Modifier
+                    .width(28.dp)
+                    .height(1.dp)
+                    .background(Brush.horizontalGradient(listOf(gold, Color.Transparent)))
+            )
+        }
+        Spacer(Modifier.height(6.dp))
+        Text(
+            androidx.compose.ui.text.buildAnnotatedString {
+                append("You completed the ")
+                withStyle(
+                    androidx.compose.ui.text.SpanStyle(color = LightOrange, fontWeight = FontWeight.ExtraBold)
+                ) { append("Island of $islandName") }
+            },
+            color = Color(0xFFF3E7D6),
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Medium,
+            textAlign = TextAlign.Center
+        )
+    }
+}

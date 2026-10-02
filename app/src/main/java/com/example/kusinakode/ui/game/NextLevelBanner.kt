@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Text
@@ -337,16 +338,9 @@ private fun LevelNumberBadge(
                 alpha = pop.value.coerceIn(0f, 1f)
             }
         ) {
-            if (regionName.isNotBlank()) {
-                Text(
-                    regionName.uppercase(),
-                    color = Color.White,
-                    fontFamily = BeVietnamPro,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 15.sp,
-                    letterSpacing = 5.sp
-                )
-            }
+            // "Level", not the island's name: the island is already in the
+            // glow colour and on the map, and the number is a level number.
+            LevelLabel(glow)
             Text(
                 number.toString(),
                 color = glow.number,
@@ -359,6 +353,63 @@ private fun LevelNumberBadge(
                 )
             )
         }
+    }
+}
+
+/**
+ * "LEVEL" between two flourishes: a hairline that brightens towards the word
+ * and ends in a diamond, with a seed of light beyond it, mirrored either side,
+ * so the word sits centred over the number.
+ */
+@Composable
+private fun LevelLabel(glow: IslandGlow) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        LabelFlourish(glow.spark, towardsRight = true)
+        Text(
+            "LEVEL",
+            color = Color.White,
+            fontFamily = BeVietnamPro,
+            fontWeight = FontWeight.ExtraBold,
+            fontSize = 14.sp,
+            letterSpacing = 7.sp,
+            style = TextStyle(shadow = Shadow(glow.shadow, Offset(0f, 3f), blurRadius = 6f)),
+            modifier = Modifier.padding(horizontal = 10.dp)
+        )
+        LabelFlourish(glow.spark, towardsRight = false)
+    }
+}
+
+@Composable
+private fun LabelFlourish(tint: Color, towardsRight: Boolean) {
+    Canvas(Modifier.size(width = 46.dp, height = 14.dp)) {
+        val mid = size.height / 2f
+        val d = 4.5.dp.toPx()
+        // The diamond sits at the end nearest the word.
+        val tip = if (towardsRight) size.width - d else d
+        val far = if (towardsRight) 6.dp.toPx() else size.width - 6.dp.toPx()
+        drawLine(
+            brush = Brush.horizontalGradient(
+                if (towardsRight) listOf(Color.Transparent, tint) else listOf(tint, Color.Transparent),
+                startX = minOf(far, tip),
+                endX = maxOf(far, tip)
+            ),
+            start = Offset(far, mid),
+            end = Offset(tip, mid),
+            strokeWidth = 1.6.dp.toPx(),
+            cap = StrokeCap.Round
+        )
+        val diamond = androidx.compose.ui.graphics.Path().apply {
+            moveTo(tip, mid - d)
+            lineTo(tip + d, mid)
+            lineTo(tip, mid + d)
+            lineTo(tip - d, mid)
+            close()
+        }
+        drawPath(diamond, tint)
+        drawCircle(Color.White, radius = 1.4.dp.toPx(), center = Offset(tip, mid))
+        // A seed of light out past the line's faded end.
+        val seed = if (towardsRight) 1.5.dp.toPx() else size.width - 1.5.dp.toPx()
+        drawCircle(tint.copy(alpha = 0.7f), radius = 1.5.dp.toPx(), center = Offset(seed, mid))
     }
 }
 
