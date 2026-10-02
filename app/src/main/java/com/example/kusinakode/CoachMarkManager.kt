@@ -26,6 +26,8 @@ object CoachMarkManager {
     const val TOUR_WALLET = "wallet_v2"
     const val TOUR_PROFILE = "profile_v1"
 
+    private val ALL_TOURS = listOf(TOUR_HOME, TOUR_EXPLORE, TOUR_LEARN, TOUR_WALLET, TOUR_PROFILE)
+
     private fun key(tour: String, userId: Int?): String =
         "coach_${tour}_${userId ?: 0}"
 
@@ -38,6 +40,18 @@ object CoachMarkManager {
             .edit()
             .putBoolean(key(tour, userId), true)
             .apply()
+    }
+
+    /**
+     * Marks every tour seen for [userId]. Completion lives only on this phone,
+     * so a reinstall (backup is off) or a new phone would otherwise walk a
+     * returning cook through screens they already know. Logging in to an
+     * existing account calls this; creating one does not.
+     */
+    fun markAllDone(context: Context, userId: Int?) {
+        val edit = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
+        ALL_TOURS.forEach { edit.putBoolean(key(it, userId), true) }
+        edit.apply()
     }
 
     /** Lets a player replay a tour from the help screen. */

@@ -229,6 +229,9 @@ private fun AppNavigator() {
     }
 
     val onLoggedIn: (Int, String, String) -> Unit = { id, name, email ->
+        // An existing account has been shown around already, even if this
+        // phone (a reinstall, a new device) has no record of it.
+        CoachMarkManager.markAllDone(ctx, id)
         authenticate(id, name, email, "home")
     }
     // First run of a new account: the story plays before the game does.
