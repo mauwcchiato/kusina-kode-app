@@ -1,5 +1,7 @@
 package com.example.kusinakode.ui.components
 
+import com.example.kusinakode.Features
+
 import com.example.kusinakode.api.KusinaApi
 import com.example.kusinakode.api.ReportReason
 import com.example.kusinakode.ui.components.clickSfx
@@ -229,8 +231,11 @@ fun RewardReceiptDialog() {
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                Spacer(Modifier.height(12.dp))
+                if (Features.PLAYER_REPORTS) Spacer(Modifier.height(12.dp))
                 when {
+                    // Reporting is switched off (see Features); the form below
+                    // is kept so it can come back by flipping that switch.
+                    !Features.PLAYER_REPORTS -> Unit
                     reportSent -> Text(
                         "Report sent — an admin will take a look.",
                         color = Color(0xFF3D6B3A),
