@@ -193,19 +193,17 @@ fun ExploreScreen(
     initialRegion: Region? = null
 ) {
     val totalLevels = LevelProvider.visibleCount
-    // Per-region levels. Each region's dishes are ordered by word length
-    // ascending (Level 1 = shortest tiles, longer words as the level climbs),
-    // then numbered 1..N *within that region*. The global id underneath is
-    // preserved for play/progress/server sync — only the numbering the player
-    // sees is per-region. Unlock is per-region too: a region's Level 1 is
-    // always open, and Level K opens once that region's Level K-1 is solved,
-    // so the three islands progress independently.
+    // Per-region levels, in LevelProvider.regionOrder: any dish an admin pinned
+    // sits at its pinned slot, the rest by word length ascending (Level 1 =
+    // shortest tiles), numbered 1..N *within that region*. The global id
+    // underneath is preserved for play/progress/server sync — only the
+    // numbering the player sees is per-region. Unlock is per-region too: a
+    // region's Level 1 is always open, and Level K opens once that region's
+    // Level K-1 is solved, so the three islands progress independently.
     val allLevels = remember(solvedLevels) {
         Region.entries.flatMap { region ->
-            val inRegion = LevelProvider.visibleIds
+            val inRegion = LevelProvider.regionOrder(region)
                 .map { gid -> gid to LevelProvider.forLevel(gid) }
-                .filter { it.second.region == region }
-                .sortedWith(compareBy({ it.second.answer.length }, { it.first }))
             inRegion.mapIndexed { idx, (gid, data) ->
                 val solved = gid in solvedLevels
                 val prevSolved = idx == 0 || inRegion[idx - 1].first in solvedLevels
