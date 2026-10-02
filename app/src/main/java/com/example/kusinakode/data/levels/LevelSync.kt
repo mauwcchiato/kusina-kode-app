@@ -50,7 +50,10 @@ object LevelSync {
         val imagePath: String? = null,
         val cardPath: String? = null,
         val status: String? = null,
-        val id: Int = 0
+        val id: Int = 0,
+        /** Added after v3 shipped; an older cache reads it as null (automatic)
+         *  until the next refresh, so the key did not need bumping. */
+        val levelOrder: String? = null
     )
 
     /**
@@ -102,7 +105,8 @@ object LevelSync {
                     imagePath = it.image_path,
                     cardPath = it.history_image,
                     status = it.status,
-                    id = it.id
+                    id = it.id,
+                    levelOrder = it.level_order
                 )
             }
         if (cached.isEmpty()) return false
@@ -139,8 +143,13 @@ object LevelSync {
         photoUrl = mediaUrl(c.imagePath),
         cardUrl = mediaUrl(c.cardPath),
         published = c.status.isNullOrBlank() || c.status.equals("Published", ignoreCase = true),
-        sortKey = c.id
+        sortKey = c.id,
+        levelOrder = levelOrderOf(c.levelOrder)
     )
+
+    /** A pin is a whole number of 1 or more; blank, missing or anything else is automatic. */
+    internal fun levelOrderOf(raw: String?): Int? =
+        raw?.trim()?.toIntOrNull()?.takeIf { it >= 1 }
 
     /**
      * Turns a stored image path into something fetchable, or null.

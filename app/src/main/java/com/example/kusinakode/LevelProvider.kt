@@ -28,7 +28,13 @@ data class LevelData(
     /** The full dataset row, for screens that want the whole write-up. */
     val dish: DishEntry,
     val photoUrl: String? = null,
-    val cardUrl: String? = null
+    val cardUrl: String? = null,
+    /**
+     * The island level an admin pinned this dish to (1-based), or null to let
+     * [LevelProvider.regionOrder] place it by word length. Display order only;
+     * the global id is still what progress is filed under.
+     */
+    val levelOrder: Int? = null
 ) {
     /** Uppercase answer, for easy comparison/hinting */
     val answer: String get() = word.uppercase()
@@ -139,16 +145,49 @@ object LevelProvider {
         levels.indexOfFirst { it.dish.slug == slug }.takeIf { it >= 0 }?.plus(1)
 
     /**
-     * The global level ids belonging to [region], ordered by word length
-     * ascending (ties broken by the global id). This is the exact order the
-     * Game Map numbers a region's dishes Level 1..N in — Level 1 is the
-     * shortest word — so anything that shows a player-facing level number must
-     * derive it from here to stay consistent with the map.
+     * The global level ids belonging to [region], in the order the Game Map
+     * numbers them Level 1..N. A dish an admin pinned takes exactly its slot;
+     * the rest fill the remaining slots by word length ascending (ties broken
+     * by the global id), so with no pins Level 1 is the shortest word. Anything
+     * that shows a player-facing level number must derive it from here to stay
+     * consistent with the map.
      */
-    fun regionOrder(region: Region): List<Int> =
-        visibleIds
-            .filter { forLevel(it).region == region }
-            .sortedWith(compareBy({ forLevel(it).answer.length }, { it }))
+    fun regionOrder(region: Region): List<Int> {
+        val island = visibleIds.filter { forLevel(it).region == region }
+        return islandOrder(
+            island,
+            length = { forLevel(it).answer.length },
+            pin = { forLevel(it).levelOrder }
+        )
+    }
+
+    /**
+     * The ordering rule behind [regionOrder], shared with the admin console's
+     * `IslandOrder` (see docs/level-order-pins-from-web.md).
+     *
+     * Pinned ids go first, in (pin, id) order, each into the first free slot
+     * at or after its pin, or failing that the nearest free slot before it. A
+     * pin past the end counts as the last slot. Unpinned ids then fill the
+     * empty slots from the top in (length, id) order. The clamp and the
+     * fallbacks only matter for data the console would refuse to save, such as
+     * a pin left past the end after a dish was removed.
+     */
+    internal fun islandOrder(ids: List<Int>, length: (Int) -> Int, pin: (Int) -> Int?): List<Int> {
+        val n = ids.size
+        val slots = arrayOfNulls<Int>(n)
+        val (pinned, rest) = ids.partition { pin(it) != null }
+
+        pinned.sortedWith(compareBy({ pin(it)!! }, { it })).forEach { id ->
+            val want = pin(id)!!.coerceIn(1, n) - 1
+            val at = (want until n).firstOrNull { slots[it] == null }
+                ?: (want - 1 downTo 0).first { slots[it] == null }
+            slots[at] = id
+        }
+
+        val fill = rest.sortedWith(compareBy({ length(it) }, { it })).iterator()
+        for (i in 0 until n) if (slots[i] == null) slots[i] = fill.next()
+        return slots.map { it!! }
+    }
 
     /**
      * The per-region "Level N" a player sees for a global level id — its
@@ -244,7 +283,9 @@ object LevelProvider {
         /** Anything other than "Published" keeps an appended level hidden. */
         val published: Boolean = true,
         /** Server row id, used only to keep appended levels in a stable order. */
-        val sortKey: Int = 0
+        val sortKey: Int = 0,
+        /** The island level an admin pinned the dish to, or null for automatic. */
+        val levelOrder: Int? = null
     )
 
     /**
@@ -326,7 +367,8 @@ object LevelProvider {
             // A compiled level keeps its packaged art; a panel upload for it is
             // ignored rather than replacing a known-good asset with a fetch.
             photoUrl = photoUrl,
-            cardUrl = cardUrl
+            cardUrl = cardUrl,
+            levelOrder = r.levelOrder
         )
     }
 
@@ -366,7 +408,8 @@ object LevelProvider {
             region = dish.region,
             dish = dish,
             photoUrl = photoUrl,
-            cardUrl = cardUrl
+            cardUrl = cardUrl,
+            levelOrder = levelOrder
         )
     }
 }

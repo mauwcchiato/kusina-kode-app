@@ -112,7 +112,9 @@ data class LevelData(
     val cook_time_minutes: String? = null,
     val rating: String? = null,
     /** Relative to the XAMPP site root when it starts with "media/". */
-    val image_path: String? = null
+    val image_path: String? = null,
+    /** The island level an admin pinned this dish to ("2"), or null for automatic. */
+    val level_order: String? = null
 )
 
 @Serializable
