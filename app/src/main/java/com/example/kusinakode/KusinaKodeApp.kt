@@ -11,6 +11,7 @@ import com.example.kusinakode.domain.repository.GamificationRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 class KusinaKodeApp : Application() {
 
@@ -31,10 +32,19 @@ class KusinaKodeApp : Application() {
         // is already classified correctly rather than guessed at.
         NetworkStatus.warm(this)
 
-        // The reel catalogue the server last gave us, before any screen can
-        // ask KusinaShop.item() what a purchase was called. Absent until the
-        // admin endpoint exists, in which case the seeds answer as before.
-        ReelCatalogStore.warm(this)
+        // Disk and system work off the main thread, so the first screen draws
+        // without waiting on it. On a busy low-memory phone these reads used to
+        // stall startup into "isn't responding" (stress test, 5 Oct).
+        // - The reel catalogue the server last gave us. Until it lands, the
+        //   seeds answer KusinaShop.item(), as they do when nothing is cached.
+        // - Notification channels are only needed before a notification posts.
+        // - The play-reminder schedule; MainActivity loads the settings that
+        //   screens read, so nothing on screen waits for this.
+        appScope.launch(Dispatchers.IO) {
+            ReelCatalogStore.warm(this@KusinaKodeApp)
+            KusinaNotifications.ensureChannels(this@KusinaKodeApp)
+            PlayNudgeScheduler.sync(this@KusinaKodeApp)
+        }
 
         gamification = LocalGamificationRepository(this)
 
@@ -53,14 +63,11 @@ class KusinaKodeApp : Application() {
         // which screen the player is on when a round ends.
         gamificationCoordinator.start(appScope)
 
+        SoundFx.warm(this)
+
         // Module 3's half of that seam: a badge announced by the gamification
         // layer is minted straight away rather than waiting for the player to
         // find a CLAIM button.
-        KusinaNotifications.ensureChannels(this)
-        PlayNudgeScheduler.sync(this)
-
-        SoundFx.warm(this)
-
         ChainRewardCoordinator(
             context = this,
             onConfirmed = { gamificationCoordinator.refresh() }

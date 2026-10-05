@@ -1,0 +1,4 @@
+loaded cold 1: TotalTime: 7611
+loaded cold 2: TotalTime: 5928
+loaded cold 3: TotalTime: 6183
+new ANR reports: 0
