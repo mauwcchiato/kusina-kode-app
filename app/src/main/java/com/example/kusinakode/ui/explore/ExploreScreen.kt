@@ -1455,17 +1455,22 @@ private fun RegionPin(
         // with the ring every frame, and the walkthrough spotlight that
         // measures this pin jumped along with it.
         Box(Modifier.size(PinFootprint), contentAlignment = Alignment.Center) {
-            // Expanding ring that fades as it grows.
+            // Expanding ring that fades as it grows. The pulse is read only
+            // while drawing, so each frame repaints the ring without rebuilding
+            // the pin, its label and its shadow (which held a mid-range phone
+            // near 30 fps on the map; stress test, 5 Oct).
+            // Its own layer, so repainting the ring each frame does not also
+            // repaint the map, the road and every label underneath it.
             Box(
                 Modifier
                     .size(PinFootprint)
-                    .graphicsLayer {
-                        val s = (28f + 26f * pulse) / PinFootprint.value
-                        scaleX = s
-                        scaleY = s
+                    .graphicsLayer()
+                    .drawBehind {
+                        drawCircle(
+                            color = pinColor.copy(alpha = 0.32f * (1f - pulse)),
+                            radius = ((28f + 26f * pulse) / 2f).dp.toPx()
+                        )
                     }
-                    .clip(CircleShape)
-                    .background(pinColor.copy(alpha = 0.32f * (1f - pulse)))
             )
             Box(
                 Modifier
@@ -1880,6 +1885,29 @@ private fun LevelPath(
  * glowing, pulsing play stop with the chef standing on it. Locked: a mystery "?".
  * The level number rides on a small tab under each.
  */
+/** The current stop's pulsing glow, drawn past its own bounds without moving anything. */
+@Composable
+private fun CurrentNodeGlow(size: Dp) {
+    val pulse by rememberInfiniteTransition(label = "node_glow").animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(1400, easing = LinearEasing), RepeatMode.Restart),
+        label = "node_pulse"
+    )
+    // Its own layer, so the glow repaints alone rather than with the island.
+    Box(
+        Modifier
+            .size(size)
+            .graphicsLayer()
+            .drawBehind {
+                drawCircle(
+                    color = GoldAccent.copy(alpha = 0.45f * (1f - pulse)),
+                    radius = this.size.minDimension / 2f * (1f + 0.55f * pulse)
+                )
+            }
+    )
+}
+
 @Composable
 private fun LevelNode(
     lvl: RegionLevel,
@@ -1888,24 +1916,14 @@ private fun LevelNode(
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
-    val loop = rememberInfiniteTransition(label = "node_${lvl.globalId}")
-    val pulse by loop.animateFloat(
-        initialValue = 0f,
-        targetValue = if (isCurrent) 1f else 0f,
-        animationSpec = infiniteRepeatable(tween(1400, easing = LinearEasing), RepeatMode.Restart),
-        label = "node_pulse"
-    )
-
     Box(modifier.size(size), contentAlignment = Alignment.Center) {
         if (isCurrent) {
-            // Expanding glow ring behind the next level. Unclipped, so it can
-            // spread past the stop's own bounds.
-            Box(
-                Modifier
-                    .requiredSize(size * (1f + 0.55f * pulse))
-                    .clip(CircleShape)
-                    .background(GoldAccent.copy(alpha = 0.45f * (1f - pulse)))
-            )
+            // Expanding glow ring behind the next level, spreading past the
+            // stop's own bounds. Only the current stop animates, and only while
+            // drawing: every stop used to run its own loop and rebuild itself
+            // (dish photo included) each frame, and this ring re-laid out the
+            // island as it grew.
+            CurrentNodeGlow(size)
         }
         Box(
             Modifier

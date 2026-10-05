@@ -1,0 +1,187 @@
+{
+  "cost": 60,
+  "interval": "PT1M",
+  "namespace": "Microsoft.Compute/virtualMachines",
+  "resourceregion": "southeastasia",
+  "timespan": "2026-10-05T01:50:00Z/2026-10-05T02:06:00Z",
+  "value": [
+    {
+      "displayDescription": "The percentage of allocated compute units that are currently in use by the Virtual Machine(s)",
+      "errorCode": "Success",
+      "id": "/subscriptions/<subscription-id>/resourceGroups/kusina-kode/providers/Microsoft.Compute/virtualMachines/vm-kusinakode-api/providers/Microsoft.Insights/metrics/Percentage CPU",
+      "name": {
+        "localizedValue": "Percentage CPU",
+        "value": "Percentage CPU"
+      },
+      "resourceGroup": "kusina-kode",
+      "timeseries": [
+        {
+          "data": [
+            {
+              "average": 0.16,
+              "maximum": 0.16,
+              "timeStamp": "2026-10-05T01:50:00Z"
+            },
+            {
+              "average": 0.165,
+              "maximum": 0.18,
+              "timeStamp": "2026-10-05T01:51:00Z"
+            },
+            {
+              "average": 0.135,
+              "maximum": 0.14,
+              "timeStamp": "2026-10-05T01:52:00Z"
+            },
+            {
+              "average": 0.14,
+              "maximum": 0.15,
+              "timeStamp": "2026-10-05T01:53:00Z"
+            },
+            {
+              "average": 0.775,
+              "maximum": 0.9,
+              "timeStamp": "2026-10-05T01:54:00Z"
+            },
+            {
+              "average": 0.16,
+              "maximum": 0.16,
+              "timeStamp": "2026-10-05T01:55:00Z"
+            },
+            {
+              "average": 0.15,
+              "maximum": 0.15,
+              "timeStamp": "2026-10-05T01:56:00Z"
+            },
+            {
+              "average": 0.97,
+              "maximum": 1.48,
+              "timeStamp": "2026-10-05T01:57:00Z"
+            },
+            {
+              "average": 3.195,
+              "maximum": 3.58,
+              "timeStamp": "2026-10-05T01:58:00Z"
+            },
+            {
+              "average": 6.895,
+              "maximum": 7.29,
+              "timeStamp": "2026-10-05T01:59:00Z"
+            },
+            {
+              "average": 9.68,
+              "maximum": 11.82,
+              "timeStamp": "2026-10-05T02:00:00Z"
+            },
+            {
+              "timeStamp": "2026-10-05T02:01:00Z"
+            },
+            {
+              "timeStamp": "2026-10-05T02:02:00Z"
+            },
+            {
+              "timeStamp": "2026-10-05T02:03:00Z"
+            },
+            {
+              "timeStamp": "2026-10-05T02:04:00Z"
+            },
+            {
+              "timeStamp": "2026-10-05T02:05:00Z"
+            }
+          ],
+          "metadatavalues": []
+        }
+      ],
+      "type": "Microsoft.Insights/metrics",
+      "unit": "Percent"
+    },
+    {
+      "displayDescription": "Amount of physical memory, in bytes, immediately available for allocation to a process or for system use in the Virtual Machine",
+      "errorCode": "Success",
+      "id": "/subscriptions/<subscription-id>/resourceGroups/kusina-kode/providers/Microsoft.Compute/virtualMachines/vm-kusinakode-api/providers/Microsoft.Insights/metrics/Available Memory Bytes",
+      "name": {
+        "localizedValue": "Available Memory Bytes",
+        "value": "Available Memory Bytes"
+      },
+      "resourceGroup": "kusina-kode",
+      "timeseries": [
+        {
+          "data": [
+            {
+              "average": 446693376.0,
+              "maximum": 446693376.0,
+              "timeStamp": "2026-10-05T01:50:00Z"
+            },
+            {
+              "average": 446693376.0,
+              "maximum": 446693376.0,
+              "timeStamp": "2026-10-05T01:51:00Z"
+            },
+            {
+              "average": 446693376.0,
+              "maximum": 446693376.0,
+              "timeStamp": "2026-10-05T01:52:00Z"
+            },
+            {
+              "average": 446693376.0,
+              "maximum": 446693376.0,
+              "timeStamp": "2026-10-05T01:53:00Z"
+            },
+            {
+              "average": 446693376.0,
+              "maximum": 446693376.0,
+              "timeStamp": "2026-10-05T01:54:00Z"
+            },
+            {
+              "average": 446693376.0,
+              "maximum": 446693376.0,
+              "timeStamp": "2026-10-05T01:55:00Z"
+            },
+            {
+              "average": 446693376.0,
+              "maximum": 446693376.0,
+              "timeStamp": "2026-10-05T01:56:00Z"
+            },
+            {
+              "average": 446169088.0,
+              "maximum": 446693376.0,
+              "timeStamp": "2026-10-05T01:57:00Z"
+            },
+            {
+              "average": 447217664.0,
+              "maximum": 448790528.0,
+              "timeStamp": "2026-10-05T01:58:00Z"
+            },
+            {
+              "average": 445120512.0,
+              "maximum": 446693376.0,
+              "timeStamp": "2026-10-05T01:59:00Z"
+            },
+            {
+              "average": 441450496.0,
+              "maximum": 441450496.0,
+              "timeStamp": "2026-10-05T02:00:00Z"
+            },
+            {
+              "timeStamp": "2026-10-05T02:01:00Z"
+            },
+            {
+              "timeStamp": "2026-10-05T02:02:00Z"
+            },
+            {
+              "timeStamp": "2026-10-05T02:03:00Z"
+            },
+            {
+              "timeStamp": "2026-10-05T02:04:00Z"
+            },
+            {
+              "timeStamp": "2026-10-05T02:05:00Z"
+            }
+          ],
+          "metadatavalues": []
+        }
+      ],
+      "type": "Microsoft.Insights/metrics",
+      "unit": "Bytes"
+    }
+  ]
+}
