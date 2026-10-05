@@ -1,0 +1,4 @@
+OLD loaded cold 1: TotalTime: 5931
+OLD loaded cold 2: TotalTime: 6086
+OLD loaded cold 3: TotalTime: 6482
+new ANR reports (old code): 0

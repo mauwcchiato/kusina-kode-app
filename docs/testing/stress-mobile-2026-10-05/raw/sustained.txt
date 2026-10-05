@@ -1,0 +1,16 @@
+loop 0 memory:  TOTAL PSS: 173237 TOTAL RSS: 273916 TOTAL SWAP PSS: 467
+loop 1 (286s) memory:  TOTAL PSS: 192365 TOTAL RSS: 297936 TOTAL SWAP PSS: 273
+loop 2 (560s) memory:  TOTAL PSS: 198029 TOTAL RSS: 304420 TOTAL SWAP PSS: 273
+loop 3 (833s) memory:  TOTAL PSS: 196037 TOTAL RSS: 302972 TOTAL SWAP PSS: 273
+loop 4 (1099s) memory:  TOTAL PSS: 197042 TOTAL RSS: 304376 TOTAL SWAP PSS: 273
+loop 5 (1366s) memory:  TOTAL PSS: 194990 TOTAL RSS: 302660 TOTAL SWAP PSS: 273
+== whole sustained run
+Total frames rendered: 57679
+Janky frames: 1230 (2.13%)
+50th percentile: 22ms
+90th percentile: 30ms
+95th percentile: 32ms
+99th percentile: 48ms
+Number Slow UI thread: 447
+Number Frame deadline missed: 1230
+crash or ANR mentions: 0
