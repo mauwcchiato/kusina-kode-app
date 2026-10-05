@@ -1,0 +1,199 @@
+{
+  "started_utc": "2026-10-05T01:56:28+00:00",
+  "stages": [
+    {
+      "users": 5,
+      "started_utc": "2026-10-05T01:56:29+00:00",
+      "seconds": 60,
+      "requests": 237,
+      "req_per_s": 3.95,
+      "errors": 0,
+      "error_rate": 0.0,
+      "error_codes": [],
+      "avg_s": 0.2537996232067512,
+      "p50_s": 0.2467850000000027,
+      "p90_s": 0.33075219999999916,
+      "p95_s": 0.3675593000000035,
+      "p99_s": 0.3924430000000001,
+      "max_s": 0.4422645000000003,
+      "per_endpoint": {
+        "get_levels.php": {
+          "requests": 81,
+          "avg_s": 0.2967023555555558,
+          "p95_s": 0.38930340000000285,
+          "errors": 0
+        },
+        "get_leaderboard.php": {
+          "requests": 43,
+          "avg_s": 0.2289290139534885,
+          "p95_s": 0.31788290000000075,
+          "errors": 0
+        },
+        "get_ingredients.php": {
+          "requests": 57,
+          "avg_s": 0.2508808824561406,
+          "p95_s": 0.32952250000000305,
+          "errors": 0
+        },
+        "get_equipment.php": {
+          "requests": 25,
+          "avg_s": 0.20739469199999988,
+          "p95_s": 0.24785359999999912,
+          "errors": 0
+        },
+        "reels/list.php": {
+          "requests": 31,
+          "avg_s": 0.21898692580645154,
+          "p95_s": 0.30304780000000164,
+          "errors": 0
+        }
+      }
+    },
+    {
+      "users": 10,
+      "started_utc": "2026-10-05T01:57:41+00:00",
+      "seconds": 60,
+      "requests": 459,
+      "req_per_s": 7.65,
+      "errors": 0,
+      "error_rate": 0.0,
+      "error_codes": [],
+      "avg_s": 0.31414181742919406,
+      "p50_s": 0.2754230000000035,
+      "p90_s": 0.42261150000000214,
+      "p95_s": 0.48274429999999313,
+      "p99_s": 0.6182176999999882,
+      "max_s": 5.3847162,
+      "per_endpoint": {
+        "get_levels.php": {
+          "requests": 161,
+          "avg_s": 0.35826283726708047,
+          "p95_s": 0.4780217999999934,
+          "errors": 0
+        },
+        "get_leaderboard.php": {
+          "requests": 105,
+          "avg_s": 0.33621215809523824,
+          "p95_s": 0.5147204999999957,
+          "errors": 0
+        },
+        "get_ingredients.php": {
+          "requests": 91,
+          "avg_s": 0.28324130329670333,
+          "p95_s": 0.4435713000000021,
+          "errors": 0
+        },
+        "get_equipment.php": {
+          "requests": 46,
+          "avg_s": 0.2729303065217387,
+          "p95_s": 0.44724519999999757,
+          "errors": 0
+        },
+        "reels/list.php": {
+          "requests": 56,
+          "avg_s": 0.2299776446428568,
+          "p95_s": 0.3571623999999929,
+          "errors": 0
+        }
+      }
+    },
+    {
+      "users": 20,
+      "started_utc": "2026-10-05T01:58:52+00:00",
+      "seconds": 60,
+      "requests": 747,
+      "req_per_s": 12.45,
+      "errors": 0,
+      "error_rate": 0.0,
+      "error_codes": [],
+      "avg_s": 0.5596810305220884,
+      "p50_s": 0.4483663999999976,
+      "p90_s": 0.9536693000000014,
+      "p95_s": 1.2102117999999962,
+      "p99_s": 1.7581762000000083,
+      "max_s": 5.862745500000017,
+      "per_endpoint": {
+        "get_levels.php": {
+          "requests": 250,
+          "avg_s": 0.5484073759999993,
+          "p95_s": 1.1803252999999927,
+          "errors": 0
+        },
+        "get_leaderboard.php": {
+          "requests": 151,
+          "avg_s": 0.6800032172185432,
+          "p95_s": 1.578636099999983,
+          "errors": 0
+        },
+        "get_ingredients.php": {
+          "requests": 178,
+          "avg_s": 0.523470474157303,
+          "p95_s": 0.9800536999999849,
+          "errors": 0
+        },
+        "get_equipment.php": {
+          "requests": 94,
+          "avg_s": 0.5538655000000009,
+          "p95_s": 1.0297684999999888,
+          "errors": 0
+        },
+        "reels/list.php": {
+          "requests": 74,
+          "avg_s": 0.4467337648648641,
+          "p95_s": 0.7943094999999971,
+          "errors": 0
+        }
+      }
+    },
+    {
+      "users": 40,
+      "started_utc": "2026-10-05T02:00:03+00:00",
+      "seconds": 60,
+      "requests": 873,
+      "req_per_s": 14.55,
+      "errors": 0,
+      "error_rate": 0.0,
+      "error_codes": [],
+      "avg_s": 1.6002058673539525,
+      "p50_s": 1.4803877999999884,
+      "p90_s": 2.716041099999984,
+      "p95_s": 3.1282050000000083,
+      "p99_s": 4.257314699999995,
+      "max_s": 7.3720810000000085,
+      "per_endpoint": {
+        "get_levels.php": {
+          "requests": 295,
+          "avg_s": 1.5479464430508487,
+          "p95_s": 2.716041099999984,
+          "errors": 0
+        },
+        "get_leaderboard.php": {
+          "requests": 203,
+          "avg_s": 2.0498910320197057,
+          "p95_s": 3.882583000000011,
+          "errors": 0
+        },
+        "get_ingredients.php": {
+          "requests": 188,
+          "avg_s": 1.1971016095744664,
+          "p95_s": 1.9649976000000038,
+          "errors": 0
+        },
+        "get_equipment.php": {
+          "requests": 97,
+          "avg_s": 1.319681514432989,
+          "p95_s": 2.272319600000003,
+          "errors": 0
+        },
+        "reels/list.php": {
+          "requests": 90,
+          "avg_s": 1.9015936944444434,
+          "p95_s": 3.5092511,
+          "errors": 0
+        }
+      }
+    }
+  ],
+  "stopped_early": null,
+  "ended_utc": "2026-10-05T02:01:15+00:00"
+}

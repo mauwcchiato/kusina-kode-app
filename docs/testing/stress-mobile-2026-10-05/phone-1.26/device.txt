@@ -1,0 +1,7 @@
+Phone: vivo 1910 (vivo V17 Pro)
+Android: 12 (API 31)
+Chip: Qualcomm SM6150 (Snapdragon 675)
+RAM: 8 GB (MemTotal 7752860 kB)
+Screen: 1080 x 2400, density 480, 60 Hz
+App: Kusina Kode 1.26 release build (versionCode 27), installed from the v1.26 release
+Account: Chef Mau (logged in)

@@ -29,7 +29,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -146,9 +146,11 @@ fun FloatingSpinButton(
             PixelArt(
                 res = R.drawable.baul_closed,
                 contentDescription = "Spin the palayok wheel",
+                // Turned while drawing, so the spin repaints the pot without
+                // rebuilding it every frame on every screen.
                 modifier = Modifier
                     .size(34.dp)
-                    .rotate(spin)
+                    .graphicsLayer { rotationZ = spin }
             )
         }
     }

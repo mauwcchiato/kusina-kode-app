@@ -1,0 +1,50 @@
+== Home (28s)
+Total frames rendered: 961
+Janky frames: 353 (36.73%)
+50th percentile: 24ms
+90th percentile: 34ms
+95th percentile: 34ms
+99th percentile: 46ms
+Number Slow UI thread: 75
+Number Frame deadline missed: 353
+memory:  TOTAL PSS: 207515 TOTAL RSS: 309884 TOTAL SWAP PSS: 134
+== Game Map (97s)
+Total frames rendered: 4526
+Janky frames: 4268 (94.30%)
+50th percentile: 38ms
+90th percentile: 48ms
+95th percentile: 53ms
+99th percentile: 65ms
+Number Slow UI thread: 3531
+Number Frame deadline missed: 4268
+memory:  TOTAL PSS: 379913 TOTAL RSS: 489404 TOTAL SWAP PSS: 79
+== Learn + dish page (72s)
+Total frames rendered: 1502
+Janky frames: 274 (18.24%)
+50th percentile: 23ms
+90th percentile: 31ms
+95th percentile: 38ms
+99th percentile: 61ms
+Number Slow UI thread: 186
+Number Frame deadline missed: 274
+memory:  TOTAL PSS: 521665 TOTAL RSS: 613216 TOTAL SWAP PSS: 19519
+== Pantry (44s)
+Total frames rendered: 1772
+Janky frames: 1487 (83.92%)
+50th percentile: 32ms
+90th percentile: 36ms
+95th percentile: 38ms
+99th percentile: 46ms
+Number Slow UI thread: 147
+Number Frame deadline missed: 1487
+memory:  TOTAL PSS: 349978 TOTAL RSS: 453684 TOTAL SWAP PSS: 7914
+== Puzzle board (57s)
+Total frames rendered: 2624
+Janky frames: 974 (37.12%)
+50th percentile: 26ms
+90th percentile: 38ms
+95th percentile: 40ms
+99th percentile: 89ms
+Number Slow UI thread: 343
+Number Frame deadline missed: 974
+memory:  TOTAL PSS: 183170 TOTAL RSS: 289684 TOTAL SWAP PSS: 6170

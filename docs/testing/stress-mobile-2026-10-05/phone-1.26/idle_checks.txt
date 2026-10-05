@@ -1,0 +1,4 @@
+refresh rate: fps=61.000004
+Game Map, idle 20s (no screen reads): Total frames rendered: 1133 Janky frames: 1106 (97.62%) 50th percentile: 30ms 99th percentile: 46ms Number Slow UI thread: 808
+Home, 20 swipes (no screen reads): Total frames rendered: 874 Janky frames: 286 (32.72%) 50th percentile: 24ms 99th percentile: 48ms Number Slow UI thread: 49
+Home, idle 15s: Total frames rendered: 210 Janky frames: 11 (5.24%) 50th percentile: 18ms 99th percentile: 61ms Number Slow UI thread: 4
