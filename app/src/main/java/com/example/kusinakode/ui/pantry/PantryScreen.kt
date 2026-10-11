@@ -48,6 +48,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -57,6 +58,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -616,80 +618,25 @@ internal fun IngredientSheet(
     entry: PantryEntry,
     onClose: () -> Unit
 ) {
-    Dialog(onDismissRequest = onClose) {
-        ParchmentCard(contentPadding = 20.dp) {
-            Column(
-                Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
-            ) {
-                Box(
-                    Modifier
-                        .fillMaxWidth()
-                        .aspectRatio(1.35f)
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(Color(0xFFF1E6D2))
-                ) {
-                    IngredientPhoto(entry.ingredient, Modifier.fillMaxSize())
-                }
-                // Header spans the screen; the content below is capped so a tablet
-                // gets a readable column rather than full-width rows.
-                Column(Modifier.align(Alignment.CenterHorizontally).readableWidth()) {
-
-                Spacer(Modifier.height(12.dp))
-                Text(
-                    entry.ingredient.name,
-                    color = PantryInk,
-                    fontFamily = BeVietnamPro,
-                    fontWeight = FontWeight.ExtraBold,
-                    fontSize = 20.sp
-                )
-                if (!entry.ingredient.name.contains(entry.ingredient.localName, ignoreCase = true)) {
-                    Text(entry.ingredient.localName, color = HintGray, fontSize = 13.sp)
-                }
-                Spacer(Modifier.height(8.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    PixelArt(entry.ingredient.rarity.badge, Modifier.size(28.dp), contentDescription = null)
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        "${entry.ingredient.rarity.label} · ${entry.qty} On the shelf",
-                        color = PantryInk,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 12.sp
-                    )
-                }
-                Spacer(Modifier.height(10.dp))
-                Text(entry.ingredient.lore, color = HintGray, fontSize = 13.sp, lineHeight = 18.sp)
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    entry.ingredient.origin,
-                    color = originTint(entry.ingredient.origin),
-                    fontFamily = BeVietnamPro,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 11.sp
-                )
-            
-                }
-            }
-        }
-    }
-}
-
-/** Chili red for condiments, greens for veg, and so on — not the same gray as lore. */
-private fun originTint(origin: String): Color {
-    val o = origin.lowercase()
-    return when {
-        "condiment" in o || "seasoning" in o -> Color(0xFFB33A1A)
-        "protein" in o -> Color(0xFF8B3A1F)
-        "vegetable" in o -> Color(0xFF3D6B3A)
-        "fruit" in o -> Color(0xFFC45C26)
-        "spice" in o || "herb" in o -> Color(0xFFB07A1A)
-        "dairy" in o -> Color(0xFF8B6914)
-        "grain" in o || "noodle" in o || "baking" in o -> Color(0xFF9A6B2F)
-        "oil" in o || "fat" in o -> Color(0xFFC49A24)
-        "tool" in o || "wrapper" in o || "cookware" in o || "utensil" in o -> Color(0xFF6B5B4F)
-        "liquid" in o -> Color(0xFF4A6FA5)
-        else -> Color(0xFF92441D)
+    Dialog(
+        onDismissRequest = onClose,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        val darkPanel = cardFaceFor(entry.ingredient.rarity).bodyInk.luminance() > 0.6f
+        IngredientTradingCard(
+            ingredient = entry.ingredient,
+            headline = entry.ingredient.origin,
+            body = entry.ingredient.lore,
+            footer = if (entry.qty == 1) "1 ON THE SHELF" else "${entry.qty} ON THE SHELF",
+            headlineColor = Color(0xFF6B3A1F),
+            footerColor = if (darkPanel) Color(0xFFFFF6EA) else Color(0xFF111111),
+            headlineSizeFraction = 0.040f,
+            footerSizeFraction = 0.030f,
+            headlineHalo = true,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 44.dp)
+        )
     }
 }
 
