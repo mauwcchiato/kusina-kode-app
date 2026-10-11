@@ -461,12 +461,18 @@ private fun ChooseGrid(
         //
         // Done by hand because autoSize arrived in Compose 1.8 and this project
         // is on the 2024.05 BOM.
+        val offerOpenAll = drawsAvailable >= 2
+        val heading = when {
+            oneShot -> "CONGRATULATIONS!"
+            offerOpenAll -> "CHOOSE 1 OR OPEN ALL"
+            else -> "OPEN YOUR PALAYOK"
+        }
         val fullSize = if (oneShot) 28.sp else 20.sp
-        var headingSize by remember(oneShot) { mutableStateOf(fullSize) }
-        var measured by remember(oneShot) { mutableStateOf(false) }
+        var headingSize by remember(heading) { mutableStateOf(fullSize) }
+        var measured by remember(heading) { mutableStateOf(false) }
 
         Text(
-            if (oneShot) "CONGRATULATIONS!" else "CHOOSE 1 OR OPEN ALL",
+            heading,
             color = OverlayGold,
             fontFamily = BeVietnamPro,
             fontWeight = FontWeight.ExtraBold,
@@ -532,7 +538,11 @@ private fun ChooseGrid(
             )
         } else {
             Text(
-                "Tap the palayok for one ingredient, or open every remaining run at once.",
+                if (offerOpenAll) {
+                    "Tap the palayok for one ingredient, or open every remaining run at once."
+                } else {
+                    "Tap the palayok for one ingredient."
+                },
                 color = Color(0xFFE8C9A0),
                 fontSize = 12.sp,
                 textAlign = TextAlign.Center,
@@ -636,21 +646,23 @@ private fun ChooseGrid(
                         modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp)
                     )
                 }
-                Surface(
-                    shape = RoundedCornerShape(50),
-                    color = if (drawingAll) PlayNowBrown.copy(alpha = 0.5f) else PlayNowBrown,
-                    shadowElevation = 6.dp,
-                    modifier = Modifier.clickable(enabled = !drawingAll && !drawing, onClick = onOpenAll)
-                ) {
-                    Text(
-                        if (drawingAll) "OPENING…" else "OPEN ALL $drawsAvailable",
-                        color = Color.White,
-                        fontFamily = BeVietnamPro,
-                        fontWeight = FontWeight.ExtraBold,
-                        fontSize = 13.sp,
-                        letterSpacing = 1.sp,
-                        modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp)
-                    )
+                if (offerOpenAll || drawingAll) {
+                    Surface(
+                        shape = RoundedCornerShape(50),
+                        color = if (drawingAll) PlayNowBrown.copy(alpha = 0.5f) else PlayNowBrown,
+                        shadowElevation = 6.dp,
+                        modifier = Modifier.clickable(enabled = !drawingAll && !drawing, onClick = onOpenAll)
+                    ) {
+                        Text(
+                            if (drawingAll) "OPENING…" else "OPEN ALL $drawsAvailable",
+                            color = Color.White,
+                            fontFamily = BeVietnamPro,
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 13.sp,
+                            letterSpacing = 1.sp,
+                            modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp)
+                        )
+                    }
                 }
             }
         }
@@ -791,31 +803,40 @@ private fun OpeningBeat(
         }
         shakeDone = true
     }
+    val hover = rememberInfiniteTransition(label = "hover")
+    val floatY by hover.animateFloat(
+        initialValue = 0f,
+        targetValue = -10f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1100, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "float_y"
+    )
     LaunchedEffect(shakeDone, ready) {
         if (!shakeDone || !ready) return@LaunchedEffect
         phase = OpenPhase.Burst
         SoundFx.play(ctx, SoundFx.Cue.BaulOpen)
         burst.snapTo(0f)
-        pop.snapTo(0.18f)
-        lift.snapTo(10f)
+        pop.snapTo(0.28f)
+        lift.snapTo(36f)
         potFade.snapTo(1f)
         kotlinx.coroutines.coroutineScope {
-            launch { burst.animateTo(1f, animationSpec = tween(640, easing = FastOutSlowInEasing)) }
-            launch { pop.animateTo(1.55f, animationSpec = tween(720, easing = FastOutSlowInEasing)) }
-            launch { lift.animateTo(-28f, animationSpec = tween(720, easing = FastOutSlowInEasing)) }
+            launch { burst.animateTo(1f, animationSpec = tween(1000, easing = FastOutSlowInEasing)) }
+            launch { pop.animateTo(1.55f, animationSpec = tween(1000, easing = FastOutSlowInEasing)) }
+            launch { lift.animateTo(-78f, animationSpec = tween(1000, easing = FastOutSlowInEasing)) }
         }
         delay(180)
         if (haulNow.isEmpty()) {
-            potFade.animateTo(0f, animationSpec = tween(420, easing = FastOutSlowInEasing))
             delay(2_000)
         } else {
             haulNow.forEachIndexed { i, _ ->
                 featured = i
-                pop.snapTo(0.22f)
-                lift.snapTo(18f)
+                pop.snapTo(0.28f)
+                lift.snapTo(36f)
                 kotlinx.coroutines.coroutineScope {
-                    launch { pop.animateTo(1.08f, animationSpec = tween(360, easing = FastOutSlowInEasing)) }
-                    launch { lift.animateTo(-10f, animationSpec = tween(360, easing = FastOutSlowInEasing)) }
+                    launch { pop.animateTo(1.08f, animationSpec = tween(800, easing = FastOutSlowInEasing)) }
+                    launch { lift.animateTo(-78f, animationSpec = tween(800, easing = FastOutSlowInEasing)) }
                 }
                 SoundFx.play(ctx, SoundFx.Cue.Coin)
                 delay(980)
@@ -843,6 +864,7 @@ private fun OpeningBeat(
         else -> grid
     }
 
+    Box(Modifier.fillMaxSize()) {
     Column(
         Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -916,7 +938,13 @@ private fun OpeningBeat(
                         modifier = Modifier
                             .size(potSize)
                             .graphicsLayer { alpha = potFade.value }
-                            .offset(x = if (shaking) shake.dp else 0.dp),
+                            .offset(
+                                // The open art hangs its lid to the left, so the
+                                // pot body sits right of the closed one. Nudge it
+                                // back onto the same centre.
+                                x = if (shaking) shake.dp else if (opened) -potSize * 0.10f else 0.dp,
+                                y = if (opened && !shaking) potSize * 0.06f else 0.dp
+                            ),
                         contentScale = ContentScale.Fit
                     )
                 }
@@ -926,7 +954,7 @@ private fun OpeningBeat(
                         Modifier
                             .size(132.dp)
                             .align(Alignment.Center)
-                            .offset(y = lift.value.dp)
+                            .offset(y = (lift.value + if (opened) floatY * ((-lift.value) / 78f).coerceIn(0f, 1f) else 0f).dp)
                             .graphicsLayer {
                                 scaleX = pop.value
                                 scaleY = pop.value
@@ -956,7 +984,7 @@ private fun OpeningBeat(
                             shown,
                             Modifier
                                 .size(176.dp)
-                                .offset(y = lift.value.dp)
+                                .offset(y = (lift.value + if (opened) floatY * ((-lift.value) / 78f).coerceIn(0f, 1f) else 0f).dp)
                                 .graphicsLayer {
                                     scaleX = pop.value
                                     scaleY = pop.value
@@ -985,6 +1013,7 @@ private fun OpeningBeat(
             textAlign = TextAlign.Center,
             modifier = Modifier.alpha(0.4f + 0.6f * t)
         )
+    }
     }
 }
 
