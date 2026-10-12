@@ -2,10 +2,13 @@ package com.example.kusinakode.ui.pantry
 
 import com.example.kusinakode.ui.components.readableWidth
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -40,15 +43,23 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -74,6 +85,7 @@ import com.example.kusinakode.ui.theme.BeVietnamPro
 import com.example.kusinakode.ui.theme.HeaderBottom
 import com.example.kusinakode.ui.theme.HeaderTop
 import com.example.kusinakode.ui.theme.HintGray
+import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
 
 internal val PantryInk = Color(0xFF3E2723)
@@ -93,6 +105,7 @@ fun PantryScreen(
     var selecting by remember { mutableStateOf(false) }
     var selected by remember { mutableStateOf(setOf<String>()) }
     var pendingSell by remember { mutableStateOf<SellAsk?>(null) }
+    var pendingQty by remember { mutableStateOf<PantryEntry?>(null) }
     var trade by remember { mutableStateOf<SellAsk?>(null) }
     val ctx = LocalContext.current
     val visibleIds = remember(ui.visible) { ui.visible.map { it.ingredient.id }.toSet() }
@@ -194,7 +207,7 @@ fun PantryScreen(
                                 },
                                 onSell = {
                                     SoundFx.tap(ctx)
-                                    pendingSell = SellAsk.one(entry)
+                                    if (entry.qty > 1) pendingQty = entry else pendingSell = SellAsk.one(entry)
                                 }
                             )
                         }
@@ -253,6 +266,20 @@ fun PantryScreen(
 
         ui.notice?.let { msg ->
             SellToast(msg, onDismiss = viewModel::dismissNotice)
+        }
+
+        pendingQty?.let { entry ->
+            SellQuantityDialog(
+                entry = entry,
+                busy = ui.sellingId != null,
+                onDismiss = { pendingQty = null },
+                onConfirm = { ask ->
+                    SoundFx.play(ctx, SoundFx.Cue.Coin)
+                    trade = ask
+                    viewModel.sellMany(ask.sales)
+                    pendingQty = null
+                }
+            )
         }
 
         pendingSell?.let { ask ->
@@ -730,12 +757,21 @@ internal data class SellAsk(
         value * qty
     }
     companion object {
-        fun one(entry: PantryEntry) = SellAsk(
-            title = "Sell ${entry.ingredient.name}?",
-            body = "1 ingredient for ${entry.ingredient.rarity.sellValue} KK. This cannot be undone.",
-            sales = listOf(entry.ingredient.id to 1),
-            entries = listOf(entry)
-        )
+        fun one(entry: PantryEntry) = some(entry, 1)
+
+        /** A chosen slice of one stack. The count stays inside 1..owned. */
+        fun some(entry: PantryEntry, qty: Int): SellAsk {
+            val owned = entry.qty.coerceAtLeast(0)
+            val n = if (owned == 0) 0 else qty.coerceIn(1, owned)
+            val worth = n * entry.ingredient.rarity.sellValue
+            val noun = if (n == 1) "ingredient" else "ingredients"
+            return SellAsk(
+                title = "Sell ${entry.ingredient.name}?",
+                body = "$n $noun for $worth KK. This cannot be undone.",
+                sales = if (n == 0) emptyList() else listOf(entry.ingredient.id to n),
+                entries = listOf(entry)
+            )
+        }
 
         fun stack(entry: PantryEntry) = SellAsk(
             title = "Sell all ${entry.ingredient.name}?",
@@ -757,6 +793,309 @@ internal data class SellAsk(
             )
         }
     }
+}
+
+/**
+ * A stack of two or more. The player picks how many of this one ingredient
+ * to sell, sees the KK for that count, then confirms only that slice.
+ */
+@Composable
+internal fun SellQuantityDialog(
+    entry: PantryEntry,
+    busy: Boolean,
+    onDismiss: () -> Unit,
+    onConfirm: (SellAsk) -> Unit
+) {
+    var qty by remember(entry.ingredient.id, entry.qty) { mutableIntStateOf(1) }
+    val ask = SellAsk.some(entry, qty)
+    Dialog(onDismissRequest = { if (!busy) onDismiss() }) {
+        ParchmentCard {
+            Column(Modifier.fillMaxWidth()) {
+                Text(
+                    ask.title,
+                    color = PantryInk,
+                    fontFamily = BeVietnamPro,
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 18.sp
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "You have ${entry.qty}. Choose how many to sell.",
+                    color = HintGray,
+                    fontSize = 13.sp,
+                    lineHeight = 18.sp
+                )
+                Spacer(Modifier.height(12.dp))
+                Row(
+                    Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    QtyEndLabel("1")
+                    QtyStep(label = "−", enabled = !busy && qty > 1) {
+                        qty = (qty - 1).coerceAtLeast(1)
+                    }
+                    QtyTrack(
+                        qty = qty,
+                        max = entry.qty,
+                        enabled = !busy,
+                        onQtyChange = { qty = it },
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(horizontal = 6.dp)
+                    )
+                    QtyStep(label = "+", enabled = !busy && qty < entry.qty) {
+                        qty = (qty + 1).coerceAtMost(entry.qty)
+                    }
+                    QtyEndLabel(entry.qty.toString())
+                }
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    ask.body,
+                    color = HintGray,
+                    fontSize = 13.sp,
+                    lineHeight = 18.sp,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(Modifier.height(16.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    KusinaButton(
+                        label = "Cancel",
+                        onClick = onDismiss,
+                        tone = KusinaButtonTone.Parchment,
+                        enabled = !busy,
+                        modifier = Modifier.weight(1f)
+                    )
+                    KusinaButton(
+                        label = if (busy) "Selling…" else "Sell",
+                        onClick = { onConfirm(ask) },
+                        tone = KusinaButtonTone.Terracotta,
+                        enabled = !busy && ask.sales.isNotEmpty(),
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun QtyEndLabel(text: String) {
+    Text(
+        text,
+        color = PantryInk,
+        fontFamily = BeVietnamPro,
+        fontWeight = FontWeight.ExtraBold,
+        fontSize = 14.sp,
+        textAlign = TextAlign.Center,
+        modifier = Modifier.width(22.dp)
+    )
+}
+
+@Composable
+private fun QtyStep(
+    label: String,
+    enabled: Boolean,
+    onClick: () -> Unit
+) {
+    Box(
+        Modifier
+            .padding(horizontal = 4.dp)
+            .size(width = 34.dp, height = 26.dp)
+            .drawBehind { drawQtyFace(enabled) }
+            .clickable(enabled = enabled, onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            label,
+            color = if (enabled) Color(0xFFFFF6E6) else Color(0xFF8A7564),
+            fontFamily = BeVietnamPro,
+            fontWeight = FontWeight.ExtraBold,
+            fontSize = 16.sp
+        )
+    }
+}
+
+/** Sell-button face at a small size, with no extruded base underneath. */
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawQtyFace(enabled: Boolean) {
+    val w = size.width
+    val h = size.height
+    val r = h / 2f
+    val face = if (enabled) {
+        Brush.verticalGradient(
+            0f to Color(0xFFE0893C),
+            0.14f to Color(0xFFC85F1A),
+            0.85f to Color(0xFFA34410),
+            1f to Color(0xFF6E2808),
+            startY = 0f,
+            endY = h
+        )
+    } else {
+        Brush.verticalGradient(
+            0f to Color(0xFFF3E6D4),
+            1f to Color(0xFFE4D3BC),
+            startY = 0f,
+            endY = h
+        )
+    }
+    drawRoundRect(
+        brush = face,
+        topLeft = Offset.Zero,
+        size = Size(w, h),
+        cornerRadius = CornerRadius(r)
+    )
+    val edge = 1.4.dp.toPx()
+    drawRoundRect(
+        color = if (enabled) Color(0xFF4A1806) else Color(0xFFC4B09A),
+        topLeft = Offset(edge / 2f, edge / 2f),
+        size = Size(w - edge, h - edge),
+        cornerRadius = CornerRadius((r - edge / 2f).coerceAtLeast(0f)),
+        style = Stroke(width = edge)
+    )
+    if (!enabled) return
+    val inset = 2.4.dp.toPx()
+    drawRoundRect(
+        color = Color(0xFFFFD090).copy(alpha = 0.65f),
+        topLeft = Offset(inset, inset),
+        size = Size(w - inset * 2f, h - inset * 2f),
+        cornerRadius = CornerRadius((r - inset).coerceAtLeast(0f)),
+        style = Stroke(width = 1.dp.toPx())
+    )
+    val lipX = 6.dp.toPx()
+    val lipW = w - lipX * 2f
+    if (lipW > 0f) {
+        drawRoundRect(
+            brush = Brush.horizontalGradient(
+                0f to Color(0xFFFFF0D4).copy(alpha = 0.15f),
+                0.4f to Color(0xFFFFE4B8).copy(alpha = 0.55f),
+                1f to Color(0xFFFFF0D4).copy(alpha = 0.1f),
+                startX = lipX,
+                endX = lipX + lipW
+            ),
+            topLeft = Offset(lipX, 2.dp.toPx()),
+            size = Size(lipW, 4.dp.toPx()),
+            cornerRadius = CornerRadius(2.dp.toPx())
+        )
+    }
+}
+
+/** The sound-bar groove and knob, stepped from 1 to [max]. */
+@Composable
+private fun QtyTrack(
+    qty: Int,
+    max: Int,
+    enabled: Boolean,
+    onQtyChange: (Int) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val fraction = if (max <= 1) 1f else {
+        ((qty - 1).toFloat() / (max - 1)).coerceIn(0f, 1f)
+    }
+    Box(
+        modifier
+            .height(40.dp)
+            .pointerInput(max, enabled) {
+                if (!enabled) return@pointerInput
+                val knobPx = 12.dp.toPx()
+                detectTapGestures { offset ->
+                    onQtyChange(qtyFromX(offset.x, size.width.toFloat(), knobPx, max))
+                }
+            }
+            .pointerInput(max, enabled) {
+                if (!enabled) return@pointerInput
+                val knobPx = 12.dp.toPx()
+                detectHorizontalDragGestures { change, _ ->
+                    change.consume()
+                    onQtyChange(qtyFromX(change.position.x, size.width.toFloat(), knobPx, max))
+                }
+            }
+    ) {
+        Canvas(Modifier.fillMaxSize()) { drawQtyTrack(fraction, enabled) }
+    }
+}
+
+private fun qtyFromX(x: Float, widthPx: Float, knobPx: Float, max: Int): Int {
+    if (max <= 1) return 1
+    val usable = (widthPx - knobPx * 2).coerceAtLeast(1f)
+    val t = ((x - knobPx) / usable).coerceIn(0f, 1f)
+    return (1 + t * (max - 1)).roundToInt().coerceIn(1, max)
+}
+
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawQtyTrack(
+    fraction: Float,
+    enabled: Boolean
+) {
+    val midY = size.height / 2f
+    val grooveH = 9.dp.toPx()
+    val knobR = 12.dp.toPx()
+    val left = knobR
+    val usable = (size.width - knobR * 2).coerceAtLeast(1f)
+    val knobX = left + usable * fraction.coerceIn(0f, 1f)
+    val trackLeft = 1.dp.toPx()
+    val trackW = (size.width - 2.dp.toPx()).coerceAtLeast(1f)
+    val radius = grooveH / 2f
+
+    drawRoundRect(
+        color = Color(0xFFDDD0BC),
+        topLeft = Offset(trackLeft, midY - radius),
+        size = Size(trackW, grooveH),
+        cornerRadius = CornerRadius(radius)
+    )
+    val fillW = (knobX - trackLeft).coerceAtLeast(0f)
+    if (fillW > 0f && enabled) {
+        drawRoundRect(
+            brush = Brush.horizontalGradient(
+                0f to Color(0xFFCA5B17),
+                0.55f to Color(0xFFE27329),
+                1f to Color(0xFFF59338),
+                startX = trackLeft,
+                endX = trackLeft + trackW
+            ),
+            topLeft = Offset(trackLeft, midY - radius),
+            size = Size(fillW.coerceAtMost(trackW), grooveH),
+            cornerRadius = CornerRadius(radius)
+        )
+    }
+    drawRoundRect(
+        color = Color(0xFF522204),
+        topLeft = Offset(trackLeft, midY - radius),
+        size = Size(trackW, grooveH),
+        cornerRadius = CornerRadius(radius),
+        style = Stroke(width = 1.6.dp.toPx())
+    )
+    val knobFill = if (enabled) {
+        Brush.radialGradient(
+            0f to Color(0xFFFFA860),
+            0.4f to Color(0xFFE27329),
+            1f to Color(0xFF6A2603),
+            center = Offset(knobX - knobR * 0.2f, midY - knobR * 0.25f),
+            radius = knobR * 1.4f
+        )
+    } else {
+        Brush.radialGradient(
+            listOf(Color(0xFFD7C6B2), Color(0xFFB7A08C)),
+            center = Offset(knobX, midY),
+            radius = knobR
+        )
+    }
+    drawCircle(brush = knobFill, radius = knobR, center = Offset(knobX, midY))
+    drawCircle(
+        color = Color(0xFF4B2005),
+        radius = knobR - 1.dp.toPx(),
+        center = Offset(knobX, midY),
+        style = Stroke(width = 2.2.dp.toPx(), cap = StrokeCap.Round)
+    )
+    drawCircle(
+        color = Color(0xFFFFF2D6),
+        radius = 4.5.dp.toPx(),
+        center = Offset(knobX, midY)
+    )
+    drawCircle(
+        color = Color(0xFF883407),
+        radius = 4.5.dp.toPx(),
+        center = Offset(knobX, midY),
+        style = Stroke(width = 1.dp.toPx())
+    )
 }
 
 @Composable
