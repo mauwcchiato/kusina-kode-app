@@ -1,5 +1,6 @@
 package com.example.kusinakode.domain.repository
 
+import com.example.kusinakode.domain.model.LeaderboardBoard
 import com.example.kusinakode.domain.model.LeaderboardRow
 
 /**
@@ -22,4 +23,15 @@ interface LeaderboardRepository {
         limit: Int = 10,
         window: LeaderboardWindow = LeaderboardWindow.AllTime
     ): Result<List<LeaderboardRow>>
+
+    /**
+     * The top rows plus [userId]'s own rank on the same board, so a player
+     * outside the top 10 still sees where they stand. A source that cannot
+     * rank one player falls back to the rows alone.
+     */
+    suspend fun board(
+        limit: Int = 10,
+        window: LeaderboardWindow = LeaderboardWindow.AllTime,
+        userId: Int? = null
+    ): Result<LeaderboardBoard> = topPlayers(limit, window).map { LeaderboardBoard(it) }
 }

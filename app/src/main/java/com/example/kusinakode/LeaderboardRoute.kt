@@ -29,6 +29,7 @@ fun LeaderboardRoute(
         onSelectWindow = viewModel::selectWindow,
         isLoading = ui.isLoading,
         dishesByName = ui.dishesByName,
+        myStanding = ui.me,
         onBack = onBack,
         onHome = onHome,
         onProfile = onProfile,
