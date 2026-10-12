@@ -238,7 +238,23 @@ data class AttemptHistoryResponse(
 )
 
 @Serializable
-data class LeaderboardResponse(val status: String, val data: List<LeaderboardEntry>? = null, val message: String? = null)
+data class LeaderboardResponse(
+    val status: String,
+    val data: List<LeaderboardEntry>? = null,
+    val message: String? = null,
+    /** The asking player's own place (?me=), absent when they are not on this board. */
+    val me: LeaderboardMe? = null
+)
+
+@kotlinx.serialization.Serializable
+data class LeaderboardMe(
+    val rank: Int,
+    val name: String,
+    val correct_count: Int,
+    val total_points: Int = 0,
+    val frame_id: String? = null,
+    val character_id: String? = null
+)
 
 @kotlinx.serialization.Serializable
 data class ProfileStatsResponse(
@@ -663,9 +679,14 @@ object KusinaApi {
     }.body()
 
 
-    /** [window] is all, today or week — see get_leaderboard.php. */
-    suspend fun getLeaderboard(limit: Int = 10, window: String = "all"): LeaderboardResponse =
-        KtorClient.client.get("${BASE}get_leaderboard.php?limit=$limit&window=$window").body()
+    /**
+     * [window] is all, today or week — see get_leaderboard.php. With [me], the
+     * reply also carries that player's own rank on the same board.
+     */
+    suspend fun getLeaderboard(limit: Int = 10, window: String = "all", me: Int? = null): LeaderboardResponse =
+        KtorClient.client.get(
+            "${BASE}get_leaderboard.php?limit=$limit&window=$window" + (me?.let { "&me=$it" } ?: "")
+        ).body()
 
     suspend fun postProgress(request: ProgressRequest): UnlockResponse =
         KtorClient.client.post("${BASE}post_progress.php") {

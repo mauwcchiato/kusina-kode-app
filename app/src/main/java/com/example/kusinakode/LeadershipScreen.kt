@@ -15,6 +15,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -26,6 +29,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
@@ -37,11 +41,13 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.kusinakode.domain.model.LeaderboardRow
+import com.example.kusinakode.domain.model.LeaderboardStanding
 import com.example.kusinakode.domain.repository.LeaderboardWindow
 import com.example.kusinakode.ui.components.KusinaButton
 import com.example.kusinakode.ui.components.KusinaButtonTone
@@ -81,6 +87,11 @@ fun LeadershipScreen(
     isLoading: Boolean = false,
     /** All-time dishes solved by lower-cased name, for each player's rank badge. */
     dishesByName: Map<String, Int> = emptyMap(),
+    /**
+     * The player's own rank on this board. Shown under the list only when they
+     * are not already on it, so a cook at #57 still sees their name and place.
+     */
+    myStanding: LeaderboardStanding? = null,
     onBack: () -> Unit,
     onHome: () -> Unit,
     onProfile: () -> Unit,
@@ -126,7 +137,6 @@ fun LeadershipScreen(
             Modifier
                 .fillMaxSize()
                 .padding(bottom = inner.calculateBottomPadding())
-                .verticalScroll(rememberScrollState())
         ) {
             Box(
                 Modifier
@@ -206,123 +216,221 @@ fun LeadershipScreen(
                     }
                 }
             }
-            // Header spans the screen; the content below is capped so a tablet
-            // gets a readable column rather than full-width rows.
-            Column(Modifier.align(Alignment.CenterHorizontally).readableWidth()) {
-
-
+            // The header and podium stay put; only the ranks below them scroll.
+            // Capped so a tablet gets a readable column rather than full-width rows.
             Column(
                 Modifier
-                    .offset(y = (-16).dp)
+                    .align(Alignment.CenterHorizontally)
+                    .readableWidth()
+                    .weight(1f)
+            ) {
+            val listed = entries.drop(3)
+            val myIndex = listed.indexOfFirst(::isMe)
+            // The player's own place: their row in the list, or (below the
+            // listed ranks) the standing the server worked out. Nothing extra
+            // when they are already on the podium.
+            val mine: LeaderboardStanding? = when {
+                myIndex >= 0 -> LeaderboardStanding(myIndex + 4, listed[myIndex])
+                entries.take(3).any(::isMe) -> null
+                else -> myStanding?.takeIf { entries.isNotEmpty() }
+            }
+            val listState = rememberLazyListState()
+            // The pinned row stands in for the real one until the real one is
+            // fully on screen; then it steps aside and the two read as one. It
+            // sticks to the edge the real row went past: the bottom while it is
+            // still further down, the top once the player has scrolled beyond it.
+            val pinAt by remember(mine?.rank, myIndex) {
+                derivedStateOf {
+                    if (mine == null) return@derivedStateOf null
+                    if (myIndex < 0) return@derivedStateOf Alignment.BottomCenter
+                    val info = listState.layoutInfo
+                    // Item 0 is the loading/empty slot, so rank r sits at index r - 3.
+                    val lazyIndex = myIndex + 1
+                    val seen = info.visibleItemsInfo.firstOrNull { it.key == "rank-${myIndex + 4}" }
+                    when {
+                        seen == null ->
+                            if (listState.firstVisibleItemIndex > lazyIndex) Alignment.TopCenter
+                            else Alignment.BottomCenter
+                        seen.offset < info.viewportStartOffset -> Alignment.TopCenter
+                        seen.offset + seen.size > info.viewportEndOffset -> Alignment.BottomCenter
+                        else -> null
+                    }
+                }
+            }
+
+            Box(
+                Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    // Tuck 16dp up under the podium and grow by the same amount,
+                    // so the panel still reaches the bottom bar (an offset alone
+                    // left a blank strip above it).
+                    .layout { measurable, constraints ->
+                        val tuck = 16.dp.roundToPx()
+                        val placeable = measurable.measure(
+                            constraints.copy(
+                                minHeight = constraints.minHeight + tuck,
+                                maxHeight = constraints.maxHeight + tuck
+                            )
+                        )
+                        layout(placeable.width, constraints.maxHeight) { placeable.place(0, -tuck) }
+                    }
                     .clip(RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))
                     .background(CreamBg)
-                    .padding(horizontal = 16.dp, vertical = 18.dp)
             ) {
-                if (entries.isEmpty() && isLoading) {
+                LazyColumn(
+                    state = listState,
+                    contentPadding = PaddingValues(
+                        start = 16.dp,
+                        end = 16.dp,
+                        top = 18.dp,
+                        // Room for a row pinned at the bottom, so the last ranks can scroll clear of it.
+                        bottom = if (mine != null && myIndex < 0) 90.dp else 20.dp
+                    ),
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    item(key = "state") {
+                        Column {
+                                if (entries.isEmpty() && isLoading) {
+                                    Box(
+                                        Modifier
+                                            .fillMaxWidth()
+                                            .padding(24.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        CircularProgressIndicator(
+                                            Modifier.size(28.dp),
+                                            color = TextDark,
+                                            strokeWidth = 2.dp
+                                        )
+                                    }
+                                } else if (entries.isEmpty()) {
+                                    Surface(
+                                        shape = RoundedCornerShape(18.dp),
+                                        color = CardCream,
+                                        border = BorderStroke(1.dp, CardEdge),
+                                        shadowElevation = 2.dp,
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Text(
+                                            when (window) {
+                                                LeaderboardWindow.Today ->
+                                                    "No dishes cooked yet today. Solve one and you'll top the board."
+                                                LeaderboardWindow.Week ->
+                                                    "No dishes cooked yet this week. Solve one and you'll top the board."
+                                                LeaderboardWindow.AllTime ->
+                                                    "No cooks on the board yet."
+                                            },
+                                            color = HintGray,
+                                            fontFamily = BeVietnamPro,
+                                            fontSize = 13.sp,
+                                            modifier = Modifier.padding(20.dp)
+                                        )
+                                    }
+                                }
+                        }
+                    }
+                    itemsIndexed(listed, key = { i, _ -> "rank-${i + 4}" }) { i, row ->
+                        RankRow(
+                            rank = i + 4,
+                            row = row,
+                            scoreLabel = score(row),
+                            isMe = isMe(row),
+                            rankTitle = rankOf(row)
+                        )
+                        Spacer(Modifier.height(8.dp))
+                    }
+                    item(key = "challenge") {
+                        Column {
+                            Spacer(Modifier.height(8.dp))
+                                // Not built yet, and now it says so by being switched off rather
+                                // than by a toast: enabled = false takes the ripple with it, so
+                                // the button does not answer a press it cannot honour.
+                                //
+                                // The disabled face is the same brown drained of most of its
+                                // strength, not grey. Grey would be the only cool colour on a
+                                // warm screen and would read as a rendering fault; a faded brown
+                                // reads as "off". The padlock and SOON carry the reason.
+                                Button(
+                                    onClick = {},
+                                    enabled = false,
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = PlayNowBrown,
+                                        contentColor = InkOnBrown,
+                                        disabledContainerColor = PlayNowBrown.copy(alpha = 0.38f),
+                                        disabledContentColor = InkOnBrown.copy(alpha = 0.62f)
+                                    ),
+                                    shape = RoundedCornerShape(18.dp),
+                                    elevation = ButtonDefaults.buttonElevation(
+                                        defaultElevation = 0.dp,
+                                        pressedElevation = 0.dp
+                                    ),
+                                    contentPadding = PaddingValues(horizontal = 20.dp),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(54.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.Lock,
+                                        contentDescription = null,
+                                        // No explicit tint: an explicit one survives the disabled
+                                        // state and leaves a bright padlock on a faded pill.
+                                        tint = LocalContentColor.current,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(Modifier.width(10.dp))
+                                    Text(
+                                        "Challenge a Friend",
+                                        fontFamily = BeVietnamPro,
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(
+                                        "SOON",
+                                        fontFamily = BeVietnamPro,
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        letterSpacing = 1.2.sp,
+                                        color = LocalContentColor.current.copy(alpha = 0.7f)
+                                    )
+                                }
+                        }
+                    }
+                }
+
+                // Pinned while the player's own row is off screen (or below the
+                // listed ranks altogether), on the side it scrolled away to.
+                val edge = pinAt
+                if (edge != null && mine != null) {
+                    val atTop = edge == Alignment.TopCenter
                     Box(
                         Modifier
+                            .align(edge)
                             .fillMaxWidth()
-                            .padding(24.dp),
-                        contentAlignment = Alignment.Center
+                            .background(
+                                Brush.verticalGradient(
+                                    if (atTop) listOf(CreamBg, CreamBg, CreamBg.copy(alpha = 0f))
+                                    else listOf(CreamBg.copy(alpha = 0f), CreamBg, CreamBg)
+                                )
+                            )
+                            .padding(
+                                start = 16.dp,
+                                end = 16.dp,
+                                top = if (atTop) 12.dp else 14.dp,
+                                bottom = if (atTop) 14.dp else 6.dp
+                            )
                     ) {
-                        CircularProgressIndicator(
-                            Modifier.size(28.dp),
-                            color = TextDark,
-                            strokeWidth = 2.dp
-                        )
-                    }
-                } else if (entries.isEmpty()) {
-                    Surface(
-                        shape = RoundedCornerShape(18.dp),
-                        color = CardCream,
-                        border = BorderStroke(1.dp, CardEdge),
-                        shadowElevation = 2.dp,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(
-                            when (window) {
-                                LeaderboardWindow.Today ->
-                                    "No dishes cooked yet today. Solve one and you'll top the board."
-                                LeaderboardWindow.Week ->
-                                    "No dishes cooked yet this week. Solve one and you'll top the board."
-                                LeaderboardWindow.AllTime ->
-                                    "No cooks on the board yet."
-                            },
-                            color = HintGray,
-                            fontFamily = BeVietnamPro,
-                            fontSize = 13.sp,
-                            modifier = Modifier.padding(20.dp)
+                        RankRow(
+                            rank = mine.rank,
+                            row = mine.row,
+                            scoreLabel = score(mine.row),
+                            isMe = true,
+                            rankTitle = rankOf(mine.row)
                         )
                     }
                 }
-
-                entries.drop(3).forEachIndexed { i, row ->
-                    RankRow(
-                        rank = i + 4,
-                        row = row,
-                        scoreLabel = score(row),
-                        isMe = isMe(row),
-                        rankTitle = rankOf(row)
-                    )
-                    Spacer(Modifier.height(8.dp))
-                }
-
-                Spacer(Modifier.height(8.dp))
-                // Not built yet, and now it says so by being switched off rather
-                // than by a toast: enabled = false takes the ripple with it, so
-                // the button does not answer a press it cannot honour.
-                //
-                // The disabled face is the same brown drained of most of its
-                // strength, not grey. Grey would be the only cool colour on a
-                // warm screen and would read as a rendering fault; a faded brown
-                // reads as "off". The padlock and SOON carry the reason.
-                Button(
-                    onClick = {},
-                    enabled = false,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = PlayNowBrown,
-                        contentColor = InkOnBrown,
-                        disabledContainerColor = PlayNowBrown.copy(alpha = 0.38f),
-                        disabledContentColor = InkOnBrown.copy(alpha = 0.62f)
-                    ),
-                    shape = RoundedCornerShape(18.dp),
-                    elevation = ButtonDefaults.buttonElevation(
-                        defaultElevation = 0.dp,
-                        pressedElevation = 0.dp
-                    ),
-                    contentPadding = PaddingValues(horizontal = 20.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(54.dp)
-                ) {
-                    Icon(
-                        Icons.Default.Lock,
-                        contentDescription = null,
-                        // No explicit tint: an explicit one survives the disabled
-                        // state and leaves a bright padlock on a faded pill.
-                        tint = LocalContentColor.current,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(Modifier.width(10.dp))
-                    Text(
-                        "Challenge a Friend",
-                        fontFamily = BeVietnamPro,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        "SOON",
-                        fontFamily = BeVietnamPro,
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        letterSpacing = 1.2.sp,
-                        color = LocalContentColor.current.copy(alpha = 0.7f)
-                    )
-                }
-                Spacer(Modifier.height(20.dp))
             }
-        
             }
         }
     }
@@ -464,11 +572,14 @@ private fun RankRow(
     /** The player's chef rank, shown as its badge after the name. */
     rankTitle: String? = null
 ) {
+    // The player's own row is filled with the YOU chip's brown, so it stands
+    // out in the list and when pinned.
+    val ink = if (isMe) InkOnBrown else TextDark
     Surface(
         shape = RoundedCornerShape(16.dp),
-        color = CardCream,
+        color = if (isMe) RegionChipOn else CardCream,
         border = BorderStroke(1.dp, if (isMe) RegionChipOn else CardEdge),
-        shadowElevation = if (isMe) 3.dp else 1.dp,
+        shadowElevation = if (isMe) 4.dp else 1.dp,
         modifier = Modifier.fillMaxWidth()
     ) {
         Row(
@@ -480,7 +591,7 @@ private fun RankRow(
                     .size(32.dp)
                     .clip(CircleShape)
                     .background(WellFill)
-                    .border(1.5.dp, if (isMe) RegionChipOn else WellRing, CircleShape),
+                    .border(1.5.dp, if (isMe) InkOnBrown else WellRing, CircleShape),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
@@ -505,7 +616,7 @@ private fun RankRow(
                     row.name,
                     fontFamily = BeVietnamPro,
                     fontWeight = FontWeight.ExtraBold,
-                    color = TextDark,
+                    color = ink,
                     fontSize = 14.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -513,12 +624,13 @@ private fun RankRow(
                 if (isMe) {
                     Surface(
                         shape = RoundedCornerShape(8.dp),
-                        color = RegionChipOn,
+                        // Inverted on the brown row so the chip still reads.
+                        color = InkOnBrown,
                         modifier = Modifier.padding(top = 3.dp)
                     ) {
                         Text(
                             "YOU",
-                            color = Color.White,
+                            color = RegionChipOn,
                             fontFamily = BeVietnamPro,
                             fontWeight = FontWeight.ExtraBold,
                             fontSize = 9.sp,
@@ -534,14 +646,14 @@ private fun RankRow(
                 com.example.kusinakode.ui.home.RankBadge(rankTitle, size = 24.dp)
                 Text(
                     "|",
-                    color = RegionChipInk.copy(alpha = 0.45f),
+                    color = (if (isMe) InkOnBrown else RegionChipInk).copy(alpha = 0.45f),
                     fontSize = 12.sp,
                     modifier = Modifier.padding(horizontal = 6.dp)
                 )
             }
             Text(
                 scoreLabel,
-                color = RegionChipInk,
+                color = if (isMe) InkOnBrown else RegionChipInk,
                 fontFamily = BeVietnamPro,
                 fontWeight = FontWeight.ExtraBold,
                 fontSize = 12.sp
