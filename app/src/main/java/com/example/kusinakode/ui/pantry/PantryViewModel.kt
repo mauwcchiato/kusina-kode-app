@@ -281,6 +281,7 @@ class PantryViewModel(
         repository.draw(levelId)
             .onSuccess { (result, snap, balance) ->
                 PantrySnapshotBus.publish(snap, balance)
+                result.ingredient?.id?.let { RecentPotDraws.note(it) }
                 _uiState.update {
                     it.copy(
                         drawing = false,
@@ -350,7 +351,10 @@ class PantryViewModel(
                 }
                 val (draw, snap, balance) = payload
                 haul += draw
-                draw.ingredient?.id?.let { fresh += it }
+                draw.ingredient?.id?.let {
+                    fresh += it
+                    RecentPotDraws.note(it)
+                }
                 remaining = minOf(remaining - 1, draw.drawsLeft)
                 PantrySnapshotBus.publish(snap, balance)
                 // Published per jar, not at the end: this is the only signal
