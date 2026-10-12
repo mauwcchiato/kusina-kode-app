@@ -43,6 +43,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -83,8 +84,6 @@ private val CreamBg = Color(0xFFF1E6D2)
 private val TextDark = Color(0xFF3E2723)
 private val CardCream = Color(0xFFFFFBF3)
 private val CardEdge = Color(0xFFE0C48A)
-private val NoteWash = Color(0xFFF6E2B8)
-private val NoteEdge = Color(0xFFD4A24A)
 
 /**
  * In-app activity feed for rewards.
@@ -293,31 +292,50 @@ fun NotificationsScreen(
                 Spacer(Modifier.height(18.dp))
             }
 
-            // On "All" an empty claim list just means the block is skipped and
-            // the ledger follows. Asked for this block on its own, silence has
-            // to say something.
-            if (filter == InboxFilter.DAILY && claimable.isEmpty()) {
-                SectionHeading("WAITING FOR YOU")
-                InboxCard {
-                    Text(
-                        "Nothing to claim right now. Come back tomorrow for the " +
-                            "daily claim, or finish an island to unlock its reward.",
-                        color = HintGray,
-                        fontFamily = BeVietnamPro,
-                        fontSize = 12.sp,
-                        lineHeight = 18.sp,
-                        modifier = Modifier.padding(14.dp)
-                    )
-                }
-            }
-
             val live = ui.history.filter { it.tx_ref !in deletedIds }
             val inbox = live
                 .filter { (it.tx_ref in archivedIds) == showArchived }
                 .sortedWith(::onChainOrder)
             val unread = live.count { it.tx_ref != null && it.tx_ref !in readIds }
 
-            if (filter != InboxFilter.DAILY) {
+            val showingClaims = filter != InboxFilter.CHAIN && claimable.isNotEmpty()
+            val showingChain = filter != InboxFilter.DAILY &&
+                (inbox.isNotEmpty() || showArchived || selecting)
+            // A tab with nothing on it matches KK Transaction: one centered
+            // message, no heading and no empty card.
+            val nothingToSee = !showingClaims && !showingChain
+
+            if (nothingToSee) {
+                EmptyInbox(
+                    title = when (filter) {
+                        InboxFilter.DAILY -> "Nothing to claim"
+                        InboxFilter.CHAIN -> "Nothing recorded yet"
+                        InboxFilter.ALL -> "Nothing to see yet"
+                    },
+                    body = when (filter) {
+                        InboxFilter.DAILY ->
+                            "Come back tomorrow for the daily claim, or finish an island to unlock its reward."
+                        InboxFilter.CHAIN ->
+                            "Solve a dish or earn a badge and the mint will show up here."
+                        InboxFilter.ALL ->
+                            "Claim a reward or earn KK and it shows up here."
+                    }
+                )
+                if (filter != InboxFilter.DAILY && archivedIds.isNotEmpty()) {
+                    Spacer(Modifier.height(8.dp))
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        InboxAction(
+                            Icons.Default.Archive,
+                            "Archived"
+                        ) { showArchived = !showArchived }
+                    }
+                }
+            }
+
+            if (showingChain) {
                 val inboxIds = inbox.mapNotNull { it.tx_ref }
                 // Rows can leave under the selection — archived from another
                 // view, deleted, filtered away — so anything no longer on
@@ -420,17 +438,14 @@ fun NotificationsScreen(
                 }
                 Spacer(Modifier.height(12.dp))
                 if (inbox.isEmpty()) {
-                    InboxCard {
-                        Text(
-                            "Nothing recorded yet. Solve a dish or earn a badge and the " +
-                                "mint will show up here.",
-                            color = HintGray,
-                            fontFamily = BeVietnamPro,
-                            fontSize = 12.sp,
-                            lineHeight = 18.sp,
-                            modifier = Modifier.padding(14.dp)
-                        )
-                    }
+                    EmptyInbox(
+                        title = if (showArchived) "Nothing archived" else "Nothing recorded yet",
+                        body = if (showArchived) {
+                            "Archived rewards will show up here."
+                        } else {
+                            "Solve a dish or earn a badge and the mint will show up here."
+                        }
+                    )
                 } else {
                     inbox.flatMap { ledgerLines(it) }.forEachIndexed { i, line ->
                             val hash = line.row.tx_hash
@@ -497,29 +512,6 @@ fun NotificationsScreen(
                 }
             }
 
-            Spacer(Modifier.height(18.dp))
-            InboxCard(color = NoteWash, border = NoteEdge) {
-                Row(
-                    Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        Icons.Default.NotificationsActive,
-                        contentDescription = null,
-                        tint = PlayNowBrown,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(Modifier.width(12.dp))
-                    Text(
-                        "These also arrive as phone notifications - a badge finishing " +
-                            "its mint, and your daily claim when you open the app.",
-                        color = PlayNowBrown,
-                        fontFamily = BeVietnamPro,
-                        fontSize = 11.sp,
-                        lineHeight = 16.sp
-                    )
-                }
-            }
             Spacer(Modifier.height(16.dp))
         }
     
@@ -635,6 +627,39 @@ private fun ledgerLines(row: com.example.kusinakode.api.RewardHistoryItem): List
     // The palayok stays in WAITING FOR YOU until the wheel is actually
     // turned. Banking it with the daily KK must not mint a second ledger row.
     return listOf(main)
+}
+
+@Composable
+private fun EmptyInbox(title: String, body: String) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 40.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Icon(
+            Icons.Default.NotificationsActive,
+            contentDescription = null,
+            tint = PlayNowBrown,
+            modifier = Modifier.size(34.dp)
+        )
+        Spacer(Modifier.height(10.dp))
+        Text(
+            title,
+            fontFamily = BeVietnamPro,
+            fontWeight = FontWeight.Bold,
+            color = TextDark,
+            fontSize = 15.sp
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            body,
+            color = HintGray,
+            fontFamily = BeVietnamPro,
+            fontSize = 12.sp,
+            textAlign = TextAlign.Center
+        )
+    }
 }
 
 @Composable
