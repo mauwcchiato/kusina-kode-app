@@ -1,0 +1,17 @@
+--------- beginning of main
+10-10 03:18:59.295 18481 18497 I KKTEST  : I-055 loop 1 Game Map opened in 365 ms
+10-10 03:18:59.712 18481 18497 I KKTEST  : I-055 loop 1 Learn opened in 415 ms
+10-10 03:19:00.054 18481 18497 I KKTEST  : I-055 loop 1 Wallet opened in 340 ms
+10-10 03:19:00.433 18481 18497 I KKTEST  : I-055 loop 1 Profile opened in 378 ms
+10-10 03:19:00.825 18481 18497 I KKTEST  : I-055 loop 1 Home opened in 390 ms
+10-10 03:19:01.113 18481 18497 I KKTEST  : I-055 loop 2 Game Map opened in 286 ms
+10-10 03:19:01.448 18481 18497 I KKTEST  : I-055 loop 2 Learn opened in 334 ms
+10-10 03:19:01.730 18481 18497 I KKTEST  : I-055 loop 2 Wallet opened in 280 ms
+10-10 03:19:02.055 18481 18497 I KKTEST  : I-055 loop 2 Profile opened in 324 ms
+10-10 03:19:02.391 18481 18497 I KKTEST  : I-055 loop 2 Home opened in 334 ms
+10-10 03:19:02.626 18481 18497 I KKTEST  : I-055 loop 3 Game Map opened in 234 ms
+10-10 03:19:02.964 18481 18497 I KKTEST  : I-055 loop 3 Learn opened in 336 ms
+10-10 03:19:03.222 18481 18497 I KKTEST  : I-055 loop 3 Wallet opened in 256 ms
+10-10 03:19:03.509 18481 18497 I KKTEST  : I-055 loop 3 Profile opened in 286 ms
+10-10 03:19:03.811 18481 18497 I KKTEST  : I-055 loop 3 Home opened in 301 ms
+10-10 03:20:12.399 18481 18497 I KKTEST  : I-048 50 cycles (500 key presses) in 62732 ms, 1254 ms per cycle
