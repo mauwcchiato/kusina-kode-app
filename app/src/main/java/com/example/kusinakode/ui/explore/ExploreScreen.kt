@@ -60,6 +60,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.scale
@@ -73,17 +74,24 @@ import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.FilterQuality
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
+import androidx.compose.ui.res.imageResource
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -226,7 +234,12 @@ fun ExploreScreen(
 
     var selectedRegion by remember(initialRegion) { mutableStateOf(initialRegion) }
     var sheetRegion by remember { mutableStateOf<Region?>(null) }
+    // Where the chef waits on the whole map after the player leaves an island.
+    var stayedAt by remember(initialRegion) { mutableStateOf(initialRegion) }
     LaunchedEffect(initialRegion) { selectedRegion = initialRegion }
+    LaunchedEffect(selectedRegion) {
+        selectedRegion?.let { stayedAt = it }
+    }
 
     // First-visit tour of the Game Map itself: what the chips do, that the map
     // is tappable, and where the play button is. Runs once, like the Home tour.
@@ -412,16 +425,29 @@ fun ExploreScreen(
                                 )
                                 .clip(RoundedCornerShape(MapArtCorner))
                         ) { region ->
-                            Image(
-                                painter = painterResource(
-                                    region?.let { regionIcon(it) }
-                                        ?: R.drawable.region_philippines
-                                ),
-                                contentDescription = region?.displayName
-                                    ?: "Map of the Philippines",
-                                modifier = Modifier.fillMaxSize(),
-                                contentScale = ContentScale.Crop
-                            )
+                            if (region == Region.LUZON || region == Region.MINDANAO) {
+                                // The level layer draws the island chart, with sea
+                                // above it. This card stays sea so a cropped copy
+                                // does not show behind it.
+                                Box(
+                                    Modifier.fillMaxSize().background(
+                                        if (region == Region.LUZON) LuzonSea else MindanaoSea
+                                    )
+                                )
+                            } else {
+                                Image(
+                                    painter = painterResource(
+                                        when (region) {
+                                            null -> R.drawable.region_philippines
+                                            else -> regionIcon(region)
+                                        }
+                                    ),
+                                    contentDescription = region?.displayName
+                                        ?: "Map of the Philippines",
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = ContentScale.Crop
+                                )
+                            }
                         }
 
                         // Pins, the road and the chef are placed on the
@@ -458,14 +484,14 @@ fun ExploreScreen(
                             }
 
                             // ---- The road trip ----
-                            // The trail is a road between the islands, and the
-                            // Kusina Kode chef stands on it at the island with the
-                            // next dish. Tapping an island sends the chef down the
-                            // road to it, and the island opens when they arrive.
+                            // The trail is a road between the islands. The chef
+                            // waits at the island the player last opened. Tapping
+                            // another island sends him down the road, and it opens
+                            // when he arrives.
                             val trailProgress = Region.entries.count { r ->
                                 allLevels.any { it.region == r && it.isSolved }
                             }
-                            val chefHome = nextRegion ?: Region.LUZON
+                            val chefHome = stayedAt ?: nextRegion ?: Region.LUZON
                             val homeIdx = pinSpots.indexOfFirst { it.first == chefHome }
                             val tripScope = rememberCoroutineScope()
                             val trip = remember { Animatable(0f) }
@@ -574,10 +600,15 @@ fun ExploreScreen(
                             if (selectedRegion == null) pinSpots.forEachIndexed { i, (region, _, _) ->
                                 val inRegion = allLevels.filter { it.region == region }
                                 val solvedHere = inRegion.count { it.isSolved }
+                                // The level the player is on, not how many are already done.
+                                // Nine solved means Luzon Level 10, so the pin reads 10/14.
+                                val onLevel = inRegion.firstOrNull { !it.isSolved }?.displayNumber
+                                    ?: inRegion.size
                                 RegionPin(
                                     region = region,
                                     selected = tripTo == region,
                                     solvedCount = solvedHere,
+                                    levelNumber = onLevel,
                                     totalCount = inRegion.size,
                                     isNext = region == nextRegion,
                                     // The suggestion rides on the island's own label,
@@ -610,33 +641,16 @@ fun ExploreScreen(
                                     legs = legs,
                                     facingLeft = toIdx != null && stops[toIdx].x < stops[homeIdx].x,
                                     modifier = Modifier.offset(
-                                        // At rest the chef waits to the left of the pin,
-                                        // clear of its label, and steps onto the road as a trip starts.
+                                        // At rest he stands beside the pin, above the
+                                        // island name, and steps onto the road as a trip starts.
                                         x = at.x.dp - RoadChefWidth / 2 +
                                             RoadChefRestShift * (if (toIdx == null) 1f else (1f - trip.value * 6f).coerceIn(0f, 1f)),
-                                        y = at.y.dp - RoadChefHeight + 6.dp
+                                        y = at.y.dp - RoadChefHeight + if (toIdx == null) (-8).dp else 6.dp
                                     )
                                 )
                             }
 
                         }
-
-                        // Vignette: darkens the card edges so the archipelago sits
-                        // in the light. Drawn above the sea, below the UI.
-                        Box(
-                            Modifier
-                                .matchParentSize()
-                                .background(
-                                    Brush.radialGradient(
-                                        colors = listOf(
-                                            Color.Transparent,
-                                            Color.Transparent,
-                                            Color(0xFF1E3742).copy(alpha = 0.32f)
-                                        ),
-                                        radius = 1100f
-                                    )
-                                )
-                        )
 
                         // An island open: its levels, laid out on the island as
                         // a path of numbered stops.
@@ -723,6 +737,7 @@ fun ExploreScreen(
                             .align(Alignment.TopCenter)
                             .readableWidth()
                             .padding(start = 12.dp, end = 12.dp, top = MapSearchTop)
+                            .offset(x = 8.dp, y = 6.dp)
                     )
                 }
 
@@ -1417,6 +1432,8 @@ private fun RegionPin(
     region: Region,
     selected: Boolean,
     solvedCount: Int,
+    /** The level the player is on in this region. Shown as level/total. */
+    levelNumber: Int = solvedCount,
     totalCount: Int,
     isNext: Boolean,
     /** "CONTINUE" / "START HERE" on the suggested island; null elsewhere. */
@@ -1520,7 +1537,7 @@ private fun RegionPin(
                         letterSpacing = 1.sp
                     )
                     Text(
-                        if (totalCount > 0) "${region.displayName} · $solvedCount/$totalCount"
+                        if (totalCount > 0) "${region.displayName} · $levelNumber/$totalCount"
                         else region.displayName,
                         color = Color.White,
                         fontSize = 10.sp,
@@ -1542,7 +1559,7 @@ private fun RegionPin(
                 modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
             ) {
                 Text(
-                    if (totalCount > 0) "${region.displayName} · $solvedCount/$totalCount"
+                    if (totalCount > 0) "${region.displayName} · $levelNumber/$totalCount"
                     else region.displayName,
                     color = when {
                         selected -> LightOrange
@@ -1663,20 +1680,57 @@ private fun IslandLevelsLayer(
     val total = levels.size
     val complete = total > 0 && solved == total
     Box(Modifier.fillMaxSize()) {
-        // Settles the island art back so the stops read on top of it.
-        Box(
-            Modifier
-                .matchParentSize()
-                .background(
-                    Brush.verticalGradient(
-                        listOf(
-                            PathScrim.copy(alpha = 0.55f),
-                            PathScrim.copy(alpha = 0.25f),
-                            PathScrim.copy(alpha = 0.45f)
+        // Visayas settles the photo so the stops read. Luzon and Mindanao
+        // use the same card, with the island at the bottom and sea above.
+        if (region == Region.VISAYAS) {
+            Box(
+                Modifier
+                    .matchParentSize()
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(
+                                PathScrim.copy(alpha = 0.55f),
+                                PathScrim.copy(alpha = 0.25f),
+                                PathScrim.copy(alpha = 0.45f)
+                            )
                         )
                     )
-                )
-        )
+            )
+        } else if (region == Region.LUZON || region == Region.MINDANAO) {
+            val shields = if (region == Region.LUZON) LuzonShieldPx else MindanaoShieldPx
+            val artW = if (region == Region.LUZON) LuzonArtW else MindanaoArtW
+            val artH = if (region == Region.LUZON) LuzonArtH else MindanaoArtH
+            PaintedFlagPath(
+                levels = levels,
+                onOpen = onOpen,
+                art = ImageBitmap.imageResource(
+                    if (region == Region.LUZON) R.drawable.luzon_level_map
+                    else R.drawable.mindanao_level_map
+                ),
+                artW = artW,
+                artH = artH,
+                shields = shields,
+                comingSoonNumber = if (region == Region.LUZON) 15 else null,
+                readArrived = {
+                    if (region == Region.LUZON) luzonChefArrivedAt else mindanaoChefArrivedAt
+                },
+                writeArrived = {
+                    if (region == Region.LUZON) luzonChefArrivedAt = it
+                    else mindanaoChefArrivedAt = it
+                },
+                nextLevelModifier = nextLevelModifier,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(
+                        start = MapTableSide,
+                        end = MapTableSide,
+                        top = MapTableTop,
+                        bottom = bottomInset
+                    )
+                    .clip(RoundedCornerShape(MapArtCorner))
+                    .background(if (region == Region.LUZON) LuzonSea else MindanaoSea)
+            )
+        }
         Column(
             Modifier
                 .fillMaxSize()
@@ -1752,86 +1806,433 @@ private fun IslandLevelsLayer(
                 }
             }
             Spacer(Modifier.height(6.dp))
-            LevelPath(
-                levels = levels,
-                onOpen = onOpen,
-                nextLevelModifier = nextLevelModifier,
+            if (region == Region.VISAYAS) {
+                LevelPath(
+                    levels = levels,
+                    onOpen = onOpen,
+                    nextLevelModifier = nextLevelModifier,
+                    fitted = region == Region.MINDANAO,
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                )
+            }
+        }
+    }
+}
+
+/** Sea on the painted Luzon chart, so the fitted picture has no grey edge. */
+private val LuzonSea = Color(0xFF0CABD3)
+
+/** Sea on the painted Mindanao chart. */
+private val MindanaoSea = Color(0xFF02B6E4)
+
+/**
+ * Flag index the chef has already walked to. Survives leaving the map, so
+ * coming back after a solved level starts him on the finished flag.
+ */
+private var luzonChefArrivedAt = -1
+private var mindanaoChefArrivedAt = -1
+
+/** Gold ring on a solved Luzon dish. */
+private val LuzonDishRim = Color(0xFFE6B15A)
+
+/** Solved dish diameter in screenshot pixels, scaled with the drawn map. */
+private const val LuzonGameCirclePx = 120f
+
+/** Chart width, in pixels, of the phone the 120px size was measured on. */
+private const val LuzonCircleRefCardPx = 996f
+
+/**
+ * A solved Luzon flag becomes the round dish: the photo fills the circle
+ * and the level number sits on the bottom.
+ */
+@Composable
+private fun LuzonSolvedDish(lvl: RegionLevel, modifier: Modifier = Modifier) {
+    Box(modifier, contentAlignment = Alignment.Center) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .clip(CircleShape)
+                .background(LuzonDishRim)
+                .border(3.dp, LuzonDishRim, CircleShape)
+                .padding(3.dp)
+                .clip(CircleShape)
+        ) {
+            LevelImage(
+                url = lvl.photoUrl,
+                fallback = lvl.photo,
+                contentDescription = lvl.name,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+        Surface(
+            shape = RoundedCornerShape(8.dp),
+            color = DarkBrown,
+            shadowElevation = 2.dp,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 1.dp)
+        ) {
+            Text(
+                "${lvl.displayNumber}",
+                color = Color.White,
+                fontFamily = BeVietnamPro,
+                fontWeight = FontWeight.ExtraBold,
+                fontSize = 9.sp,
+                modifier = Modifier.padding(horizontal = 4.dp, vertical = 0.dp)
+            )
+        }
+    }
+}
+
+private const val LuzonArtW = 768f
+private const val LuzonArtH = 1024f
+private const val MindanaoArtW = 768f
+private const val MindanaoArtH = 1024f
+
+/**
+ * Shield face of flags 1..15 on [R.drawable.luzon_level_map], in pixels,
+ * in path order. The number badge sits just above each face.
+ */
+private val LuzonShieldPx = arrayOf(
+    intArrayOf(324, 64, 357, 99),
+    intArrayOf(427, 106, 458, 140),
+    intArrayOf(466, 209, 498, 243),
+    intArrayOf(431, 306, 463, 341),
+    intArrayOf(217, 318, 248, 353),
+    intArrayOf(328, 374, 360, 408),
+    intArrayOf(416, 444, 449, 478),
+    intArrayOf(270, 478, 302, 512),
+    intArrayOf(332, 565, 365, 599),
+    intArrayOf(489, 588, 521, 622),
+    intArrayOf(295, 674, 328, 709),
+    intArrayOf(443, 694, 475, 728),
+    intArrayOf(468, 784, 501, 819),
+    intArrayOf(352, 846, 384, 881),
+    intArrayOf(495, 913, 527, 948)
+)
+
+/**
+ * Shield face of flags 1..7 on [R.drawable.mindanao_level_map], in pixels,
+ * in path order. The number badge sits just above each face. Flag 7 has
+ * no dish yet.
+ */
+private val MindanaoShieldPx = arrayOf(
+    intArrayOf(444, 144, 478, 179),
+    intArrayOf(544, 247, 579, 283),
+    intArrayOf(595, 360, 629, 395),
+    intArrayOf(457, 391, 490, 426),
+    intArrayOf(362, 482, 396, 517),
+    intArrayOf(489, 617, 523, 653),
+    intArrayOf(517, 828, 552, 865)
+)
+
+/**
+ * Levels sit on the painted flags. Locked flags keep the question mark and
+ * the number. The level you still need to solve shows a play mark in that
+ * question-mark spot. A solved flag becomes the dish. A flag past the last
+ * real level stays the painted question mark. The chef stands above the
+ * flag, and walks to the next one when a level is solved.
+ */
+@Composable
+private fun PaintedFlagPath(
+    levels: List<RegionLevel>,
+    onOpen: (RegionLevel) -> Unit,
+    art: ImageBitmap,
+    artW: Float,
+    artH: Float,
+    shields: Array<IntArray>,
+    /** A real level that still is not a dish, such as Luzon 15. */
+    comingSoonNumber: Int? = null,
+    readArrived: () -> Int,
+    writeArrived: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+    nextLevelModifier: Modifier = Modifier
+) {
+    if (levels.isEmpty()) return
+    val ctx = LocalContext.current
+    val density = LocalDensity.current
+    val current = levels.firstOrNull { it.isUnlocked && !it.isSolved }
+    val placed = levels.take(shields.size)
+
+    BoxWithConstraints(modifier) {
+        val boxW = constraints.maxWidth.toFloat()
+        val boxH = constraints.maxHeight.toFloat()
+        val scale = minOf(boxW / artW, boxH / artH)
+        val drawnW = artW * scale
+        val drawnH = artH * scale
+        val ox = (boxW - drawnW) / 2f
+        // The card is taller than the chart. The spare room is sea at the top,
+        // so the island sits in the container the way Visayas does.
+        val oy = (boxH - drawnH).coerceAtLeast(0f)
+        fun pxDp(px: Float) = with(density) { px.toDp() }
+        val chart = art
+
+        // One draw fills the card: the spare top repeats the picture's first
+        // row of water, and the chart itself runs to the bottom edge. Separate
+        // layers left a light line at the top and a dark line at the bottom.
+        Canvas(Modifier.fillMaxSize()) {
+            val left = ox.toInt()
+            val top = oy.toInt()
+            val widthPx = drawnW.toInt().coerceAtLeast(1)
+            val bottom = size.height.toInt()
+            if (top > 0) {
+                drawImage(
+                    image = chart,
+                    srcOffset = IntOffset(0, 0),
+                    srcSize = IntSize(chart.width, 1),
+                    dstOffset = IntOffset(left, 0),
+                    dstSize = IntSize(widthPx, top + 1),
+                    filterQuality = FilterQuality.None
+                )
+            }
+            drawImage(
+                image = chart,
+                dstOffset = IntOffset(left, top),
+                dstSize = IntSize(widthPx, (bottom - top).coerceAtLeast(1)),
+                filterQuality = FilterQuality.None
+            )
+        }
+
+        // Centre of flag i, in px, for the chef. The white path already
+        // joins these stops, so he walks straight from one to the next.
+        fun centrePx(i: Int): Offset {
+            val s = shields[i]
+            val cx = ox + ((s[0] + s[2]) / 2f) / artW * drawnW
+            val cy = oy + ((s[1] + s[3]) / 2f) / artH * drawnH
+            return Offset(cx, cy)
+        }
+
+        placed.forEachIndexed { i, lvl ->
+            val s = shields[i]
+            val faceL = ox + s[0] / artW * drawnW
+            val faceT = oy + s[1] / artH * drawnH
+            val faceR = ox + s[2] / artW * drawnW
+            val faceB = oy + s[3] / artH * drawnH
+            val faceW = faceR - faceL
+            val faceH = faceB - faceT
+            // The number badge is above the shield. The tap includes it.
+            val hitL = faceL - faceW * 0.15f
+            val hitT = faceT - faceH * 0.85f
+            val hitR = faceR + faceW * 0.15f
+            val hitB = faceB + faceH * 0.25f
+            val isCurrent = lvl == current
+            val comingSoon = comingSoonNumber != null && lvl.displayNumber == comingSoonNumber
+            val solved = lvl.isSolved && !comingSoon
+            val needsSolve = isCurrent && !comingSoon
+            // 120px on the measured phone, then the same share of the drawn chart.
+            val gameCircle = pxDp(LuzonGameCirclePx * drawnW / LuzonCircleRefCardPx)
+            val iconCx = (faceL + faceR) / 2f
+            val iconTop = faceT - faceH * 0.70f
+            val iconBottom = faceB + faceH * 0.40f
+            val iconCy = (iconTop + iconBottom) / 2f
+            // Brown play circle, big enough to hide the question mark,
+            // still inside the wooden shield.
+            val mark = minOf(faceW, faceH) * 0.82f
+            val markL = (faceL + faceR) / 2f - mark / 2f
+            val markT = (faceT + faceB) / 2f - mark / 2f
+            Box(
+                Modifier
+                    .zIndex((placed.size - i).toFloat())
+                    .offset(
+                        x = if (solved) pxDp(iconCx) - gameCircle / 2 else pxDp(hitL),
+                        y = if (solved) pxDp(iconCy) - gameCircle / 2 else pxDp(hitT)
+                    )
+                    .size(
+                        width = if (solved) gameCircle else pxDp(hitR - hitL),
+                        height = if (solved) gameCircle else pxDp(hitB - hitT)
+                    )
+                    .then(if (needsSolve) nextLevelModifier else Modifier)
+                    .clickable {
+                        when {
+                            comingSoon -> Toast.makeText(
+                                ctx,
+                                "Coming soon",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                            lvl.isSolved || lvl.isUnlocked -> onOpen(lvl)
+                            else -> Toast.makeText(
+                                ctx,
+                                "Solve Level ${lvl.displayNumber - 1} first to unlock this dish",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                    }
+            ) {
+                when {
+                    solved -> LuzonSolvedDish(
+                        lvl = lvl,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                    needsSolve -> Box(
+                        Modifier
+                            .offset(
+                                x = pxDp(markL - hitL),
+                                y = pxDp(markT - hitT)
+                            )
+                            .size(pxDp(mark))
+                            .shadow(1.dp, CircleShape)
+                            .clip(CircleShape)
+                            .background(PlayNowBrown)
+                            .border(1.5.dp, Color(0xFF5C2410), CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            Icons.Default.PlayArrow,
+                            contentDescription = "Play level ${lvl.displayNumber}",
+                            tint = Color(0xFFF3D7B0),
+                            modifier = Modifier.fillMaxSize(0.58f)
+                        )
+                    }
+                }
+            }
+        }
+
+        // A flag with no dish yet stays painted with its question mark.
+        if (placed.size < shields.size) {
+            val s = shields.last()
+            val faceL = ox + s[0] / artW * drawnW
+            val faceT = oy + s[1] / artH * drawnH
+            val faceR = ox + s[2] / artW * drawnW
+            val faceB = oy + s[3] / artH * drawnH
+            val faceW = faceR - faceL
+            val faceH = faceB - faceT
+            val hitL = faceL - faceW * 0.15f
+            val hitT = faceT - faceH * 0.85f
+            val hitR = faceR + faceW * 0.15f
+            val hitB = faceB + faceH * 0.25f
+            Box(
+                Modifier
+                    .zIndex(placed.size + 1f)
+                    .offset(x = pxDp(hitL), y = pxDp(hitT))
+                    .size(width = pxDp(hitR - hitL), height = pxDp(hitB - hitT))
+                    .clickable {
+                        Toast.makeText(ctx, "Coming soon", Toast.LENGTH_SHORT).show()
+                    }
+            )
+        }
+
+        val currentIdx = levels.indexOf(current).let { idx ->
+            if (idx >= placed.size) -1 else idx
+        }
+        val standOn = when {
+            currentIdx >= 0 -> currentIdx
+            placed.isNotEmpty() -> placed.lastIndex
+            else -> -1
+        }
+        val resumeFrom = readArrived()
+        val startAt = when {
+            standOn > 0 && resumeFrom in 0 until standOn -> resumeFrom.toFloat()
+            else -> standOn.coerceAtLeast(0).toFloat()
+        }
+        val along = remember { Animatable(startAt) }
+        var walking by remember {
+            mutableStateOf(standOn > 0 && startAt < standOn - 0.01f)
+        }
+        LaunchedEffect(standOn) {
+            if (standOn < 0) return@LaunchedEffect
+            val target = standOn.toFloat()
+            if (kotlin.math.abs(along.value - target) < 0.01f) {
+                along.snapTo(target)
+                walking = false
+                writeArrived(standOn)
+                return@LaunchedEffect
+            }
+            walking = true
+            val steps = kotlin.math.abs(target - along.value)
+            along.animateTo(
+                target,
+                tween((steps * 700f).toInt().coerceAtLeast(450), easing = LinearEasing)
+            )
+            walking = false
+            writeArrived(standOn)
+        }
+        if (standOn >= 0) {
+            val maxI = placed.lastIndex.coerceAtLeast(0)
+            val u = along.value.coerceIn(0f, maxI.toFloat())
+            val i = minOf(u.toInt(), (maxI - 1).coerceAtLeast(0))
+            val f = (u - i).coerceIn(0f, 1f)
+            val a = centrePx(i)
+            val b = centrePx(minOf(i + 1, maxI))
+            val here = Offset(a.x + (b.x - a.x) * f, a.y + (b.y - a.y) * f)
+            val faceH = (shields[standOn][3] - shields[standOn][1]) / artH * drawnH
+            val lift = if (walking) 0f else faceH * 1.15f
+            val chefX = pxDp(here.x)
+            val chefTop = pxDp(here.y - lift) - RoadChefHeight + if (walking) 6.dp else 0.dp
+            RoadTripChef(
+                travelling = walking,
+                progress = f,
+                legs = 1,
+                facingLeft = b.x < a.x,
                 modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
+                    .zIndex(placed.size + 3f)
+                    .offset(
+                        x = chefX - RoadChefWidth / 2,
+                        y = chefTop
+                    )
             )
         }
     }
 }
 
 /**
- * The island's levels as a snaking path: left to right, then back, row by
- * row, joined by a trail that turns gold where it has been cooked through.
- * Level 1 is top-left; the order is the Game Map's own (word length).
+ * The island's levels on a mud road. The road stays vertical and reaches
+ * the left edge and the right edge. A few grass tufts and stones sit
+ * on the edge. The grass grows up. Dishes do not overlap, and the road does not
+ * cross itself. The chef walks the open road up to the next dish. Level 1
+ * is the top stop; the order is the Game Map's own.
  */
 @Composable
 private fun LevelPath(
     levels: List<RegionLevel>,
     onOpen: (RegionLevel) -> Unit,
     modifier: Modifier = Modifier,
-    nextLevelModifier: Modifier = Modifier
+    nextLevelModifier: Modifier = Modifier,
+    /** Mindanao keeps the earlier fit, so levels 6, 9, and 14 stay on screen. */
+    fitted: Boolean = false
 ) {
     if (levels.isEmpty()) return
     val ctx = LocalContext.current
-    val perRow = PathPerRow
-    val rows = (levels.size + perRow - 1) / perRow
     val current = levels.firstOrNull { it.isUnlocked && !it.isSolved }
 
     BoxWithConstraints(modifier) {
-        val cellW = maxWidth / perRow
-        val rowH = minOf(maxHeight / rows, cellW * 1.35f)
-        val top = (maxHeight - rowH * rows) / 2
-        val node = minOf(cellW * 0.66f, 60.dp)
+        val count = levels.size
+        // Mindanao uses the earlier size, with room under every dish for its
+        // number. Luzon and Visayas keep the larger circles.
+        val numberHang = if (fitted) 14.dp else 12.dp
+        val node = if (fitted) {
+            minOf(
+                50.dp,
+                maxWidth * 0.18f,
+                ((maxHeight - numberHang * count) / count).coerceAtLeast(22.dp)
+            )
+        } else {
+            minOf(
+                86.dp,
+                maxWidth * 0.34f,
+                (maxHeight - numberHang) / (count * 0.90f)
+            )
+        }
 
-        // Centre of stop i, snaking so each row runs the opposite way.
+        // Centre of stop i along the winding road, inset so the dish and its
+        // number tab stay on screen.
         fun centre(i: Int): Pair<Dp, Dp> {
-            val row = i / perRow
-            val inRow = i % perRow
-            val col = if (row % 2 == 0) inRow else perRow - 1 - inRow
-            return (cellW * (col + 0.5f)) to (top + rowH * (row + 0.5f))
+            val (fx, fy) = windSpot(i, count)
+            val x = node / 2 + (maxWidth - node) * fx
+            val span = (maxHeight - node - numberHang).coerceAtLeast(0.dp)
+            val y = node / 2 + span * fy
+            return x to y
         }
 
         Canvas(Modifier.fillMaxSize()) {
-            val stroke = 5.dp.toPx()
-            for (i in 1 until levels.size) {
-                val (ax, ay) = centre(i - 1)
-                val (bx, by) = centre(i)
-                val a = Offset(ax.toPx(), ay.toPx())
-                val b = Offset(bx.toPx(), by.toPx())
-                val leg = Path().apply {
-                    moveTo(a.x, a.y)
-                    if (a.y == b.y) {
-                        lineTo(b.x, b.y)
-                    } else {
-                        // Row change: bow out past the end stop, like a road turning.
-                        val out = if (b.x > size.width / 2f) 1f else -1f
-                        val bow = cellW.toPx() * 0.55f
-                        cubicTo(a.x + out * bow, a.y, b.x + out * bow, b.y, b.x, b.y)
-                    }
-                }
-                // Gold up to and including the leg into the next level.
-                val cooked = levels[i].isSolved || levels[i - 1].isSolved
-                drawPath(
-                    leg,
-                    Color.Black.copy(alpha = 0.25f),
-                    style = Stroke(width = stroke * 1.8f, cap = StrokeCap.Round)
-                )
-                drawPath(
-                    leg,
-                    if (cooked) GoldAccent else Color.White.copy(alpha = 0.75f),
-                    style = Stroke(
-                        width = stroke,
-                        cap = StrokeCap.Round,
-                        pathEffect = if (cooked) null
-                        else PathEffect.dashPathEffect(floatArrayOf(stroke * 1.4f, stroke * 1.6f))
-                    )
-                )
+            val spots = List(levels.size) { i ->
+                val (x, y) = centre(i)
+                Offset(x.toPx(), y.toPx())
             }
+            drawMudRoad(spots)
+            drawIslandScenery(spots, node.toPx())
         }
 
         levels.forEachIndexed { i, lvl ->
@@ -1840,7 +2241,9 @@ private fun LevelPath(
                 lvl = lvl,
                 isCurrent = lvl == current,
                 size = node,
+                fittedNumber = fitted,
                 modifier = Modifier
+                    .zIndex((count - i).toFloat())
                     .offset(x = cx - node / 2, y = cy - node / 2)
                     .then(if (lvl == current) nextLevelModifier else Modifier)
             ) {
@@ -1856,25 +2259,80 @@ private fun LevelPath(
             }
         }
 
-        // The chef arrived here on the road trip and stands on top of the next
-        // level's play button, feet on its rim. Drawn after the stops so it is
-        // in front, and it takes no touches, so the button under it still plays.
+        // Starts on the unlocked dish, walks to the one still to solve, then
+        // to the question dish. After that he only goes between those two.
         val currentIdx = levels.indexOf(current)
+        val density = LocalDensity.current
+        val chain = chefWalkChain(levels, currentIdx)
+        val along = remember { Animatable(0f) }
+        var goingForward by remember { mutableStateOf(true) }
+        var mind by remember { mutableStateOf<String?>(null) }
+        LaunchedEffect(currentIdx) {
+            if (currentIdx < 0 || chain.size < 2) {
+                mind = if (currentIdx >= 0) "..." else null
+                return@LaunchedEffect
+            }
+            val solveAt = chain.indexOf(currentIdx).toFloat().coerceAtLeast(0f)
+            val lock = levels.indexOfFirst { !it.isUnlocked && !it.isSolved }
+            val lockAt = if (lock > currentIdx) chain.indexOf(lock).toFloat() else -1f
+            along.snapTo(0f)
+            goingForward = true
+            if (along.value != solveAt) {
+                val toSolve = (kotlin.math.abs(solveAt - along.value) * 3400f).toInt().coerceAtLeast(400)
+                along.animateTo(solveAt, tween(toSolve, easing = LinearEasing))
+            }
+            mind = "..."
+            delay(1400)
+            mind = null
+            if (lockAt > solveAt) {
+                while (true) {
+                    goingForward = true
+                    val toLock = ((lockAt - along.value) * 3400f).toInt().coerceAtLeast(400)
+                    along.animateTo(lockAt, tween(toLock, easing = LinearEasing))
+                    mind = "?"
+                    delay(1400)
+                    mind = null
+                    goingForward = false
+                    val backToSolve = (kotlin.math.abs(along.value - solveAt) * 3400f).toInt().coerceAtLeast(400)
+                    along.animateTo(solveAt, tween(backToSolve, easing = LinearEasing))
+                    mind = "..."
+                    delay(1400)
+                    mind = null
+                }
+            }
+        }
         if (currentIdx >= 0) {
-            val (cx, cy) = centre(currentIdx)
-            val chefH = node * 0.9f
-            val chefW = chefH * 0.55f
+            val here = chefOnChain(chain, along.value, ::centre, density)
+            val aheadAlong = along.value + if (goingForward) 0.12f else -0.12f
+            val ahead = chefOnChain(chain, aheadAlong, ::centre, density)
+            val facingLeft = ahead.x < here.x
+            val chefX = with(density) { here.x.toDp() }
+            val chefY = with(density) { here.y.toDp() }
+            val thought = mind
+            val chefTop = chefY - RoadChefHeight + 6.dp
+            // Cloud first, then the chef, so the small circle sits behind his hat.
+            if (thought != null) {
+                ChefMind(
+                    text = thought,
+                    modifier = Modifier
+                        .zIndex(count + 2f)
+                        .offset(
+                            x = chefX - MindCloudWidth / 2,
+                            y = chefTop - MindCloudHeight + 8.dp
+                        )
+                )
+            }
             RoadTripChef(
-                travelling = false,
-                progress = 0f,
-                legs = 0,
-                facingLeft = false,
+                travelling = thought == null,
+                progress = along.value,
+                legs = 1,
+                facingLeft = facingLeft,
                 modifier = Modifier
+                    .zIndex(count + 3f)
                     .offset(
-                        x = cx - chefW / 2,
-                        y = cy - node / 2 - chefH + node * 0.16f
+                        x = chefX - RoadChefWidth / 2,
+                        y = chefTop
                     )
-                    .size(width = chefW, height = chefH)
             )
         }
     }
@@ -1914,6 +2372,7 @@ private fun LevelNode(
     isCurrent: Boolean,
     size: Dp,
     modifier: Modifier = Modifier,
+    fittedNumber: Boolean = false,
     onClick: () -> Unit
 ) {
     Box(modifier.size(size), contentAlignment = Alignment.Center) {
@@ -1975,37 +2434,39 @@ private fun LevelNode(
                 )
             }
         }
-        // Level number tab.
+        // Mindanao keeps the earlier number tab under the dish. Luzon and
+        // Visayas keep the smaller tab on the rim.
         Surface(
-            shape = RoundedCornerShape(8.dp),
+            shape = RoundedCornerShape(if (fittedNumber) 8.dp else 6.dp),
             color = when {
                 lvl.isSolved -> DarkBrown
                 isCurrent -> Color.White
                 else -> NodeLockedTab
             },
-            shadowElevation = 2.dp,
+            shadowElevation = if (fittedNumber) 2.dp else 1.dp,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .offset(y = 9.dp)
+                .offset(y = if (fittedNumber) 9.dp else 3.dp)
         ) {
-            // Just the number, centred; the "?" face already says it is locked.
             Text(
                 "${lvl.displayNumber}",
                 color = if (isCurrent) PlayNowBrown else Color.White,
                 fontFamily = BeVietnamPro,
-                fontWeight = FontWeight.ExtraBold,
-                fontSize = 11.sp,
+                fontWeight = if (fittedNumber) FontWeight.ExtraBold else FontWeight.Bold,
+                fontSize = if (fittedNumber) 11.sp else 10.sp,
                 textAlign = TextAlign.Center,
-                modifier = Modifier
-                    .padding(horizontal = 6.dp, vertical = 1.dp)
-                    .widthIn(min = 10.dp)
+                lineHeight = if (fittedNumber) 13.sp else 12.sp,
+                modifier = if (fittedNumber) {
+                    Modifier
+                        .padding(horizontal = 6.dp, vertical = 1.dp)
+                        .widthIn(min = 10.dp)
+                } else {
+                    Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                }
             )
         }
     }
 }
-
-/** Stops per row on an island's level path. */
-private const val PathPerRow = 4
 
 private val PathScrim = Color(0xFF1E3742)
 private val NodeLockedFill = Color(0xFFEFE3CC)
@@ -2023,6 +2484,250 @@ private fun roadCtrl(a: Offset, b: Offset): Offset {
     val dx = b.x - a.x
     val dy = b.y - a.y
     return Offset((a.x + b.x) / 2f - dy * 0.22f, (a.y + b.y) / 2f + dx * 0.22f)
+}
+
+/**
+ * Where stop [i] sits. Each stop is lower than the last. Some stops sit on
+ * the left edge, some on the right edge, and some in between, so the road
+ * is not stuck in the middle.
+ */
+private fun windSpot(i: Int, count: Int): Pair<Float, Float> {
+    val y = if (count <= 1) 0.5f else i / (count - 1f)
+    val x = RouteX[i % RouteX.size]
+    return x to y
+}
+
+/** Downward route. 0 is the left edge, 1 is the right edge. */
+private val RouteX = floatArrayOf(
+    0.06f, 0.94f, 0.22f, 0.78f, 0.04f, 0.58f, 0.96f, 0.18f,
+    0.84f, 0.08f, 0.50f, 0.98f, 0.16f, 0.72f, 0.02f, 0.88f
+)
+
+private val GrassDark = Color(0xFF2F7A3A)
+private val GrassMid = Color(0xFF4C9A48)
+private val GrassLight = Color(0xFF7CB86A)
+private val StoneBody = Color(0xFF8E989C)
+private val StoneShade = Color(0xFF5E686C)
+private val MudRim = Color(0xFF3E2614)
+private val MudEdge = Color(0xFF6A4324)
+private val MudFill = Color(0xFF8A5A32)
+private val MudDark = Color(0xFF5C381C)
+private val MudLight = Color(0xFFA56B3C)
+
+/** A mud track: a dark rim, a brown fill, and small ruts and clods along it. */
+private fun DrawScope.drawMudRoad(spots: List<Offset>) {
+    val edge = 18.dp.toPx()
+    val fill = 12.dp.toPx()
+    for (i in 1 until spots.size) {
+        val a = spots[i - 1]
+        val b = spots[i]
+        val leg = levelRoad(a, b)
+        drawPath(leg, MudRim, style = Stroke(width = edge + 4.dp.toPx(), cap = StrokeCap.Round))
+        drawPath(leg, MudEdge, style = Stroke(width = edge, cap = StrokeCap.Round, join = StrokeJoin.Round))
+        drawPath(leg, MudFill, style = Stroke(width = fill, cap = StrokeCap.Round, join = StrokeJoin.Round))
+        var s = 0.12f
+        var n = 0
+        while (s < 0.9f) {
+            val p = pointOnLevelRoad(a, b, s)
+            val ahead = pointOnLevelRoad(a, b, (s + 0.04f).coerceAtMost(0.96f))
+            val dx = ahead.x - p.x
+            val dy = ahead.y - p.y
+            val len = kotlin.math.hypot(dx.toDouble(), dy.toDouble()).toFloat().coerceAtLeast(1f)
+            val side = ((i * 5 + n * 3) % 5 - 2) * 1.3.dp.toPx()
+            val spot = Offset(p.x + -dy / len * side, p.y + dx / len * side)
+            val clod = if (n % 2 == 0) MudDark else MudLight
+            drawOval(
+                clod.copy(alpha = 0.55f),
+                Offset(spot.x - 2.4.dp.toPx(), spot.y - 1.4.dp.toPx()),
+                Size(4.8.dp.toPx(), 2.6.dp.toPx())
+            )
+            if (n % 3 == 0) {
+                drawLine(
+                    MudDark.copy(alpha = 0.45f),
+                    Offset(p.x - dx / len * 3.dp.toPx(), p.y - dy / len * 3.dp.toPx()),
+                    Offset(p.x + dx / len * 3.dp.toPx(), p.y + dy / len * 3.dp.toPx()),
+                    strokeWidth = 1.dp.toPx(),
+                    cap = StrokeCap.Round
+                )
+            }
+            s += 0.11f
+            n++
+        }
+    }
+}
+
+/**
+ * Grass on both mud edges, stones on one side. Every tuft is a copy of
+ * the first patch. Most of the road is left bare. Nothing is drawn on a dish.
+ */
+private fun DrawScope.drawIslandScenery(spots: List<Offset>, nodeR: Float) {
+    if (spots.size < 2) return
+    val clear = nodeR + 2.dp.toPx()
+    val edge = 8.dp.toPx()
+    fun free(p: Offset) = p.x in 0f..size.width && p.y in 0f..size.height &&
+        spots.all { (it - p).getDistance() > clear }
+    for (i in 0 until spots.lastIndex) {
+        val a = spots[i]
+        val b = spots[i + 1]
+        val dx = b.x - a.x
+        val dy = b.y - a.y
+        val len = kotlin.math.hypot(dx.toDouble(), dy.toDouble()).toFloat().coerceAtLeast(1f)
+        val nx = -dy / len
+        val ny = dx / len
+        val flip = if (ny > 0f) -1f else 1f
+        val up = Offset(nx * flip * edge, ny * flip * edge)
+        val down = Offset(-up.x, -up.y)
+        val upper = pointOnLevelRoad(a, b, 0.36f) + up
+        val lower = pointOnLevelRoad(a, b, 0.64f) + down
+        if (free(upper)) drawGrassBunch(upper)
+        if (free(lower)) drawGrassBunch(lower)
+        if (i % 3 == 1) {
+            val stone = pointOnLevelRoad(a, b, 0.5f) + Offset(nx * edge, ny * edge)
+            if (free(stone)) drawStone(stone)
+        }
+    }
+}
+
+/**
+ * The same tuft everywhere: the first patch on the road. Only where it
+ * sits changes. Blade shape, count, height, and color stay fixed.
+ */
+private fun DrawScope.drawGrassBunch(at: Offset) {
+    val roots = floatArrayOf(-7f, -4f, -1.5f, 1.5f, 4f, 7f, -2.5f, 2.5f)
+    val leans = floatArrayOf(-5f, -2.5f, -0.6f, 0.8f, 2.8f, 5f, -1.4f, 1.6f)
+    val heights = floatArrayOf(7f, 11f, 14f, 15f, 12f, 8f, 10f, 9f)
+    val colors = arrayOf(GrassDark, GrassMid, GrassLight)
+    roots.forEachIndexed { blade, rootX ->
+        drawGrassBlade(at, rootX, leans[blade], heights[blade], colors[blade % colors.size])
+    }
+}
+
+/** One blade. The tip is always above the root, same as the first patch. */
+private fun DrawScope.drawGrassBlade(at: Offset, rootXDp: Float, leanDp: Float, heightDp: Float, color: Color) {
+    val root = Offset(at.x + rootXDp.dp.toPx(), at.y)
+    val h = kotlin.math.abs(heightDp).dp.toPx()
+    val tip = Offset(root.x + leanDp.dp.toPx(), root.y - h)
+    val ctrl = Offset(root.x + leanDp.dp.toPx() * 0.25f, root.y - h * 0.55f)
+    val blade = Path().apply {
+        moveTo(root.x, root.y)
+        quadraticBezierTo(ctrl.x, ctrl.y, tip.x, tip.y)
+    }
+    drawPath(blade, color, style = Stroke(width = 1.1.dp.toPx(), cap = StrokeCap.Round))
+}
+
+/** A little cluster of faceted rocks on the mud, in the game-stone style. */
+private fun DrawScope.drawStone(at: Offset) {
+    drawOval(
+        Color(0xFF3E2A1C).copy(alpha = 0.35f),
+        Offset(at.x - 9.dp.toPx(), at.y - 1.dp.toPx()),
+        Size(18.dp.toPx(), 4.dp.toPx())
+    )
+    // Back rock, then two smaller ones in front.
+    facet(
+        at,
+        floatArrayOf(-1f, 1f, 7f, -1f, 5f, -11f, -1f, -13f, -7f, -8f, -8f, -1f),
+        floatArrayOf(-7f, -8f, -1f, -13f, 5f, -11f, 2f, -6f, -4f, -5f),
+        StoneShade, Color(0xFFD7DEE3)
+    )
+    facet(
+        at,
+        floatArrayOf(-9f, 2f, -2f, 1f, -1f, -6f, -6f, -7f, -10f, -2f),
+        floatArrayOf(-10f, -2f, -6f, -7f, -1f, -6f, -3f, -2f),
+        StoneBody, Color(0xFFD7DEE3)
+    )
+    facet(
+        at,
+        floatArrayOf(2f, 2f, 10f, 1f, 8f, -5f, 4f, -7f, 1f, -2f),
+        floatArrayOf(1f, -2f, 4f, -7f, 8f, -5f, 6f, -1f),
+        Color(0xFF9AA4AB), Color(0xFFE4EAEE)
+    )
+}
+
+/** One rock: a darker body, a light top face, and a thin edge. */
+private fun DrawScope.facet(at: Offset, body: FloatArray, top: FloatArray, fill: Color, light: Color) {
+    fun pathOf(pts: FloatArray) = Path().apply {
+        moveTo(at.x + pts[0].dp.toPx(), at.y + pts[1].dp.toPx())
+        var i = 2
+        while (i < pts.size) {
+            lineTo(at.x + pts[i].dp.toPx(), at.y + pts[i + 1].dp.toPx())
+            i += 2
+        }
+        close()
+    }
+    val outline = pathOf(body)
+    drawPath(outline, fill)
+    drawPath(pathOf(top), light)
+    drawPath(
+        outline,
+        Color(0xFF3E4850),
+        style = Stroke(width = 1.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
+    )
+}
+
+/**
+ * Sand road from [a] to [b]. The curve stays between those two stops:
+ * it leaves one, bends across, and arrives at the next. It does not loop
+ * back over a dish already placed.
+ */
+private fun levelRoad(a: Offset, b: Offset): Path {
+    val midY = (a.y + b.y) / 2f
+    return Path().apply {
+        moveTo(a.x, a.y)
+        cubicTo(a.x, midY, b.x, midY, b.x, b.y)
+    }
+}
+
+/**
+ * Stops the chef walks. He starts on the unlocked dish before the one still
+ * to solve, then the question dish. The loop after that stays on the last two.
+ */
+private fun chefWalkChain(levels: List<RegionLevel>, solve: Int): List<Int> {
+    if (solve < 0) return emptyList()
+    val lock = levels.indexOfFirst { !it.isUnlocked && !it.isSolved }
+    return buildList {
+        if (solve > 0) add(solve - 1)
+        add(solve)
+        if (lock > solve) add(lock)
+    }
+}
+
+/** Where the chef is along [chain]. [along] 0 is the first stop, 1 is the next. */
+private fun chefOnChain(
+    chain: List<Int>,
+    along: Float,
+    centre: (Int) -> Pair<Dp, Dp>,
+    density: Density,
+    /** Luzon's white path is already drawn, so the chef walks the straight legs. */
+    straight: Boolean = false
+): Offset {
+    if (chain.isEmpty()) return Offset.Zero
+    if (chain.size == 1) {
+        val (x, y) = centre(chain[0])
+        return with(density) { Offset(x.toPx(), y.toPx()) }
+    }
+    val max = chain.size - 1f
+    val u = along.coerceIn(0f, max)
+    val i = minOf(u.toInt(), chain.size - 2)
+    val f = (u - i).coerceIn(0f, 1f)
+    val (ax, ay) = centre(chain[i])
+    val (bx, by) = centre(chain[i + 1])
+    val a = with(density) { Offset(ax.toPx(), ay.toPx()) }
+    val b = with(density) { Offset(bx.toPx(), by.toPx()) }
+    if (straight) {
+        return Offset(a.x + (b.x - a.x) * f, a.y + (b.y - a.y) * f)
+    }
+    return pointOnLevelRoad(a, b, f)
+}
+
+/** Point at [t] (0..1) along the same road [levelRoad] draws. */
+private fun pointOnLevelRoad(a: Offset, b: Offset, t: Float): Offset {
+    val u = t.coerceIn(0f, 1f)
+    val o = 1f - u
+    val midY = (a.y + b.y) / 2f
+    return Offset(
+        o * o * o * a.x + 3f * o * o * u * a.x + 3f * o * u * u * b.x + u * u * u * b.x,
+        o * o * o * a.y + 3f * o * o * u * midY + 3f * o * u * u * midY + u * u * u * b.y
+    )
 }
 
 private fun quadPoint(a: Offset, c: Offset, b: Offset, t: Float): Offset {
@@ -2082,6 +2787,8 @@ private fun RoadTripChef(
             .size(width = RoadChefWidth, height = RoadChefHeight)
             .graphicsLayer {
                 translationY = hop.dp.toPx()
+                // Flip to face the way they walk. The picture is flat, so a
+                // spin onto its edge would show only a sliver.
                 scaleX = if (facingLeft) -1f else 1f
             }
     )
@@ -2091,14 +2798,65 @@ private val RoadBed = Color(0xFF6B3F1F)
 private val RoadLine = Color(0xFFFFF1D6)
 private val RoadChefWidth = 30.dp
 private val RoadChefHeight = 55.dp
-/** Where the resting chef stands relative to its island's road stop: left of the pin. */
-private val RoadChefRestShift = (-48).dp
+private val MindCloudWidth = 58.dp
+private val MindCloudHeight = 50.dp
+
+/**
+ * A cream thought cloud over the chef. The small circle tucks behind his hat.
+ * "..." while he waits at the dish still to solve, and "?" beside a locked dish.
+ */
+@Composable
+private fun ChefMind(text: String, modifier: Modifier = Modifier) {
+    Box(modifier.size(width = MindCloudWidth, height = MindCloudHeight)) {
+        Canvas(Modifier.fillMaxSize()) {
+            val fill = Color(0xFFFFF6E4)
+            val ink = Color(0xFF6A4328)
+            val line = 1.8.dp.toPx()
+            val w = size.width
+            val body = size.height * 0.60f
+            val bumps = listOf(
+                Offset(w * 0.24f, body * 0.52f) to body * 0.36f,
+                Offset(w * 0.42f, body * 0.36f) to body * 0.40f,
+                Offset(w * 0.62f, body * 0.34f) to body * 0.42f,
+                Offset(w * 0.80f, body * 0.48f) to body * 0.34f,
+                Offset(w * 0.50f, body * 0.58f) to body * 0.32f
+            )
+            bumps.forEach { (c, r) -> drawCircle(ink, r + line, c) }
+            bumps.forEach { (c, r) -> drawCircle(fill, r, c) }
+            drawOval(
+                fill,
+                Offset(w * 0.24f, body * 0.26f),
+                Size(w * 0.52f, body * 0.40f)
+            )
+            val tailA = Offset(w * 0.46f, size.height * 0.72f)
+            val tailB = Offset(w * 0.50f, size.height * 0.90f)
+            drawCircle(ink, 3.4.dp.toPx(), tailA)
+            drawCircle(fill, 3.4.dp.toPx() - line, tailA)
+            drawCircle(ink, 2.dp.toPx(), tailB)
+            drawCircle(fill, 2.dp.toPx() - line, tailB)
+        }
+        Text(
+            text,
+            color = Color(0xFF6A4328),
+            fontFamily = BeVietnamPro,
+            fontWeight = FontWeight.ExtraBold,
+            fontSize = 13.sp,
+            textAlign = TextAlign.Center,
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = 6.dp)
+                .width(36.dp)
+        )
+    }
+}
+/** Just left of the pin, clear of the island name under it. */
+private val RoadChefRestShift = (-22).dp
 /** Time per leg of road; a trip across two legs takes twice as long. */
 private const val RoadTripLegMs = 950
 private const val RoadTripPrints = 7
 
 /** The archipelago art's own size, to place pins on it wherever it is cropped. */
-private const val PhArtWidth = 688f
+private const val PhArtWidth = 768f
 private const val PhArtHeight = 1024f
 
 
@@ -2191,6 +2949,7 @@ private fun MapTopPanel(
             ) {
                 Box(
                     Modifier
+                        .offset(y = (-3).dp)
                         .size(24.dp)
                         .clip(CircleShape)
                         .background(PlayNowBrown),

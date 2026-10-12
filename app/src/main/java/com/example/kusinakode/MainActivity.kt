@@ -494,7 +494,11 @@ private fun AppNavigator() {
                 GameRoute(
                     level         = level,
                     onLevelSelect = {
-                        nav.navigate("levels/ALL") {
+                        // Back to the island that level belongs to. A finished
+                        // Luzon dish returns to the Luzon map, not the whole chart.
+                        val region = runCatching { LevelProvider.forLevel(level).region }.getOrNull()
+                        val key = region?.name ?: "ALL"
+                        nav.navigate("levels/$key") {
                             popUpTo("game/{level}") { inclusive = true }
                             launchSingleTop = true
                         }
