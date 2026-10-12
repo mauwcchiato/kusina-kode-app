@@ -78,6 +78,7 @@ import com.example.kusinakode.ui.pantry.PixelArt
 import com.example.kusinakode.ui.pantry.SelectTick
 import com.example.kusinakode.ui.pantry.SellAsk
 import com.example.kusinakode.ui.pantry.SellConfirmDialog
+import com.example.kusinakode.ui.pantry.SellQuantityDialog
 import com.example.kusinakode.ui.pantry.SellLoadingOverlay
 import com.example.kusinakode.ui.pantry.SellToast
 import com.example.kusinakode.ui.components.ParchmentCard
@@ -129,6 +130,7 @@ fun EncyclopediaScreen(
     var selecting by remember { mutableStateOf(false) }
     var selected by remember { mutableStateOf(setOf<String>()) }
     var pendingSell by remember { mutableStateOf<SellAsk?>(null) }
+    var pendingQty by remember { mutableStateOf<PantryEntry?>(null) }
     var trade by remember { mutableStateOf<SellAsk?>(null) }
 
     val visible = ui.pinNewToTop(
@@ -408,7 +410,7 @@ fun EncyclopediaScreen(
                                         },
                                         onSell = {
                                             SoundFx.tap(ctx)
-                                            pendingSell = SellAsk.one(entry)
+                                            if (entry.qty > 1) pendingQty = entry else pendingSell = SellAsk.one(entry)
                                         }
                                     )
                                 }
@@ -489,6 +491,20 @@ fun EncyclopediaScreen(
 
         ui.notice?.let { msg ->
             SellToast(msg, onDismiss = viewModel::dismissNotice)
+        }
+
+        pendingQty?.let { entry ->
+            SellQuantityDialog(
+                entry = entry,
+                busy = ui.sellingId != null,
+                onDismiss = { pendingQty = null },
+                onConfirm = { ask ->
+                    SoundFx.play(ctx, SoundFx.Cue.Coin)
+                    trade = ask
+                    viewModel.sellMany(ask.sales)
+                    pendingQty = null
+                }
+            )
         }
 
         pendingSell?.let { ask ->
@@ -638,7 +654,7 @@ private fun PantryHelpDialog(onClose: () -> Unit) {
                         "Win a dish to earn a palayok — open it straight away at the pot."
                     )
                     HelpLine("2", "Open them to collect ingredients.")
-                    HelpLine("3", "Got a spare? Sell it for KK.")
+                    HelpLine("3", "Got a spare? Sell it for KK. A stack lets you choose how many.")
                     HelpLine("4", "Tap any card to read its page.")
 
                     HelpSectionDivider()
