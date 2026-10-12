@@ -10,11 +10,16 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -23,6 +28,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.material3.Text
@@ -112,7 +118,7 @@ internal fun cardFaceFor(rarity: Rarity): CardFace = when (rarity) {
 }
 
 /** Text sits inside the banner ends; the body panel is a touch wider. */
-private const val BANNER_INSET = 0.12f
+private const val BANNER_INSET = 0.16f
 private const val BODY_INSET = 0.105f
 private const val BADGE_SIZE = 0.19f
 
@@ -126,7 +132,12 @@ internal fun IngredientTradingCard(
     headline: String,
     body: String,
     footer: String,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    headlineColor: Color? = null,
+    footerColor: Color? = null,
+    headlineSizeFraction: Float = 0.030f,
+    footerSizeFraction: Float = 0.026f,
+    headlineHalo: Boolean = false
 ) {
     val face = cardFaceFor(ingredient.rarity)
     // Sized to fit the space on BOTH axes.
@@ -188,33 +199,23 @@ internal fun IngredientTradingCard(
         }
 
         CardRegion(w, h, face.bodyTop, face.bodyBottom, BODY_INSET) {
-            Text(
+            FittedLine(
                 headline,
-                color = face.accentInk,
-                fontFamily = BeVietnamPro,
-                fontWeight = FontWeight.ExtraBold,
-                fontSize = (w.value * 0.030f).sp,
-                letterSpacing = (w.value * 0.005f).sp,
-                textAlign = TextAlign.Center,
-                maxLines = 1
+                headlineColor ?: face.accentInk,
+                w,
+                headlineSizeFraction,
+                FontWeight.ExtraBold,
+                halo = headlineHalo
             )
             Spacer(Modifier.height(h * 0.012f))
-            Text(
-                body,
-                color = face.bodyInk,
-                fontFamily = BeVietnamPro,
-                fontSize = (w.value * 0.040f).sp,
-                lineHeight = (w.value * 0.054f).sp,
-                textAlign = TextAlign.Center,
-                maxLines = 4
-            )
+            FittedBodyText(body, face.bodyInk, w)
             Spacer(Modifier.height(h * 0.012f))
             Text(
                 footer,
-                color = face.accentInk,
+                color = footerColor ?: face.accentInk,
                 fontFamily = BeVietnamPro,
                 fontWeight = FontWeight.Bold,
-                fontSize = (w.value * 0.026f).sp,
+                fontSize = (w.value * footerSizeFraction).sp,
                 letterSpacing = (w.value * 0.004f).sp,
                 textAlign = TextAlign.Center,
                 maxLines = 1
@@ -264,8 +265,8 @@ private fun CardRegion(
 }
 
 /**
- * Banner text is pinned to one line inside a fixed bar, and the catalog holds
- * names up to 36 characters, so long ones step down rather than wrap or clip.
+ * One line inside the metal name bar. The size steps down until the whole
+ * string is inside the bar, so a closing parenthesis is not cut off.
  */
 @Composable
 private fun BannerText(
@@ -275,15 +276,118 @@ private fun BannerText(
     sizeFraction: Float,
     fitsAt: Int
 ) {
-    val shrink = (fitsAt.toFloat() / text.length.coerceAtLeast(fitsAt)).coerceAtLeast(0.6f)
+    val start = cardWidth.value * sizeFraction *
+        (fitsAt.toFloat() / text.length.coerceAtLeast(fitsAt)).coerceAtLeast(0.72f)
+    val min = cardWidth.value * sizeFraction * 0.38f
+    var sizeSp by remember(text, cardWidth) { mutableFloatStateOf(start) }
     Text(
         text,
         color = ink,
         fontFamily = BeVietnamPro,
         fontWeight = FontWeight.ExtraBold,
-        fontSize = (cardWidth.value * sizeFraction * shrink).sp,
+        fontSize = sizeSp.sp,
         textAlign = TextAlign.Center,
         maxLines = 1,
-        softWrap = false
+        softWrap = false,
+        overflow = TextOverflow.Clip,
+        modifier = Modifier.fillMaxWidth(),
+        onTextLayout = { layout ->
+            if (layout.didOverflowWidth && sizeSp > min) {
+                sizeSp = (sizeSp * 0.9f).coerceAtLeast(min)
+            }
+        }
+    )
+}
+
+/** One body line that shrinks until the whole word stays on the card. */
+@Composable
+private fun FittedLine(
+    text: String,
+    ink: Color,
+    cardWidth: Dp,
+    sizeFraction: Float,
+    weight: FontWeight,
+    halo: Boolean = false
+) {
+    val start = cardWidth.value * sizeFraction
+    val min = cardWidth.value * sizeFraction * 0.72f
+    var sizeSp by remember(text, cardWidth, sizeFraction) { mutableFloatStateOf(start) }
+    val rim = Color(0xFFFFF6E8)
+    if (halo) {
+        val edge = 1.1.dp
+        Box(Modifier.fillMaxWidth()) {
+            listOf(
+                -edge to 0.dp, edge to 0.dp, 0.dp to -edge, 0.dp to edge,
+                -edge to -edge, edge to -edge, -edge to edge, edge to edge
+            ).forEach { (x, y) ->
+                FittedLineText(text, rim, weight, sizeSp, Modifier.fillMaxWidth().offset(x, y))
+            }
+            FittedLineText(
+                text, ink, weight, sizeSp, Modifier.fillMaxWidth(),
+                onTextLayout = { layout ->
+                    if (layout.didOverflowWidth && sizeSp > min) {
+                        sizeSp = (sizeSp * 0.9f).coerceAtLeast(min)
+                    }
+                }
+            )
+        }
+    } else {
+        FittedLineText(
+            text, ink, weight, sizeSp, Modifier.fillMaxWidth(),
+            onTextLayout = { layout ->
+                if (layout.didOverflowWidth && sizeSp > min) {
+                    sizeSp = (sizeSp * 0.9f).coerceAtLeast(min)
+                }
+            }
+        )
+    }
+}
+
+@Composable
+private fun FittedLineText(
+    text: String,
+    ink: Color,
+    weight: FontWeight,
+    sizeSp: Float,
+    modifier: Modifier,
+    onTextLayout: (androidx.compose.ui.text.TextLayoutResult) -> Unit = {}
+) {
+    Text(
+        text,
+        color = ink,
+        fontFamily = BeVietnamPro,
+        fontWeight = weight,
+        fontSize = sizeSp.sp,
+        letterSpacing = (sizeSp * 0.04f).sp,
+        textAlign = TextAlign.Center,
+        maxLines = 1,
+        softWrap = false,
+        overflow = TextOverflow.Clip,
+        modifier = modifier,
+        onTextLayout = onTextLayout
+    )
+}
+
+/** Lore stays complete. If four lines would clip, the type gets smaller. */
+@Composable
+private fun FittedBodyText(text: String, ink: Color, cardWidth: Dp) {
+    val start = cardWidth.value * 0.040f
+    val min = cardWidth.value * 0.026f
+    var sizeSp by remember(text, cardWidth) { mutableFloatStateOf(start) }
+    Text(
+        text,
+        color = ink,
+        fontFamily = BeVietnamPro,
+        fontSize = sizeSp.sp,
+        lineHeight = (sizeSp * 1.35f).sp,
+        textAlign = TextAlign.Center,
+        maxLines = 6,
+        overflow = TextOverflow.Clip,
+        modifier = Modifier.fillMaxWidth(),
+        onTextLayout = { layout ->
+            if ((layout.didOverflowHeight || layout.didOverflowWidth) && sizeSp > min) {
+                sizeSp = (sizeSp * 0.92f).coerceAtLeast(min)
+            }
+        }
     )
 }
