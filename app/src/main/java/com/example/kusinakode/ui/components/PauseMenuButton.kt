@@ -7,14 +7,14 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -110,50 +110,47 @@ fun PauseMenuButton(
             )
             .semantics { contentDescription = label }
     ) {
-        Row(
-            Modifier
+        if (showWell) {
+            Box(
+                Modifier
+                    .align(Alignment.TopStart)
+                    .padding(start = WellStart, top = (height * FaceRatio - WellSize) / 2)
+                    .size(WellSize),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    icon!!,
+                    contentDescription = null,
+                    tint = if (primary) GlyphGold else GlyphBrown,
+                    modifier = Modifier.size(if (primary) 22.dp else 20.dp)
+                )
+            }
+        }
+        Text(
+            label,
+            color = if (primary) InkOnDark else InkOnParch,
+            maxLines = 1,
+            style = TextStyle(
+                fontFamily = BeVietnamPro,
+                fontWeight = FontWeight.ExtraBold,
+                fontSize = if (compact) 15.sp else 16.sp,
+                letterSpacing = 0.15.sp,
+                textAlign = TextAlign.Center,
+                platformStyle = PlatformTextStyle(includeFontPadding = false),
+                shadow = Shadow(
+                    color = if (primary) Color(0x99000000) else Color(0x33FFFFFF),
+                    offset = Offset(0f, if (primary) 1.6f else 0.8f),
+                    blurRadius = if (primary) 2.5f else 0f
+                )
+            ),
+            modifier = Modifier
                 .align(Alignment.TopCenter)
                 .fillMaxWidth()
                 .fillMaxHeight(FaceRatio)
-                .padding(horizontal = if (showWell) WellStart else 16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            if (icon != null && !compact) {
-                Box(
-                    Modifier.size(WellSize),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        icon,
-                        contentDescription = null,
-                        tint = if (primary) GlyphGold else GlyphBrown,
-                        modifier = Modifier.size(if (primary) 22.dp else 20.dp)
-                    )
-                }
-            }
-            Text(
-                label,
-                color = if (primary) InkOnDark else InkOnParch,
-                maxLines = 1,
-                style = TextStyle(
-                    fontFamily = BeVietnamPro,
-                    fontWeight = FontWeight.ExtraBold,
-                    fontSize = if (compact) 15.sp else 16.sp,
-                    letterSpacing = 0.15.sp,
-                    textAlign = TextAlign.Center,
-                    platformStyle = PlatformTextStyle(includeFontPadding = false),
-                    shadow = Shadow(
-                        color = if (primary) Color(0x99000000) else Color(0x33FFFFFF),
-                        offset = Offset(0f, if (primary) 1.6f else 0.8f),
-                        blurRadius = if (primary) 2.5f else 0f
-                    )
-                ),
-                modifier = Modifier.weight(1f)
-            )
-            if (showWell) {
-                Spacer(Modifier.size(WellSize))
-            }
-        }
+                .offset(x = 5.dp, y = 1.dp)
+                .padding(horizontal = if (showWell) WellStart + WellSize else 16.dp)
+                .wrapContentHeight(Alignment.CenterVertically)
+        )
     }
 }
 
