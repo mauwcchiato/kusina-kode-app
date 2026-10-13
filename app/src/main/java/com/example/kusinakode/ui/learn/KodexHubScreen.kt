@@ -203,7 +203,12 @@ fun KodexHubScreen(
         val picked = RecentPotDraws.ids().mapNotNull { id ->
             owned.firstOrNull { it.ingredient.id == id }
         }
-        val shown = if (picked.isNotEmpty()) picked else owned.takeLast(3).asReversed()
+        // Recent draws stay in front. One draw still fills the row, up to
+        // three, with other ingredients the player already owns.
+        val fillers = owned.asReversed().filter { entry ->
+            picked.none { it.ingredient.id == entry.ingredient.id }
+        }
+        val shown = if (picked.isNotEmpty()) picked + fillers else owned.asReversed()
         shown.take(3)
     }
     val slideCount = FeaturedSlides.size
