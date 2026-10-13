@@ -59,6 +59,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -69,7 +70,17 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.kusinakode.domain.pantry.PantryEntry
+import com.example.kusinakode.ui.pantry.IngredientPhoto
+import com.example.kusinakode.ui.pantry.IngredientTradingCard
+import com.example.kusinakode.ui.pantry.cardFaceFor
+import com.example.kusinakode.ui.pantry.PantryViewModel
+import com.example.kusinakode.ui.pantry.PixelArt
+import com.example.kusinakode.ui.pantry.RecentPotDraws
 import com.example.kusinakode.BottomNavTab
 import com.example.kusinakode.FavoritesManager
 import com.example.kusinakode.KusinaBottomNav
@@ -184,11 +195,22 @@ fun KodexHubScreen(
             )
         }
     }
-    val rares = listOf(
-        HubTile("Bell Pepper", image = R.drawable.preview_bellpepper),
-        HubTile("Carrots", image = R.drawable.preview_carrots),
-        HubTile("Coconut", image = R.drawable.preview_coconut)
-    )
+    val pantry: PantryViewModel = viewModel(factory = PantryViewModel.factory())
+    val pantryUi by pantry.uiState.collectAsState()
+    var openJar by remember { mutableStateOf<PantryEntry?>(null) }
+    val recentJars = remember(pantryUi.snapshot.entries) {
+        val owned = pantryUi.snapshot.entries
+        val picked = RecentPotDraws.ids().mapNotNull { id ->
+            owned.firstOrNull { it.ingredient.id == id }
+        }
+        // Recent draws stay in front. One draw still fills the row, up to
+        // three, with other ingredients the player already owns.
+        val fillers = owned.asReversed().filter { entry ->
+            picked.none { it.ingredient.id == entry.ingredient.id }
+        }
+        val shown = if (picked.isNotEmpty()) picked + fillers else owned.asReversed()
+        shown.take(3)
+    }
     val slideCount = FeaturedSlides.size
     val loopPages = slideCount * 2_000
     val startPage = remember(slideCount) { loopPages / 2 }
@@ -349,7 +371,16 @@ fun KodexHubScreen(
                 Spacer(Modifier.height(22.dp))
                 SectionRow("KODEX PANTRY", onSeeAll = onOpenRareIngredients)
                 Spacer(Modifier.height(10.dp))
-                HubTileRow(rares, onTile = onOpenRareIngredients)
+                if (recentJars.isEmpty()) {
+                    Text(
+                        "Nothing from the pot yet",
+                        color = TextDark.copy(alpha = 0.7f),
+                        fontFamily = BeVietnamPro,
+                        fontSize = 13.sp
+                    )
+                } else {
+                    RecentPotRow(recentJars, onOpen = { openJar = it })
+                }
                 Spacer(Modifier.height(12.dp))
             }
 
@@ -379,6 +410,28 @@ fun KodexHubScreen(
                 showTour = false
             }
         )
+    }
+    openJar?.let { entry ->
+        Dialog(
+            onDismissRequest = { openJar = null },
+            properties = DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            val darkPanel = cardFaceFor(entry.ingredient.rarity).bodyInk.luminance() > 0.6f
+            IngredientTradingCard(
+                ingredient = entry.ingredient,
+                headline = entry.ingredient.origin,
+                body = entry.ingredient.lore,
+                footer = if (entry.qty == 1) "1 ON THE SHELF" else "${entry.qty} ON THE SHELF",
+                headlineColor = Color(0xFF6B3A1F),
+                footerColor = if (darkPanel) Color(0xFFFFF6EA) else Color(0xFF111111),
+                headlineSizeFraction = 0.040f,
+                footerSizeFraction = 0.030f,
+                headlineHalo = true,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 44.dp)
+            )
+        }
     }
     }
 }
@@ -637,45 +690,90 @@ private fun DishCardStack(
 }
 
 @Composable
-private fun HubTileRow(tiles: List<HubTile>, onTile: () -> Unit) {
+private fun RecentPotRow(jars: List<PantryEntry>, onOpen: (PantryEntry) -> Unit) {
     Row(
         Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        tiles.forEach { tile ->
-            Column(
-                Modifier.weight(1f),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Surface(
-                    shape = RoundedCornerShape(16.dp),
-                    color = Color.White,
-                    shadowElevation = 4.dp,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .aspectRatio(1f)
-                        .clickable(onClick = clickSfx(onTile))
-                ) {
-                    Image(
-                        painter = painterResource(tile.image),
-                        contentDescription = tile.title,
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop
-                    )
-                }
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    tile.title,
-                    color = TextDark,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
+        jars.forEach { entry ->
+            RecentPotCard(
+                entry = entry,
+                onOpen = { onOpen(entry) },
+                modifier = Modifier.weight(1f)
+            )
         }
-        repeat((3 - tiles.size).coerceAtLeast(0)) {
+        repeat((3 - jars.size).coerceAtLeast(0)) {
             Spacer(Modifier.weight(1f))
+        }
+    }
+}
+
+/** Same shelf card as the pantry, without Sell. A tap opens the collectible. */
+@Composable
+private fun RecentPotCard(
+    entry: PantryEntry,
+    onOpen: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val tint = entry.ingredient.rarity.tint
+    val shape = RoundedCornerShape(16.dp)
+    Column(
+        modifier
+            .shadow(8.dp, shape)
+            .clip(shape)
+            .background(lerp(Color(0xFFFFFDF9), tint, 0.14f))
+            .border(2.dp, tint, shape)
+            .clickable(onClick = clickSfx(onOpen))
+            .padding(8.dp)
+    ) {
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .aspectRatio(1f)
+                .clip(RoundedCornerShape(12.dp))
+                .background(lerp(Color(0xFFF3E6D4), tint, 0.26f))
+        ) {
+            IngredientPhoto(
+                entry.ingredient,
+                Modifier
+                    .fillMaxSize()
+                    .padding(6.dp)
+            )
+            PixelArt(
+                entry.ingredient.rarity.badge,
+                contentDescription = entry.ingredient.rarity.label,
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(3.dp)
+                    .size(26.dp)
+            )
+        }
+        Spacer(Modifier.height(6.dp))
+        Text(
+            entry.ingredient.name,
+            color = TextDark,
+            fontFamily = BeVietnamPro,
+            fontWeight = FontWeight.Bold,
+            fontSize = 10.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        Spacer(Modifier.height(6.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                "${entry.qty}",
+                color = TextDark,
+                fontFamily = BeVietnamPro,
+                fontWeight = FontWeight.Bold,
+                fontSize = 11.sp
+            )
+            Text(
+                " on the shelf",
+                color = HintGray,
+                fontFamily = BeVietnamPro,
+                fontWeight = FontWeight.Normal,
+                fontSize = 11.sp
+            )
         }
     }
 }
