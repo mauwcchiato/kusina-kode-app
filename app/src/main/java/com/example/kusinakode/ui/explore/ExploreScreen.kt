@@ -425,13 +425,17 @@ fun ExploreScreen(
                                 )
                                 .clip(RoundedCornerShape(MapArtCorner))
                         ) { region ->
-                            if (region == Region.LUZON || region == Region.MINDANAO) {
+                            if (region == Region.LUZON || region == Region.VISAYAS || region == Region.MINDANAO) {
                                 // The level layer draws the island chart, with sea
                                 // above it. This card stays sea so a cropped copy
                                 // does not show behind it.
                                 Box(
                                     Modifier.fillMaxSize().background(
-                                        if (region == Region.LUZON) LuzonSea else MindanaoSea
+                                        when (region) {
+                                            Region.LUZON -> LuzonSea
+                                            Region.VISAYAS -> VisayasSea
+                                            else -> MindanaoSea
+                                        }
                                     )
                                 )
                             } else {
@@ -736,8 +740,11 @@ fun ExploreScreen(
                         modifier = Modifier
                             .align(Alignment.TopCenter)
                             .readableWidth()
-                            .padding(start = 12.dp, end = 12.dp, top = MapSearchTop)
-                            .offset(x = 8.dp, y = 6.dp)
+                            .padding(
+                                start = MapTableSide,
+                                end = MapTableSide,
+                                top = MapTableTop
+                            )
                     )
                 }
 
@@ -1680,44 +1687,60 @@ private fun IslandLevelsLayer(
     val total = levels.size
     val complete = total > 0 && solved == total
     Box(Modifier.fillMaxSize()) {
-        // Visayas settles the photo so the stops read. Luzon and Mindanao
-        // use the same card, with the island at the bottom and sea above.
-        if (region == Region.VISAYAS) {
-            Box(
-                Modifier
-                    .matchParentSize()
-                    .background(
-                        Brush.verticalGradient(
-                            listOf(
-                                PathScrim.copy(alpha = 0.55f),
-                                PathScrim.copy(alpha = 0.25f),
-                                PathScrim.copy(alpha = 0.45f)
-                            )
-                        )
-                    )
-            )
-        } else if (region == Region.LUZON || region == Region.MINDANAO) {
-            val shields = if (region == Region.LUZON) LuzonShieldPx else MindanaoShieldPx
-            val artW = if (region == Region.LUZON) LuzonArtW else MindanaoArtW
-            val artH = if (region == Region.LUZON) LuzonArtH else MindanaoArtH
+        // Each island uses the same card: the painted chart sits at the
+        // bottom and the extra room above it is sea.
+        if (region == Region.LUZON || region == Region.VISAYAS || region == Region.MINDANAO) {
+            val shields = when (region) {
+                Region.LUZON -> LuzonShieldPx
+                Region.VISAYAS -> VisayasShieldPx
+                else -> MindanaoShieldPx
+            }
+            val artW = when (region) {
+                Region.LUZON -> LuzonArtW
+                Region.VISAYAS -> VisayasArtW
+                else -> MindanaoArtW
+            }
+            val artH = when (region) {
+                Region.LUZON -> LuzonArtH
+                Region.VISAYAS -> VisayasArtH
+                else -> MindanaoArtH
+            }
+            val sea = when (region) {
+                Region.LUZON -> LuzonSea
+                Region.VISAYAS -> VisayasSea
+                else -> MindanaoSea
+            }
             PaintedFlagPath(
                 levels = levels,
                 onOpen = onOpen,
                 art = ImageBitmap.imageResource(
-                    if (region == Region.LUZON) R.drawable.luzon_level_map
-                    else R.drawable.mindanao_level_map
+                    when (region) {
+                        Region.LUZON -> R.drawable.luzon_level_map
+                        Region.VISAYAS -> R.drawable.visayas_level_map
+                        else -> R.drawable.mindanao_level_map
+                    }
                 ),
                 artW = artW,
                 artH = artH,
                 shields = shields,
                 comingSoonNumber = if (region == Region.LUZON) 15 else null,
                 readArrived = {
-                    if (region == Region.LUZON) luzonChefArrivedAt else mindanaoChefArrivedAt
+                    when (region) {
+                        Region.LUZON -> luzonChefArrivedAt
+                        Region.VISAYAS -> visayasChefArrivedAt
+                        else -> mindanaoChefArrivedAt
+                    }
                 },
                 writeArrived = {
-                    if (region == Region.LUZON) luzonChefArrivedAt = it
-                    else mindanaoChefArrivedAt = it
+                    when (region) {
+                        Region.LUZON -> luzonChefArrivedAt = it
+                        Region.VISAYAS -> visayasChefArrivedAt = it
+                        else -> mindanaoChefArrivedAt = it
+                    }
                 },
+                restLeftOnFirst = region == Region.LUZON || region == Region.VISAYAS,
+                restRightOnSecond = region == Region.LUZON,
+                playLift = if (region == Region.LUZON) 0f else 0.15f,
                 nextLevelModifier = nextLevelModifier,
                 modifier = Modifier
                     .fillMaxSize()
@@ -1728,7 +1751,7 @@ private fun IslandLevelsLayer(
                         bottom = bottomInset
                     )
                     .clip(RoundedCornerShape(MapArtCorner))
-                    .background(if (region == Region.LUZON) LuzonSea else MindanaoSea)
+                    .background(sea)
             )
         }
         Column(
@@ -1805,18 +1828,6 @@ private fun IslandLevelsLayer(
                     }
                 }
             }
-            Spacer(Modifier.height(6.dp))
-            if (region == Region.VISAYAS) {
-                LevelPath(
-                    levels = levels,
-                    onOpen = onOpen,
-                    nextLevelModifier = nextLevelModifier,
-                    fitted = region == Region.MINDANAO,
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth()
-                )
-            }
         }
     }
 }
@@ -1827,11 +1838,15 @@ private val LuzonSea = Color(0xFF0CABD3)
 /** Sea on the painted Mindanao chart. */
 private val MindanaoSea = Color(0xFF02B6E4)
 
+/** Sea on the painted Visayas chart. */
+private val VisayasSea = Color(0xFF09C2F1)
+
 /**
  * Flag index the chef has already walked to. Survives leaving the map, so
  * coming back after a solved level starts him on the finished flag.
  */
 private var luzonChefArrivedAt = -1
+private var visayasChefArrivedAt = -1
 private var mindanaoChefArrivedAt = -1
 
 /** Gold ring on a solved Luzon dish. */
@@ -1929,6 +1944,28 @@ private val MindanaoShieldPx = arrayOf(
     intArrayOf(517, 828, 552, 865)
 )
 
+private const val VisayasArtW = 768f
+private const val VisayasArtH = 1024f
+
+/**
+ * Shield face of flags 1..11 on [R.drawable.visayas_level_map], in pixels,
+ * in path order. The number badge sits just above each face. Flags 10 and
+ * 11 have no dish yet.
+ */
+private val VisayasShieldPx = arrayOf(
+    intArrayOf(291, 47, 326, 81),
+    intArrayOf(379, 163, 415, 198),
+    intArrayOf(217, 299, 250, 331),
+    intArrayOf(254, 405, 287, 436),
+    intArrayOf(150, 639, 184, 672),
+    intArrayOf(371, 576, 405, 609),
+    intArrayOf(474, 525, 506, 557),
+    intArrayOf(620, 372, 654, 405),
+    intArrayOf(636, 535, 670, 567),
+    intArrayOf(604, 727, 637, 759),
+    intArrayOf(606, 865, 641, 898)
+)
+
 /**
  * Levels sit on the painted flags. Locked flags keep the question mark and
  * the number. The level you still need to solve shows a play mark in that
@@ -1948,6 +1985,15 @@ private fun PaintedFlagPath(
     comingSoonNumber: Int? = null,
     readArrived: () -> Int,
     writeArrived: (Int) -> Unit,
+    /** Flag 1 sits under the header, so the chef rests on its left. */
+    restLeftOnFirst: Boolean = false,
+    /** Luzon flag 2 sits under the header, so the chef rests on its right. */
+    restRightOnSecond: Boolean = false,
+    /**
+     * Visayas and Mindanao question marks sit above the cream-box centre,
+     * so the play circle is lifted to the middle of the shield.
+     */
+    playLift: Float = 0f,
     modifier: Modifier = Modifier,
     nextLevelModifier: Modifier = Modifier
 ) {
@@ -2031,8 +2077,9 @@ private fun PaintedFlagPath(
             // Brown play circle, big enough to hide the question mark,
             // still inside the wooden shield.
             val mark = minOf(faceW, faceH) * 0.82f
+            val markCy = (faceT + faceB) / 2f - faceH * playLift
             val markL = (faceL + faceR) / 2f - mark / 2f
-            val markT = (faceT + faceB) / 2f - mark / 2f
+            val markT = markCy - mark / 2f
             Box(
                 Modifier
                     .zIndex((placed.size - i).toFloat())
@@ -2090,9 +2137,9 @@ private fun PaintedFlagPath(
             }
         }
 
-        // A flag with no dish yet stays painted with its question mark.
-        if (placed.size < shields.size) {
-            val s = shields.last()
+        // Flags with no dish yet stay painted with their question mark.
+        for (extra in placed.size until shields.size) {
+            val s = shields[extra]
             val faceL = ox + s[0] / artW * drawnW
             val faceT = oy + s[1] / artH * drawnH
             val faceR = ox + s[2] / artW * drawnW
@@ -2105,7 +2152,7 @@ private fun PaintedFlagPath(
             val hitB = faceB + faceH * 0.25f
             Box(
                 Modifier
-                    .zIndex(placed.size + 1f)
+                    .zIndex(extra + 1f)
                     .offset(x = pxDp(hitL), y = pxDp(hitT))
                     .size(width = pxDp(hitR - hitL), height = pxDp(hitB - hitT))
                     .clickable {
@@ -2159,19 +2206,44 @@ private fun PaintedFlagPath(
             val here = Offset(a.x + (b.x - a.x) * f, a.y + (b.y - a.y) * f)
             val faceH = (shields[standOn][3] - shields[standOn][1]) / artH * drawnH
             val lift = if (walking) 0f else faceH * 1.15f
-            val chefX = pxDp(here.x)
-            val chefTop = pxDp(here.y - lift) - RoadChefHeight + if (walking) 6.dp else 0.dp
+            val besideTop = !walking && (
+                (restLeftOnFirst && standOn == 0) ||
+                    (restRightOnSecond && standOn == 1)
+                )
+            val chefX: Dp
+            val chefTop: Dp
+            val facingLeft: Boolean
+            if (besideTop) {
+                val s0 = shields[standOn]
+                val faceL = ox + s0[0] / artW * drawnW
+                val faceR = ox + s0[2] / artW * drawnW
+                val faceT = oy + s0[1] / artH * drawnH
+                val faceHpx = (s0[3] - s0[1]) / artH * drawnH
+                val chefWpx = with(density) { RoadChefWidth.toPx() }
+                val chefHpx = with(density) { RoadChefHeight.toPx() }
+                if (standOn == 0) {
+                    chefTop = pxDp(faceT - faceHpx * 0.35f)
+                    chefX = pxDp(faceL - chefWpx - faceHpx * 0.2f)
+                    facingLeft = false
+                } else {
+                    // Level 2 sits near the top, so he rests higher, still on the right.
+                    chefTop = pxDp(faceT - chefHpx * 0.72f)
+                    chefX = pxDp(faceR + faceHpx * 0.02f)
+                    facingLeft = true
+                }
+            } else {
+                chefX = pxDp(here.x) - RoadChefWidth / 2
+                chefTop = pxDp(here.y - lift) - RoadChefHeight + if (walking) 6.dp else 0.dp
+                facingLeft = b.x < a.x
+            }
             RoadTripChef(
                 travelling = walking,
                 progress = f,
                 legs = 1,
-                facingLeft = b.x < a.x,
+                facingLeft = facingLeft,
                 modifier = Modifier
                     .zIndex(placed.size + 3f)
-                    .offset(
-                        x = chefX - RoadChefWidth / 2,
-                        y = chefTop
-                    )
+                    .offset(x = chefX, y = chefTop)
             )
         }
     }
@@ -2860,8 +2932,6 @@ private const val PhArtWidth = 768f
 private const val PhArtHeight = 1024f
 
 
-/** Where the top panel sits inside the map. */
-private val MapSearchTop = 12.dp
 /** Room kept at the map's foot for the floating PLAY NOW button. */
 private val MapCtaRoom = 76.dp
 /** Share of the map's width the PLAY NOW button takes. */
