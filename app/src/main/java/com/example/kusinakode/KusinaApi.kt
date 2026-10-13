@@ -348,10 +348,16 @@ data class RewardStatusResponse(
 @Serializable
 data class SpendKkRequest(val power_up: String)
 
+/**
+ * Both slots are always sent. An empty id means "back to the default look", and
+ * reward/equip.php only clears a slot whose key is present; with a "" default the
+ * JSON encoder left the key out (it skips values equal to their default), so going
+ * back to House Cook or Plain Rim never reached the server.
+ */
 @Serializable
 data class EquipLookRequest(
-    val character_id: String = "",
-    val frame_id: String = ""
+    val character_id: String,
+    val frame_id: String
 )
 
 @Serializable
