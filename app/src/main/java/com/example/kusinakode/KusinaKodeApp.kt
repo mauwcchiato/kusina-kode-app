@@ -8,6 +8,7 @@ import com.example.kusinakode.data.repository.LocalGamificationRepository
 import com.example.kusinakode.data.repository.RemoteGamificationSync
 import com.example.kusinakode.domain.gamification.GamificationCoordinator
 import com.example.kusinakode.domain.repository.GamificationRepository
+import com.example.kusinakode.ui.pantry.RecentPotDraws
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -64,6 +65,7 @@ class KusinaKodeApp : Application() {
         gamificationCoordinator.start(appScope)
 
         SoundFx.warm(this)
+        RecentPotDraws.install(this)
 
         // Module 3's half of that seam: a badge announced by the gamification
         // layer is minted straight away rather than waiting for the player to
