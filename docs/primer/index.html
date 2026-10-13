@@ -1,0 +1,797 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kusina Kode System Primer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,600;9..144,800&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: a lecture handbook — sticky unit index on wide screens, one reading column, each module a five-step card that mirrors the study method. */
+:root {
+  --bg: #f6efe4;          /* parchment */
+  --panel: #fffaf2;
+  --ink: #2b1a10;
+  --muted: #6e5848;
+  --rule: #e2d3bd;
+  --brown: #6f3913;       /* the app's header brown */
+  --tile-green: #4e8a3a;  /* correct tile */
+  --tile-yellow: #b8891f; /* misplaced tile */
+  --tile-orange: #c0561f; /* absent / accent tile */
+  --code-bg: #f1e6d4;
+  --step-bg: #f3e8d6;
+  --display: "Fraunces", Georgia, "Times New Roman", serif;
+  --body: "Be Vietnam Pro", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #1c130d; --panel: #261a12; --ink: #f1e6d6; --muted: #b9a28c; --rule: #3e2c1f;
+    --brown: #e0a172; --tile-green: #7fbf68; --tile-yellow: #e2b44c; --tile-orange: #ef8a55;
+    --code-bg: #2f2117; --step-bg: #2c1f15; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #1c130d; --panel: #261a12; --ink: #f1e6d6; --muted: #b9a28c; --rule: #3e2c1f;
+  --brown: #e0a172; --tile-green: #7fbf68; --tile-yellow: #e2b44c; --tile-orange: #ef8a55;
+  --code-bg: #2f2117; --step-bg: #2c1f15; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 16px; line-height: 1.65; }
+.wrap { max-width: 1180px; margin: 0 auto; padding-inline: 20px; padding-block: 32px 80px; display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 40px; }
+@media (max-width: 900px) { .wrap { grid-template-columns: minmax(0, 1fr); gap: 24px; } nav.index { position: static !important; } }
+
+/* index */
+nav.index { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 20px); align-self: start; font-size: 14px; }
+nav.index h2 { font-family: var(--body); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+nav.index ol { list-style: none; margin: 0 0 18px; padding: 0; display: grid; gap: 2px; }
+nav.index a { color: var(--ink); text-decoration: none; display: block; padding: 3px 8px; border-radius: 6px; }
+nav.index a:hover, nav.index a:focus-visible { background: var(--step-bg); outline: none; }
+nav.index .u { font-weight: 700; color: var(--brown); margin-top: 6px; }
+
+main { min-width: 0; }
+header.hero { margin-bottom: 40px; }
+.tiles { display: flex; gap: 6px; margin-bottom: 18px; flex-wrap: wrap; }
+.tiles span { width: 34px; height: 34px; display: grid; place-items: center; font-weight: 800; color: #fff; border-radius: 6px; font-size: 16px; }
+.tiles .g { background: var(--tile-green); } .tiles .y { background: var(--tile-yellow); } .tiles .o { background: var(--tile-orange); }
+.tiles .n { background: transparent; color: var(--ink); border: 2px solid var(--rule); }
+h1 { font-family: var(--display); font-weight: 800; font-size: clamp(32px, 5vw, 50px); line-height: 1.1; margin: 0 0 12px; text-wrap: balance; letter-spacing: -.01em; }
+.lede { font-size: 18px; color: var(--muted); max-width: 64ch; margin: 0 0 22px; }
+.method { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; margin: 0; padding: 0; list-style: none; counter-reset: s; }
+@media (max-width: 700px) { .method { grid-template-columns: minmax(0, 1fr); } }
+.method li { background: var(--panel); border: 1px solid var(--rule); border-radius: 10px; padding: 10px 12px; font-size: 13.5px; line-height: 1.4; counter-increment: s; }
+.method li::before { content: counter(s); display: block; font-family: var(--mono); font-size: 12px; color: var(--tile-orange); font-weight: 600; margin-bottom: 2px; }
+.method b { display: block; font-size: 14px; }
+
+section.plan, section.unit { margin-top: 56px; }
+h2.unit-title { font-family: var(--display); font-size: clamp(26px, 3.4vw, 34px); margin: 0 0 6px; text-wrap: balance; }
+.eyebrow { font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--tile-orange); font-weight: 700; margin-bottom: 4px; }
+.unit-intro { color: var(--muted); max-width: 66ch; margin: 0 0 24px; }
+
+.table-wrap { overflow-x: auto; border: 1px solid var(--rule); border-radius: 10px; background: var(--panel); }
+table { border-collapse: collapse; width: 100%; font-size: 14.5px; }
+th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+th { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); background: var(--step-bg); }
+tr:last-child td { border-bottom: 0; }
+td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+article.module { background: var(--panel); border: 1px solid var(--rule); border-radius: 14px; padding: 22px 24px; margin-bottom: 22px; }
+article.module h3 { font-family: var(--display); font-size: 22px; margin: 0 0 14px; display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+article.module h3 .code { font-family: var(--mono); font-size: 13px; color: var(--muted); font-weight: 400; }
+.steps { display: grid; gap: 12px; }
+.step { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 14px; align-items: start; }
+@media (max-width: 640px) { .step { grid-template-columns: minmax(0, 1fr); gap: 2px; } }
+.step > .k { font-size: 12px; letter-spacing: .1em; text-transform: uppercase; font-weight: 700; padding-top: 3px; }
+.k.def { color: var(--brown); } .k.rel { color: var(--tile-yellow); } .k.app { color: var(--tile-green); } .k.lay { color: var(--tile-orange); } .k.ins { color: var(--muted); }
+.step > div p { margin: 0 0 8px; } .step > div p:last-child { margin-bottom: 0; }
+.step ul { margin: 0; padding-left: 18px; } .step li { margin: 2px 0; }
+.lay-box { background: var(--step-bg); border-radius: 10px; padding: 10px 14px; font-size: 15.5px; }
+code { font-family: var(--mono); font-size: .86em; background: var(--code-bg); padding: 1px 5px; border-radius: 4px; overflow-wrap: anywhere; }
+pre { font-family: var(--mono); font-size: 13px; line-height: 1.55; background: var(--code-bg); padding: 12px 14px; border-radius: 10px; overflow-x: auto; margin: 6px 0 10px; }
+pre code { background: none; padding: 0; font-size: inherit; }
+.q { margin-top: 14px; border-top: 1px dashed var(--rule); padding-top: 12px; font-size: 14.5px; }
+.q b { color: var(--tile-orange); }
+.src { font-size: 13px; color: var(--muted); margin-top: 28px; }
+a { color: var(--brown); }
+:focus-visible { outline: 2px solid var(--tile-orange); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+html { scroll-behavior: smooth; }
+
+figure.diagram { margin: 10px 0 14px; }
+figure.diagram img { display: block; width: 100%; height: auto; border: 1px solid #e3d6c3; border-radius: 10px; background: #fff; }
+figure.diagram figcaption { font-size: 0.85em; color: #6b5a48; margin-top: 6px; }
+.steps ul { margin: 4px 0 0 18px; padding: 0; } .steps li { margin: 3px 0; }
+@media print { article.module:has(figure.diagram) { break-inside: auto; page-break-inside: auto; } figure.diagram { break-inside: avoid; page-break-inside: avoid; } }
+</style>
+
+<div class="wrap">
+<nav class="index" aria-label="Contents">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#plan">Study plan</a></li>
+    <li><a class="u" href="#oop">1 · OOP &amp; architecture</a></li>
+    <li><a href="#m1-1">1.1 Classes &amp; objects</a></li>
+    <li><a href="#m1-2">1.2 Encapsulation</a></li>
+    <li><a href="#m1-3">1.3 Abstraction</a></li>
+    <li><a href="#m1-4">1.4 Inheritance</a></li>
+    <li><a href="#m1-5">1.5 Polymorphism</a></li>
+    <li><a href="#m1-6">1.6 MVVM &amp; Clean Architecture</a></li>
+    <li><a class="u" href="#ds">2 · Data structures</a></li>
+    <li><a href="#m2-1">2.1 Lists &amp; arrays</a></li>
+    <li><a href="#m2-2">2.2 Hash maps</a></li>
+    <li><a href="#m2-3">2.3 Sets</a></li>
+    <li><a href="#m2-4">2.4 Streams &amp; queues</a></li>
+    <li><a href="#m2-5">2.5 Hash-linked chain</a></li>
+    <li><a href="#m2-6">2.6 Relational tables</a></li>
+    <li><a class="u" href="#algo">3 · Algorithms</a></li>
+    <li><a href="#m3-1">3.1 Two-pass tile scoring</a></li>
+    <li><a href="#m3-2">3.2 XP formula</a></li>
+    <li><a href="#m3-3">3.3 Multi-key sorting</a></li>
+    <li><a href="#m3-4">3.4 Threshold lookup</a></li>
+    <li><a href="#m3-5">3.5 String normalisation</a></li>
+    <li><a href="#m3-6">3.6 Hashing &amp; signatures</a></li>
+    <li><a class="u" href="#sec">4 · Cybersecurity</a></li>
+    <li><a href="#m4-1">4.1 Authentication</a></li>
+    <li><a href="#m4-2">4.2 Authorization</a></li>
+    <li><a href="#m4-3">4.3 Brute-force defence</a></li>
+    <li><a href="#m4-4">4.4 Data protection</a></li>
+    <li><a href="#m4-5">4.5 Injection prevention</a></li>
+    <li><a href="#m4-6">4.6 Ledger integrity</a></li>
+    <li><a class="u" href="#cloud">5 · Cloud computing</a></li>
+    <li><a href="#m5-1">5.1 Service models</a></li>
+    <li><a href="#m5-2">5.2 Compute: the API VM</a></li>
+    <li><a href="#m5-3">5.3 Managed database</a></li>
+    <li><a href="#m5-4">5.4 Object storage</a></li>
+    <li><a href="#m5-5">5.5 Identity &amp; domains</a></li>
+    <li><a href="#m5-6">5.6 Monitoring &amp; scaling</a></li>
+    <li><a class="u" href="#diagrams">6 · System diagrams</a></li>
+    <li><a href="#m6-1">6.1 Cloud architecture</a></li>
+    <li><a href="#m6-2">6.2 Cybersecurity architecture</a></li>
+    <li><a href="#m6-3">6.3 System architecture</a></li>
+    <li><a href="#m6-4">6.4 Use case diagram</a></li>
+    <li><a href="#m6-5">6.5 DFD Level 0</a></li>
+    <li><a href="#m6-6">6.6 DFD Level 1</a></li>
+  </ol>
+</nav>
+
+<main>
+<header class="hero">
+  <div class="tiles" aria-hidden="true"><span class="g">K</span><span class="n">U</span><span class="y">S</span><span class="n">I</span><span class="o">N</span><span class="n">A</span><span class="g">K</span><span class="y">O</span><span class="o">D</span><span class="n">E</span></div>
+  <h1>Kusina Kode System Primer</h1>
+  <p class="lede">A lecture-style study module for the capstone defense. Every concept is taught the same way, and every example points to code that actually runs in Kusina Kode: the Android app, the PHP API on Azure, and the admin console.</p>
+  <ol class="method" aria-label="How each module is structured">
+    <li><b>Definition</b>The textbook concept.</li>
+    <li><b>Why it matters here</b>What problem it solves in Kusina Kode.</li>
+    <li><b>How we applied it</b>The real file, class or table.</li>
+    <li><b>In plain words</b>How to say it to a non-programmer.</li>
+    <li><b>Insights</b>Why we chose it, and supporting evidence.</li>
+  </ol>
+</header>
+
+<section class="plan" id="plan">
+  <div class="eyebrow">Before you start</div>
+  <h2 class="unit-title">Study plan</h2>
+  <p class="unit-intro">Six sessions of about 45 minutes. Read a unit, then answer its "Panel might ask" lines out loud without looking. Units 1 to 3 are the program itself; units 4 and 5 are how it is protected and hosted, and unit 6 ties it all together in the diagrams.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Session</th><th>Unit</th><th>Goal</th><th>You can explain…</th></tr></thead>
+    <tbody>
+      <tr><td class="num">1</td><td>OOP &amp; architecture</td><td>Know how the code is organised</td><td>Why the app is split into screens, ViewModels, rules and repositories</td></tr>
+      <tr><td class="num">2</td><td>Data structures</td><td>Know where data lives and why</td><td>Why a map, a set or a chain was the right container</td></tr>
+      <tr><td class="num">3</td><td>Algorithms</td><td>Know the core logic step by step</td><td>How a guess becomes coloured tiles, and how XP and ranks are computed</td></tr>
+      <tr><td class="num">4</td><td>Cybersecurity</td><td>Know what protects players and rewards</td><td>Passwords, tokens, lockout, encryption, and why the ledger can't be faked</td></tr>
+      <tr><td class="num">5</td><td>Cloud computing</td><td>Know where it runs and how well</td><td>Each Azure service, what it costs us, and what the stress test showed</td></tr>
+      <tr><td class="num">6</td><td>System diagrams</td><td>Walk through each figure in a minute</td><td>The cloud, security and system architecture, the use cases and the data flows</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- ======================= UNIT 1 ======================= -->
+<section class="unit" id="oop">
+  <div class="eyebrow">Unit 1</div>
+  <h2 class="unit-title">Object-oriented programming &amp; architecture</h2>
+  <p class="unit-intro">The app is written in Kotlin and the admin console in C#; both are object-oriented. In the app alone there are 114 data classes, 15 interfaces, 16 enums, 59 singleton objects and 8 ViewModels.</p>
+
+  <article class="module" id="m1-1">
+    <h3>1.1 Classes and objects <span class="code">data class · enum · object</span></h3>
+    <div class="steps">
+      <div class="step"><div class="k def">Definition</div><div><p>A <b>class</b> is a blueprint that bundles data (properties) with the behaviour that works on it (methods). An <b>object</b> is one instance made from that blueprint.</p></div></div>
+      <div class="step"><div class="k rel">Why it matters here</div><div><p>Kusina Kode handles many "things" with their own data: levels, players, badges, ingredients, attempts. Modelling each as a class keeps its data and rules together and consistent everywhere they are used.</p></div></div>
+      <div class="step"><div class="k app">How we applied it</div><div>
+        <ul>
+          <li><b>Data classes</b> for records, e.g. <code>PlayerProgress</code> (points, streaks, solved levels) and <code>LevelData</code>. Kotlin generates equality and copying for them, so <code>current.copy(totalPoints = …)</code> makes a new updated record safely.</li>
+          <li><b>Enums</b> for fixed choices: <code>Region</code> (Luzon, Visayas, Mindanao), <code>Rarity</code>, <code>TileState</code> (Correct, SemiCorrect, Wrong), <code>PowerUp</code>.</li>
+          <li><b>Singleton objects</b> for one shared rulebook: <code>WordleEngine</code>, <code>ScoreRules</code>, <code>ChefRank</code>, <code>IngredientCatalog</code>.</li>
+        </ul></div></div>
+      <div class="step"><div class="k lay">In plain words</div><div class="lay-box">A class is the recipe card; an object is the dish you cook from it. Every level in the game is cooked from the same "level" recipe, so they all have a word, a region and ingredients.</div></div>
+      <div class="step"><div class="k ins">Insights</div><div><p>Data classes are <b>immutable by habit</b> in the app: progress is replaced with <code>copy()</code> rather than edited in place, which avoids half-updated scores when several screens read the same data.</p><p>Enums stop impossible values: a tile can only be one of three states, so a typo like "corect" can't compile.</p></div></div>
+    </div>
+    <p class="q"><b>Panel might ask:</b> "Why use a singleton for the scoring rules?" Because there must be exactly one rulebook; two copies could score the same round differently.</p>
+  </article>
+
+  <article class="module" id="m1-2">
+    <h3>1.2 Encapsulation <span class="code">private · read-only views</span></h3>
+    <div class="steps">
+      <div class="step"><div class="k def">Definition</div><div><p>Hiding an object's internal state and exposing only controlled ways to read or change it.</p></div></div>
+      <div class="step"><div class="k rel">Why it matters here</div><div><p>Game state (the board, the timer, the KK balance) must only change through the game's rules; a screen should never be able to set "you won" directly.</p></div></div>
+      <div class="step"><div class="k app">How we applied it</div><div>
+        <pre><code>// GameViewModel.kt
+private val _uiState = MutableStateFlow(…)   // only the ViewModel can change it
+val uiState = _uiState.asStateFlow()         // screens get a read-only view</code></pre>
+        <ul><li>The same pattern guards <code>PantryViewModel</code>, <code>KkBalance</code> and the gamification store (<code>private set</code> on <code>gamification</code> in <code>KusinaKodeApp</code>).</li>
+        <li>On the web, ASP.NET pages reach data only through the composition root and service classes (<code>DishService</code>, <code>IngredientService</code>), never straight to SQL.</li></ul></div></div>
+      <div class="step"><div class="k lay">In plain words</div><div class="lay-box">The kitchen has one door for orders. Diners can see the food, but only the cook can change it.</div></div>
+      <div class="step"><div class="k ins">Insights</div><div><p>This is also a security property: if the screen can't change the score, a bug in a screen can't award free KK. The server re-checks everything anyway (see 4.2).</p></div></div>
+    </div>
+  </article>
+
+  <article class="module" id="m1-3">
+    <h3>1.3 Abstraction <span class="code">interfaces</span></h3>
+    <div class="steps">
+      <div class="step"><div class="k def">Definition</div><div><p>Describing <i>what</i> something does through an interface while hiding <i>how</i> it does it.</p></div></div>
+      <div class="step"><div class="k rel">Why it matters here</div><div><p>The game needs data from several places: the phone's storage, the PHP API, the chain. The game logic shouldn't care which one answered.</p></div></div>
+      <div class="step"><div class="k app">How we applied it</div><div>
+        <ul><li>15 repository interfaces, e.g. <code>GamificationRepository</code>, <code>PantryRepository</code>, <code>LevelRepository</code>, <code>AuthRepository</code>, <code>WalletRepository</code>.</li>
+        <li>The coordinator only knows the interface: <code>GamificationCoordinator(repository: GamificationRepository, …)</code>.</li>
+        <li>The web console does the same with <code>IIngredientStore</code>, <code>IReelStore</code> and <code>IAdminSignIn</code> in <code>Web_KusinaKode/Abstractions</code>.</li></ul></div></div>
+      <div class="step"><div class="k lay">In plain words</div><div class="lay-box">The game asks "give me the pantry". It doesn't need to know whether the answer came from the phone or from the server.</div></div>
+      <div class="step"><div class="k ins">Insights</div><div><p>Abstraction is what made the unit tests possible: tests swap in fake repositories, so <code>ProgressRules</code> and <code>BadgeRules</code> are tested without a phone or internet.</p><p>It also let the team move from local XAMPP to Azure without rewriting the game logic.</p></div></div>
+    </div>
+  </article>
+
+  <article class="module" id="m1-4">
+    <h3>1.4 Inheritance <span class="code">extends Android &amp; ASP.NET base classes</span></h3>
+    <div class="steps">
+      <div class="step"><div class="k def">Definition</div><div><p>A class reusing and extending another class's behaviour (a subclass "is a" kind of its parent).</p></div></div>
+      <div class="step"><div class="k rel">Why it matters here</div><div><p>Android and ASP.NET already provide lifecycle, memory and request handling. Inheriting from their base classes gives Kusina Kode those features for free.</p></div></div>
+      <div class="step"><div class="k app">How we applied it</div><div>
+        <ul><li><code>class KusinaKodeApp : Application()</code>: runs once when the app starts (sets up the network status, gamification store, chain coordinator).</li>
+        <li><code>class GameViewModel(…) : ViewModel()</code> and seven other ViewModels: survive screen rotation and are cleared automatically.</li>
+        <li>Each admin page (<code>Levels.aspx.cs</code>, <code>Audit.aspx.cs</code>…) inherits from ASP.NET's <code>Page</code>; the shared <code>Admin.master</code> layout gives every page the sidebar and sign-in check.</li></ul></div></div>
+      <div class="step"><div class="k lay">In plain words</div><div class="lay-box">Instead of building our own kitchen, we rented one and added our own recipes.</div></div>
+      <div class="step"><div class="k ins">Insights</div><div><p>The code favours <b>composition over deep inheritance</b>: our own classes rarely extend each other. They combine small parts (a repository, a coordinator) instead, which keeps them easier to test and change.</p></div></div>
+    </div>
+  </article>
+
+  <article class="module" id="m1-5">
+    <h3>1.5 Polymorphism <span class="code">one interface, many forms</span></h3>
+    <div class="steps">
+      <div class="step"><div class="k def">Definition</div><div><p>One interface or type can stand for many concrete forms, and the right behaviour is chosen at run time.</p></div></div>
+      <div class="step"><div class="k rel">Why it matters here</div><div><p>Some features have several sources or outcomes: the same "progress" can be stored locally or remotely, and a guess can be valid or invalid in several ways.</p></div></div>
+      <div class="step"><div class="k app">How we applied it</div><div>
+        <ul><li><b>Interface polymorphism:</b> <code>LocalGamificationRepository</code>, <code>RemotePantryRepository</code>, <code>RemoteAttemptRepository</code> are concrete forms of their repository interfaces.</li>
+        <li><b>Sealed types:</b> <code>WordleEngine.GuessValidation</code> is <code>Valid</code>, <code>Incomplete</code>, <code>WrongLength(expected, actual)</code> or <code>NotLetters</code>. The compiler forces every screen to handle all four.</li>
+        <li><code>NotificationGlyph</code> is either <code>Art</code> (a bundled picture) or <code>Remote</code> (a web picture), drawn differently.</li></ul></div></div>
+      <div class="step"><div class="k lay">In plain words</div><div class="lay-box">"Serve the dish" works for adobo or sinigang; each one knows how it should be plated.</div></div>
+      <div class="step"><div class="k ins">Insights</div><div><p>Sealed types turn "did we handle every case?" into a compile error instead of a crash. When a new validation case is added, every place that forgot it stops compiling.</p></div></div>
+    </div>
+  </article>
+
+  <article class="module" id="m1-6">
+    <h3>1.6 MVVM, Repository &amp; Clean Architecture <span class="code">design patterns</span></h3>
+    <div class="steps">
+      <div class="step"><div class="k def">Definition</div><div><p><b>MVVM</b> separates the View (screen), ViewModel (state and actions) and Model (data and rules). The <b>Repository</b> pattern hides data sources behind one class. <b>Clean Architecture</b> arranges code in layers where inner rules never depend on outer details. The <b>Observer</b> pattern lets screens react automatically when data changes.</p></div></div>
+      <div class="step"><div class="k rel">Why it matters here</div><div><p>The project rule (<code>CLAUDE.md</code>) is that screens never call the network or database directly. Four people work on different modules, so clear layers prevent stepping on each other.</p></div></div>
+      <div class="step"><div class="k app">How we applied it</div><div>
+        <ul><li><b>App:</b> Compose screens → ViewModels exposing <code>StateFlow</code> (observer) → repositories → <code>KusinaApi</code> (Ktor HTTP client). Pure rules live in <code>domain/</code> with no Android code.</li>
+        <li><b>Web console:</b> Kyla split it into <code>KusinaKode.Domain</code> (rules, with tests), <code>Application</code> (services), <code>Data</code> (stores) and <code>Presentation</code> (pages), wired in one composition root.</li></ul></div></div>
+      <div class="step"><div class="k lay">In plain words</div><div class="lay-box">The waiter (screen) takes the order, the head cook (ViewModel) decides what happens, and the pantry staff (repository) fetch ingredients. Nobody does someone else's job.</div></div>
+      <div class="step"><div class="k ins">Insights</div><div><p>Because the rules are separate, the same tile-scoring and XP logic is unit-tested on its own (<code>WordleEngineTest</code>, <code>ScoreRulesTest</code>, <code>ProgressRulesTest</code>). Defect D-01 (wrong colours for repeated letters) was found and fixed in that layer.</p></div></div>
+    </div>
+    <p class="q"><b>Panel might ask:</b> "Why not let screens call the API?" A slow network would freeze the screen, and every screen would duplicate error handling. The ViewModel layer does both in one place.</p>
+  </article>
+</section>
+
+<!-- ======================= UNIT 2 ======================= -->
+<section class="unit" id="ds">
+  <div class="eyebrow">Unit 2</div>
+  <h2 class="unit-title">Data structures</h2>
+  <p class="unit-intro">Choosing the right container decides how fast the app can find, check and store things. Each structure below is used on purpose.</p>
+
+  <article class="module" id="m2-1">
+    <h3>2.1 Lists and arrays <span class="code">the guess grid</span></h3>
+    <div class="steps">
+      <div class="step"><div class="k def">Definition</div><div><p>An ordered collection where each element has a position (index 0, 1, 2…).</p></div></div>
+      <div class="step"><div class="k rel">Why it matters here</div><div><p>A guess is a row of letters, and each letter's colour depends on its <b>position</b>. Order is the whole point.</p></div></div>
+      <div class="step"><div class="k app">How we applied it</div><div><p><code>WordleEngine.evaluate()</code> returns <code>List&lt;TileState&gt;</code>, one state per letter, built with <code>MutableList(ans.length) { TileState.Wrong }</code>. The board is a list of these rows: six rows for every dish (<code>MAX_ATTEMPTS = 6</code>).</p></div></div>
+      <div class="step"><div class="k lay">In plain words</div><div class="lay-box">A row of numbered boxes. Box 1 checks letter 1, box 2 checks letter 2, and so on.</div></div>
+      <div class="step"><div class="k ins">Insights</div><div><p>The list is sized from the answer's length, not fixed. That is how the project meets its <b>variable word length</b> requirement: ADOBO makes 5 boxes, SINIGANG makes 8, with no special cases.</p></div></div>
+    </div>
+  </article>
+
+  <article class="module" id="m2-2">
+    <h3>2.2 Hash maps <span class="code">key → value in one step</span></h3>
+    <div class="steps">
+      <div class="step"><div class="k def">Definition</div><div><p>A map stores key-value pairs and finds a value from its key in roughly constant time, O(1), no matter how many entries it holds.</p></div></div>
+      <div class="step"><div class="k rel">Why it matters here</div><div><p>The app constantly looks things up by name or id: a letter's remaining count, an ingredient's picture, an ingredient's details.</p></div></div>
+      <div class="step"><div class="k app">How we applied it</div><div>
+        <ul><li><code>remaining = mutableMapOf&lt;Char, Int&gt;()</code> in the tile algorithm counts unused answer letters.</li>
+        <li><code>IngredientArt.byName</code> maps about 200 dataset ingredient names to their photos.</li>
+        <li><code>IngredientCatalog.byId</code> maps ids like <code>ing_tuna_fresh</code> to ingredient records.</li></ul></div></div>
+      <div class="step"><div class="k lay">In plain words</div><div class="lay-box">A labelled spice rack: you go straight to "garlic" instead of opening every jar.</div></div>
+      <div class="step"><div class="k ins">Insights</div><div><p>Scanning a list of 123 ingredients for every tile on a dish page would repeat that work for each tile; a map answers each lookup at once. Maps also made the 1.23 fix simple: when a web name isn't in the picture map, the app looks it up by id instead.</p></div></div>
+    </div>
+  </article>
+
+  <article class="module" id="m2-3">
+    <h3>2.3 Sets <span class="code">membership without duplicates</span></h3>
+    <div class="steps">
+      <div class="step"><div class="k def">Definition</div><div><p>A collection of unique items, built for fast "is X in here?" checks.</p></div></div>
+      <div class="step"><div class="k rel">Why it matters here</div><div><p>"Has this player already solved this dish?" decides whether a win pays XP and KK. It must be fast and must never count a dish twice.</p></div></div>
+      <div class="step"><div class="k app">How we applied it</div><div><p><code>PlayerProgress.solvedLevels</code> is a <code>Set&lt;Int&gt;</code>. In <code>ProgressRules.advance()</code>: <code>if (event.levelId in current.solvedLevels) return current</code>, so a replay changes nothing. <code>regionsSolved</code> and <code>newIngredientIds</code> are sets too.</p></div></div>
+      <div class="step"><div class="k lay">In plain words</div><div class="lay-box">A stamp card: each dish gets one stamp, and stamping it again doesn't add a second.</div></div>
+      <div class="step"><div class="k ins">Insights</div><div><p>This set is the anti-farming rule. Defect D-05 ("replaying a solved dish awarded points") was fixed by checking this set first. The stress test confirmed it: replays showed "Already solved, +0".</p></div></div>
+    </div>
+  </article>
+
+  <article class="module" id="m2-4">
+    <h3>2.4 Streams and queues <span class="code">StateFlow · event bus · chain queue</span></h3>
+    <div class="steps">
+      <div class="step"><div class="k def">Definition</div><div><p>A <b>queue</b> processes items in arrival order (first in, first out). A <b>stream</b> (flow) delivers a sequence of values over time to whoever is listening.</p></div></div>
+      <div class="step"><div class="k rel">Why it matters here</div><div><p>Many things happen after a win: XP, badges, KK, the chain receipt, the palayok. They must happen in order, even if the player is already on another screen.</p></div></div>
+      <div class="step"><div class="k app">How we applied it</div><div>
+        <ul><li>Screens observe <code>StateFlow</code> streams; when the value changes, the screen redraws.</li>
+        <li><code>GameEvents</code> / <code>GamificationEvents</code> broadcast "round completed", and <code>GamificationCoordinator</code> listens for the whole app lifetime.</li>
+        <li><code>ChainQueue</code> lines up reward transactions for the ledger; on the server, a job settles anything still pending every 15 minutes.</li></ul></div></div>
+      <div class="step"><div class="k lay">In plain words</div><div class="lay-box">Orders go on a rail in the kitchen and are cooked one after another, so none are lost when it gets busy.</div></div>
+      <div class="step"><div class="k ins">Insights</div><div><p>Defect D-31 ("two rewards at once both fail") is exactly the problem queues solve: two writes racing for the same ledger. Ordering them, plus the server-side settle job, removes the race.</p></div></div>
+    </div>
+  </article>
+
+  <article class="module" id="m2-5">
+    <h3>2.5 Hash-linked chain <span class="code">blocks.jsonl</span></h3>
+    <div class="steps">
+      <div class="step"><div class="k def">Definition</div><div><p>A linked list where each element (block) stores the <b>hash of the previous block</b>, so the whole list is chained together. This is the core data structure of a blockchain.</p></div></div>
+      <div class="step"><div class="k rel">Why it matters here</div><div><p>The study's third objective is a tamper-resistant reward record. Every KK earned or spent must be provable later.</p></div></div>
+      <div class="step"><div class="k app">How we applied it</div><div><p>The server keeps the chain in <code>/var/lib/kusinakode/chain/blocks.jsonl</code>, one block per line, with each transaction in <code>txs/</code>. <code>lib/chain.php</code> computes each block's hash and checks the chain's tip; the database stores only receipts (<code>tx_ref</code> in <code>reward_claims</code>, <code>shop_unlocks</code>, <code>ingredient_draws</code>).</p></div></div>
+      <div class="step"><div class="k lay">In plain words</div><div class="lay-box">A receipt book where each page carries a fingerprint of the page before it. Tear out or change one page and every page after it stops matching.</div></div>
+      <div class="step"><div class="k ins">Insights</div><div><p>Why a file and not a SQL table? Because the database is meant to be the editable working copy, while the chain is the evidence. An admin can edit a table, but cannot silently edit a block without breaking every later hash. The hourly integrity check on the Audit page detects exactly that.</p></div></div>
+    </div>
+  </article>
+
+  <article class="module" id="m2-6">
+    <h3>2.6 Relational tables <span class="code">20 tables · keys · relationships</span></h3>
+    <div class="steps">
+      <div class="step"><div class="k def">Definition</div><div><p>Data stored in tables of rows and columns, linked by <b>primary keys</b> (unique id per row) and <b>foreign keys</b> (a column pointing at another table's key).</p></div></div>
+      <div class="step"><div class="k rel">Why it matters here</div><div><p>Players, levels, attempts, rewards and ingredients all relate to each other, and the admin console, analytics and leaderboard query across them.</p></div></div>
+      <div class="step"><div class="k app">How we applied it</div><div><p>Azure SQL holds 20 tables (see the ERD). Examples: <code>attempts.user_id → users.id</code>, <code>attempts.level_id → levels.id</code>, enforced with <code>ON DELETE CASCADE</code>. Composite keys stop duplicates, e.g. <code>reward_claims</code>' key is <code>(user_id, kind, claim_key)</code>, so one first-dish bonus per player per dish.</p></div></div>
+      <div class="step"><div class="k lay">In plain words</div><div class="lay-box">Linked spreadsheets: the attempts sheet doesn't copy player names, it just points to the player's row.</div></div>
+      <div class="step"><div class="k ins">Insights</div><div><p>The composite key on <code>reward_claims</code> makes double payouts impossible at the database level, not just in code. Cascading deletes explain a real event: deleting a level also deleted its attempts, which is why the console now refuses to remove played levels.</p></div></div>
+    </div>
+  </article>
+</section>
+
+<!-- ======================= UNIT 3 ======================= -->
+<section class="unit" id="algo">
+  <div class="eyebrow">Unit 3</div>
+  <h2 class="unit-title">Algorithms</h2>
+  <p class="unit-intro">The step-by-step procedures behind the game. Each one is small, deterministic and unit-tested.</p>
+
+  <article class="module" id="m3-1">
+    <h3>3.1 Two-pass tile scoring <span class="code">WordleEngine.evaluate · O(n)</span></h3>
+    <div class="steps">
+      <div class="step"><div class="k def">Definition</div><div><p>A <b>multi-pass algorithm</b> walks the data more than once, each pass doing one job, so later passes can rely on what earlier passes decided.</p></div></div>
+      <div class="step"><div class="k rel">Why it matters here</div><div><p>This is the heart of the puzzle: turning a guess into green (correct), yellow (in the word, wrong place) and grey (not in the word), and it must handle repeated letters correctly.</p></div></div>
+      <div class="step"><div class="k app">How we applied it</div><div>
+<pre><code>Pass 1: for each position i
+          if guess[i] == answer[i] → Correct (green)
+          else count answer[i] in remaining
+Pass 2: for each position not yet green
+          if remaining[guess[i]] &gt; 0 → SemiCorrect (yellow), remaining −1
+          else → Wrong (grey)</code></pre>
+        <p>Example: answer <b>SISIG</b>, guess <b>SINGS</b> → S I green, N grey, G yellow, the second S yellow (exactly what the booth screenshot shows).</p></div></div>
+      <div class="step"><div class="k lay">In plain words</div><div class="lay-box">First mark every letter that's in the exact right spot. Then, with the letters left over, mark the ones that exist somewhere else, and never more times than they appear in the answer.</div></div>
+      <div class="step"><div class="k ins">Insights</div><div><p>The original Capstone 1 code used a one-pass <code>indexOf()</code>, which matched the first occurrence and showed too many yellows for repeated letters (defect D-01). Two passes plus a count map fix it.</p><p>Time is <b>O(n)</b> for an n-letter word: two passes, each with constant-time map lookups. That's instant even for long dish names.</p></div></div>
+    </div>
+    <p class="q"><b>Panel might ask:</b> "Why two passes?" Because greens must be claimed first; otherwise a yellow could use up a letter that a later position needs for a green.</p>
+  </article>
+
+  <article class="module" id="m3-2">
+    <h3>3.2 The XP formula <span class="code">ScoreRules.pointsFor</span></h3>
+    <div class="steps">
+      <div class="step"><div class="k def">Definition</div><div><p>A <b>deterministic scoring function</b>: the same inputs always give the same output, with no randomness.</p></div></div>
+      <div class="step"><div class="k rel">Why it matters here</div><div><p>XP must reward skill fairly and be reproducible: the same round always scores the same on any phone, which the acceptance criteria call "consistent across sessions".</p></div></div>
+      <div class="step"><div class="k app">How we applied it</div><div>
+<pre><code>XP = 100                        // solved the dish
+   + 20 × (6 − tries used)      // tries left over
+   + 50 if solved on the 1st try
+   + 60 (&lt;30 s) / 40 (&lt;60 s) / 20 (&lt;120 s) / 0</code></pre>
+        <p>Range: <b>100</b> (last try, slow) to <b>310</b> (first try, under 30 s). Losses and replays score 0.</p></div></div>
+      <div class="step"><div class="k lay">In plain words</div><div class="lay-box">You get 100 for solving it, plus bonuses for needing fewer tries, nailing it first time, and being quick.</div></div>
+      <div class="step"><div class="k ins">Insights</div><div><p>Bonuses use <b>buckets</b> (under 30 s, under 60 s…) rather than exact seconds, which the code comments say makes a score "easy to explain to a player, and easy to re-derive if the chain ever needs to audit it".</p></div></div>
+    </div>
+  </article>
+
+  <article class="module" id="m3-3">
+    <h3>3.3 Multi-key sorting <span class="code">LeaderboardRules.rank</span></h3>
+    <div class="steps">
+      <div class="step"><div class="k def">Definition</div><div><p>Sorting by a primary key and breaking ties with secondary keys, using a stable comparison sort (O(n log n)).</p></div></div>
+      <div class="step"><div class="k rel">Why it matters here</div><div><p>A leaderboard must give everyone a clear, fair position, even when two players have the same points.</p></div></div>
+      <div class="step"><div class="k app">How we applied it</div><div>
+<pre><code>rows.sortedWith(
+  compareByDescending { it.points }      // 1. most XP
+    .thenByDescending { it.correctCount } // 2. more dishes solved
+    .thenBy { it.name.lowercase() })      // 3. A–Z, so ties are stable</code></pre></div></div>
+      <div class="step"><div class="k lay">In plain words</div><div class="lay-box">Rank by score; if tied, whoever solved more dishes goes higher; if still tied, alphabetical.</div></div>
+      <div class="step"><div class="k ins">Insights</div><div><p>The final alphabetical key means the order never "flickers" between refreshes for tied players, which players would otherwise read as a bug.</p></div></div>
+    </div>
+  </article>
+
+  <article class="module" id="m3-4">
+    <h3>3.4 Threshold lookup &amp; gated progression <span class="code">ChefRank · UnlockManager</span></h3>
+    <div class="steps">
+      <div class="step"><div class="k def">Definition</div><div><p>Mapping a number onto ordered ranges (thresholds), and a <b>state machine</b> that only allows the next step when the current one is finished.</p></div></div>
+      <div class="step"><div class="k rel">Why it matters here</div><div><p>Ranks and level unlocking are the progression that motivates players (objective 2).</p></div></div>
+      <div class="step"><div class="k app">How we applied it</div><div>
+        <ul><li><code>ChefRank</code>: Kusinero 0 → Line Cook 5 → Sous Chef 10 → Head Chef 20 dishes → Kusina Master when every visible dish is solved. The steps match the round badges, so a rank and its badge arrive together.</li>
+        <li><code>UnlockManager.unlockNextLevel()</code> unlocks only level N+1, and only if the level just won is the current highest N.</li></ul></div></div>
+      <div class="step"><div class="k lay">In plain words</div><div class="lay-box">Like a cooking school: you move from apprentice to head chef as you master more dishes, and each class opens only after you pass the one before.</div></div>
+      <div class="step"><div class="k ins">Insights</div><div><p>Ranks count <b>dishes solved, not XP</b>, so a rank reflects how much of the cuisine you've learned, not how fast you type. "Kusina Master" is tied to the total of visible dishes, so it adjusts automatically when admins add levels.</p></div></div>
+    </div>
+  </article>
+
+  <article class="module" id="m3-5">
+    <h3>3.5 String normalisation &amp; matching <span class="code">IngredientArt.forName</span></h3>
+    <div class="steps">
+      <div class="step"><div class="k def">Definition</div><div><p>Converting text to one canonical form (lowercase, letters and digits only) before comparing, often with regular expressions, plus a <b>fallback chain</b> when the first lookup fails.</p></div></div>
+      <div class="step"><div class="k rel">Why it matters here</div><div><p>Ingredient names arrive written in different ways: "White vinegar", "WHITE VINEGAR", "Vinegar (White/Cane/Coconut)" from the web console.</p></div></div>
+      <div class="step"><div class="k app">How we applied it</div><div>
+<pre><code>key = name.lowercase().replace(Regex("[^a-z0-9]+"), " ").trim()
+1. look up key in the picture map
+2. else find the ingredient with that name in the catalogue → its id
+3. else try "ing_" + key as an id
+→ pantry picture for that id, or null (drawn icon)</code></pre></div></div>
+      <div class="step"><div class="k lay">In plain words</div><div class="lay-box">Ignore capitals and punctuation, then try three ways to recognise the ingredient before giving up and drawing a simple icon.</div></div>
+      <div class="step"><div class="k ins">Insights</div><div><p>Before 1.23, 55 of the web's 123 ingredient names showed a plain icon because only step 1 existed. The test <code>every ingredient in the book has a picture by its name</code> now guards all 123.</p></div></div>
+    </div>
+  </article>
+
+  <article class="module" id="m3-6">
+    <h3>3.6 Hashing &amp; digital signatures <span class="code">SHA-256 · ECDSA</span></h3>
+    <div class="steps">
+      <div class="step"><div class="k def">Definition</div><div><p>A <b>cryptographic hash</b> (SHA-256) turns any data into a fixed 64-character fingerprint; changing one character changes the whole fingerprint. A <b>digital signature</b> (ECDSA) proves who created a message and that it wasn't altered.</p></div></div>
+      <div class="step"><div class="k rel">Why it matters here</div><div><p>They are the algorithms that make the reward ledger trustworthy.</p></div></div>
+      <div class="step"><div class="k app">How we applied it</div><div>
+        <ul><li>Each receipt's id is <code>'0x' . hash('sha256', kk_canonical_json($receipt))</code>: canonical JSON first, so the same receipt always hashes the same.</li>
+        <li>Blocks are signed with <code>openssl_sign(…, OPENSSL_ALGO_SHA256)</code> using an elliptic-curve key on <b>secp256k1</b> (the curve Ethereum and Polygon use), with prime256v1 as a fallback on servers without it.</li>
+        <li>Custodial wallet addresses are derived from the public key's SHA-256 hash.</li></ul></div></div>
+      <div class="step"><div class="k lay">In plain words</div><div class="lay-box">The hash is a fingerprint of the receipt; the signature is the system's stamp. Change the receipt and the fingerprint won't match; fake the stamp and it won't verify.</div></div>
+      <div class="step"><div class="k ins">Insights</div><div><p>Canonical JSON matters: the same data with keys in a different order would otherwise produce a different hash and look "tampered". The unit suite (<code>api/tests/run.php</code>) checked these primitives: 51 passed, 0 failed.</p></div></div>
+    </div>
+  </article>
+</section>
+
+<!-- ======================= UNIT 4 ======================= -->
+<section class="unit" id="sec">
+  <div class="eyebrow">Unit 4</div>
+  <h2 class="unit-title">Cybersecurity</h2>
+  <p class="unit-intro">Security follows the CIA triad: <b>confidentiality</b> (only the right people see data), <b>integrity</b> (data isn't changed without detection) and <b>availability</b> (the system stays usable). Each module below protects one or more of the three.</p>
+
+  <article class="module" id="m4-1">
+    <h3>4.1 Authentication <span class="code">bcrypt · bearer tokens · Google · Entra</span></h3>
+    <div class="steps">
+      <div class="step"><div class="k def">Definition</div><div><p>Proving a user is who they claim to be, and keeping that proof safe afterwards.</p></div></div>
+      <div class="step"><div class="k rel">Why it matters here</div><div><p>Accounts hold KK, badges and progress. A stolen account is stolen rewards.</p></div></div>
+      <div class="step"><div class="k app">How we applied it</div><div>
+        <ul><li>Passwords are stored only as <b>bcrypt hashes</b> (<code>password_hash(…, PASSWORD_DEFAULT)</code>) and checked with <code>password_verify</code>; the plain password is never stored.</li>
+        <li>After login the server issues a random token (<code>random_bytes</code>), stores only its <b>hash</b> in <code>api_tokens.token_hash</code>, and expires it after 30 days. Logging out deletes it.</li>
+        <li>The phone sends it as <code>Authorization: Bearer …</code> (<code>KtorClient</code>).</li>
+        <li>Players can sign in with Google (verified server-side); admins sign in to the console with Microsoft Entra.</li></ul></div></div>
+      <div class="step"><div class="k lay">In plain words</div><div class="lay-box">Your password is turned into an unreadable fingerprint before it's saved. After you log in, you get a temporary pass, and the server only keeps a fingerprint of that too.</div></div>
+      <div class="step"><div class="k ins">Insights</div><div><p>Hashing tokens server-side means even a leaked database can't be used to log in as players. Before the 17 Aug security review, signing out left tokens valid for 30 days (D-25); now logout revokes them.</p></div></div>
+    </div>
+  </article>
+
+  <article class="module" id="m4-2">
+    <h3>4.2 Authorization <span class="code">identity from the token, never the request</span></h3>
+    <div class="steps">
+      <div class="step"><div class="k def">Definition</div><div><p>Deciding what an authenticated user is allowed to do. The server must derive "who you are" from a trusted credential, not from what the client says.</p></div></div>
+      <div class="step"><div class="k rel">Why it matters here</div><div><p>Every reward is tied to a user id. If a client could send any <code>user_id</code>, it could write progress into someone else's account.</p></div></div>
+      <div class="step"><div class="k app">How we applied it</div><div>
+        <ul><li>Endpoints call <code>kk_require_user()</code>, which reads the bearer token and ignores any <code>user_id</code> in the body (fix for D-14, then D-17 for the last four endpoints).</li>
+        <li>Admin console: every page re-checks the signed-in admin and their allowed sections (<code>AdminAuth.IsActiveAdmin</code>), fails closed if unsure, and signs out after 15 minutes idle.</li>
+        <li>Players never touch wallet keys: wallets are <b>custodial</b>, managed on the server.</li></ul></div></div>
+      <div class="step"><div class="k lay">In plain words</div><div class="lay-box">The server doesn't believe "I'm player 46". It checks your pass and decides for itself who you are.</div></div>
+      <div class="step"><div class="k ins">Insights</div><div><p>D-14 was rated <b>Critical</b>: "identity was a claim rather than a credential". It's a classic example of broken access control, the top risk on the OWASP Top 10.</p></div></div>
+    </div>
+  </article>
+
+  <article class="module" id="m4-3">
+    <h3>4.3 Brute-force &amp; enumeration defence <span class="code">lockout · rate limits · generic errors</span></h3>
+    <div class="steps">
+      <div class="step"><div class="k def">Definition</div><div><p>Limiting repeated guesses and avoiding messages that reveal whether an account exists.</p></div></div>
+      <div class="step"><div class="k rel">Why it matters here</div><div><p>Login and password-reset codes can be guessed by a script if attempts are unlimited.</p></div></div>
+      <div class="step"><div class="k app">How we applied it</div><div>
+        <ul><li>Every attempt is logged in <code>auth_attempts</code>; too many failures in a time window locks that account for a set number of minutes ("Too many attempts. Try again in … minutes").</li>
+        <li>Lockout is per account, not per network (D-33): one person's mistakes on campus Wi-Fi don't lock everyone else.</li>
+        <li>Reset codes are bcrypt-hashed and never returned in the API (D-20). Sign-up no longer says which emails exist (D-22), and database errors aren't shown to clients (D-23).</li></ul></div></div>
+      <div class="step"><div class="k lay">In plain words</div><div class="lay-box">Get the password wrong too many times and that account takes a short break. And the app never confirms whether an email is registered.</div></div>
+      <div class="step"><div class="k ins">Insights</div><div><p>Returning the reset code in the API response (D-20) meant anyone could reset anyone's password: a full account takeover. It was found by a security review, not by a user, which is why reviews are part of testing.</p></div></div>
+    </div>
+  </article>
+
+  <article class="module" id="m4-4">
+    <h3>4.4 Data protection <span class="code">TLS · AES-256 · secrets · privacy</span></h3>
+    <div class="steps">
+      <div class="step"><div class="k def">Definition</div><div><p>Keeping data confidential <b>in transit</b> (encryption over the network) and <b>at rest</b> (encryption on disk), and keeping secrets out of code.</p></div></div>
+      <div class="step"><div class="k rel">Why it matters here</div><div><p>Tokens, emails and wallet keys pass through phones, Wi-Fi networks and a public GitHub repository.</p></div></div>
+      <div class="step"><div class="k app">How we applied it</div><div>
+        <ul><li><b>In transit:</b> HTTPS with Let's Encrypt certificates (certbot on the API VM); the app's <code>network_security_config</code> governs its connections.</li>
+        <li><b>At rest on the phone:</b> the token lives in <code>EncryptedSharedPreferences</code> (AES-256-GCM, key in the Android Keystore), and <code>allowBackup="false"</code> keeps it out of device backups (D-24).</li>
+        <li><b>At rest on the server:</b> reward payloads use AES-256-GCM; the master key and wallet private keys live in a vault (<code>lib/vault.php</code>), "never in source, in SQL".</li>
+        <li><b>Repo hygiene:</b> keystore and passwords are git-ignored; Azure resource paths were masked before publishing test data.</li>
+        <li><b>Privacy:</b> UAT responses are confidential under the Data Privacy Act of 2012 (RA 10173).</li></ul></div></div>
+      <div class="step"><div class="k lay">In plain words</div><div class="lay-box">Everything travels in a locked envelope, the phone keeps your pass in a safe, and the server's master keys are never written into the code.</div></div>
+      <div class="step"><div class="k ins">Insights</div><div><p>GCM mode adds authentication on top of encryption: the test suite checks that "tampering ciphertext fails AES-256-GCM authentication", so altered data is rejected rather than silently decrypted into garbage.</p></div></div>
+    </div>
+  </article>
+
+  <article class="module" id="m4-5">
+    <h3>4.5 Injection prevention <span class="code">prepared statements</span></h3>
+    <div class="steps">
+      <div class="step"><div class="k def">Definition</div><div><p><b>SQL injection</b> is when user input is treated as part of a database command. <b>Prepared statements</b> send the command and the data separately, so input can never become code.</p></div></div>
+      <div class="step"><div class="k rel">Why it matters here</div><div><p>Usernames, guesses, report messages and admin form fields all reach the database.</p></div></div>
+      <div class="step"><div class="k app">How we applied it</div><div><p>64 PHP files on the live API use PDO <code>prepare()</code> with named parameters, e.g. <code>$pdo-&gt;prepare("DELETE FROM api_tokens WHERE token_hash = :h")</code>. The guess validator also accepts letters only (<code>NotLetters</code>).</p></div></div>
+      <div class="step"><div class="k lay">In plain words</div><div class="lay-box">The database gets the question and the answer in separate envelopes, so someone typing a command into the name box just gets a strange name, not a deleted table.</div></div>
+      <div class="step"><div class="k ins">Insights</div><div><p>Injection is a long-standing entry on the OWASP Top 10. Validating on the phone is for user experience; the server's prepared statements are the real defence, because attackers can skip the app entirely.</p></div></div>
+    </div>
+  </article>
+
+  <article class="module" id="m4-6">
+    <h3>4.6 Ledger integrity &amp; auditing <span class="code">hash chain · PoA · hourly check</span></h3>
+    <div class="steps">
+      <div class="step"><div class="k def">Definition</div><div><p><b>Integrity</b> means data can't be changed without detection. <b>Proof of Authority (PoA)</b> is a blockchain model where approved signers (here, the server) create blocks, instead of public mining.</p></div></div>
+      <div class="step"><div class="k rel">Why it matters here</div><div><p>KK and badges should not be editable by anyone, admins included. This is the study's core contribution.</p></div></div>
+      <div class="step"><div class="k app">How we applied it</div><div>
+        <ul><li>Each reward is encrypted, hashed and signed (<code>kk_phase2_assemble_sign_poa</code>), then appended to the hash-linked chain under a lock so two writes can't collide.</li>
+        <li>The admin Audit page lists the whole ledger, and an hourly whole-chain check shows a <b>Chain integrity</b> card.</li>
+        <li>The phone only ever shows balances and status read from the API: no seed phrases, keys or gas fees (a project non-negotiable).</li></ul></div></div>
+      <div class="step"><div class="k lay">In plain words</div><div class="lay-box">Every reward is written in ink in a numbered, fingerprinted book. If anyone erases a line, the hourly check spots it.</div></div>
+      <div class="step"><div class="k ins">Insights</div><div><p>Why PoA instead of a public chain like Ethereum? No gas fees per reward, instant confirmation, and no player wallets to lose, while still keeping the tamper-evidence that the study needs. secp256k1 keys keep the door open to a Polygon-compatible chain later.</p></div></div>
+    </div>
+    <p class="q"><b>Panel might ask:</b> "Can an admin give themselves KK?" They could edit the database, but not the chain; the receipt would be missing or the hashes would break, and the integrity check would flag it.</p>
+  </article>
+</section>
+
+<!-- ======================= UNIT 5 ======================= -->
+<section class="unit" id="cloud">
+  <div class="eyebrow">Unit 5</div>
+  <h2 class="unit-title">Cloud computing</h2>
+  <p class="unit-intro">Kusina Kode runs on Microsoft Azure in the <code>kusina-kode</code> resource group (Southeast Asia). This unit maps each service to the concept it demonstrates and to the stress-test evidence.</p>
+
+  <article class="module" id="m5-1">
+    <h3>5.1 Cloud service models <span class="code">IaaS · PaaS · SaaS</span></h3>
+    <div class="steps">
+      <div class="step"><div class="k def">Definition</div><div><p><b>IaaS</b> rents raw servers you manage yourself. <b>PaaS</b> rents a managed platform where the provider runs the server and you supply the app or data. <b>SaaS</b> is finished software you just use.</p></div></div>
+      <div class="step"><div class="k rel">Why it matters here</div><div><p>Each part of the system has different needs, so it uses a different model.</p></div></div>
+      <div class="step"><div class="k app">How we applied it</div><div>
+        <div class="table-wrap" style="margin:6px 0"><table>
+          <thead><tr><th>Part</th><th>Azure service</th><th>Model</th></tr></thead>
+          <tbody>
+            <tr><td>PHP REST API + reward chain</td><td>Virtual Machine <code>vm-kusinakode-api</code></td><td>IaaS</td></tr>
+            <tr><td>Database (36 tables)</td><td>Azure SQL <code>sql-kusinakode/kusinakode</code>, Basic tier</td><td>PaaS</td></tr>
+            <tr><td>Admin console</td><td>App Service <code>app-kusinakode-admin2</code>, B1</td><td>PaaS</td></tr>
+            <tr><td>Uploaded pictures</td><td>Blob Storage <code>stkusinakode/media</code></td><td>PaaS (storage)</td></tr>
+            <tr><td>Admin sign-in</td><td>Microsoft Entra ID</td><td>SaaS identity</td></tr>
+          </tbody>
+        </table></div></div></div>
+      <div class="step"><div class="k lay">In plain words</div><div class="lay-box">We rent a whole kitchen for the API (and run it ourselves), but rent ready-made services for the database, website and photo storage.</div></div>
+      <div class="step"><div class="k ins">Insights</div><div><p>The API is on a VM because the chain needs a private folder on disk and scheduled jobs (cron), which a full server allows. The database and console are PaaS so Azure handles patches and backups.</p></div></div>
+    </div>
+  </article>
+
+  <article class="module" id="m5-2">
+    <h3>5.2 Compute: the API virtual machine <span class="code">vm-kusinakode-api</span></h3>
+    <div class="steps">
+      <div class="step"><div class="k def">Definition</div><div><p>A virtual machine is a software-defined computer in the provider's data centre, with its own OS, disk and network address.</p></div></div>
+      <div class="step"><div class="k rel">Why it matters here</div><div><p>It runs everything the phone talks to: <code>api.kusinakode.com/kusinakode/REST/</code>.</p></div></div>
+      <div class="step"><div class="k app">How we applied it</div><div>
+        <ul><li>A Linux VM serving the PHP API from <code>/var/www/kusinakode</code>, with the chain in <code>/var/lib/kusinakode/chain</code>.</li>
+        <li><b>Scheduled jobs:</b> <code>settle_pending_cron.sh</code> every 15 minutes (finishes stuck rewards) and a receipt-cache refresh every minute.</li>
+        <li><b>Operations:</b> changes are applied with backups first (<code>*.bak-YYYYMMDD</code>) through Azure's Run Command.</li></ul></div></div>
+      <div class="step"><div class="k lay">In plain words</div><div class="lay-box">A computer in Microsoft's building that stays on 24/7 and answers the app's requests.</div></div>
+      <div class="step"><div class="k ins">Insights</div><div><p>Stress test: at 40 simultaneous players the VM's CPU stayed at or under about 12%. The server is not the bottleneck.</p></div></div>
+    </div>
+  </article>
+
+  <article class="module" id="m5-3">
+    <h3>5.3 Managed relational database <span class="code">Azure SQL · DTU</span></h3>
+    <div class="steps">
+      <div class="step"><div class="k def">Definition</div><div><p>A database service where the provider runs the database engine. Capacity is sold in tiers; Azure's <b>DTU</b> (Database Transaction Unit) measures a blend of CPU, memory and disk work.</p></div></div>
+      <div class="step"><div class="k rel">Why it matters here</div><div><p>Every level list, leaderboard and reward lookup hits this database.</p></div></div>
+      <div class="step"><div class="k app">How we applied it</div><div><p>Azure SQL Database <code>kusinakode</code> on the <b>Basic</b> tier, reached by the API's PHP code and Kyla's console. Firewall rules allow only known IPs; administrators sign in with Entra ID or the SQL admin login.</p></div></div>
+      <div class="step"><div class="k lay">In plain words</div><div class="lay-box">A filing cabinet Microsoft looks after, where every record of the game lives.</div></div>
+      <div class="step"><div class="k ins">Insights</div><div><p>Stress test: database load rose from 7% (5 players) to <b>91% peak at 40 players</b>, while the VM sat near 10%. The database tier is the system's capacity limit. The fix is <b>vertical scaling</b> (Basic → Standard), a settings change that costs more per month.</p></div></div>
+    </div>
+    <p class="q"><b>Panel might ask:</b> "How many users can it handle?" Up to 40 at once with zero errors (average response 1.6 s). Past about 50, the Basic database would start queuing; raising its tier is a configuration change.</p>
+  </article>
+
+  <article class="module" id="m5-4">
+    <h3>5.4 Object storage <span class="code">Blob Storage</span></h3>
+    <div class="steps">
+      <div class="step"><div class="k def">Definition</div><div><p>Storage for files ("blobs") addressed by URL, cheaper and simpler than keeping files on a server's disk.</p></div></div>
+      <div class="step"><div class="k rel">Why it matters here</div><div><p>Admins upload dish, equipment and ingredient pictures that the console and app must show.</p></div></div>
+      <div class="step"><div class="k app">How we applied it</div><div><p>Storage account <code>stkusinakode</code>, container <code>media</code>, folders <code>levels/</code> and <code>equipment/</code>. Files are readable by direct URL, but the container can't be listed anonymously.</p></div></div>
+      <div class="step"><div class="k lay">In plain words</div><div class="lay-box">An online photo album: each picture has its own link, but strangers can't browse the album.</div></div>
+      <div class="step"><div class="k ins">Insights</div><div><p>Keeping pictures out of the database keeps the database small and fast, which matters given that the database is the bottleneck (5.3).</p></div></div>
+    </div>
+  </article>
+
+  <article class="module" id="m5-5">
+    <h3>5.5 Identity, domains &amp; certificates <span class="code">Entra · DNS · TLS</span></h3>
+    <div class="steps">
+      <div class="step"><div class="k def">Definition</div><div><p><b>Identity as a service</b> handles sign-in centrally. <b>DNS</b> maps names like <code>api.kusinakode.com</code> to servers, and <b>TLS certificates</b> prove a site is genuine and encrypt traffic.</p></div></div>
+      <div class="step"><div class="k rel">Why it matters here</div><div><p>Players and admins need memorable, trusted addresses, and admin sign-in needs strong protection.</p></div></div>
+      <div class="step"><div class="k app">How we applied it</div><div>
+        <ul><li><code>api.kusinakode.com</code> → API VM. The app first used a hard-coded campus network IP (D-19), then the Azure VM's IP, and from 1.16 this name.</li>
+        <li><code>admin.kusinakode.com</code> → App Service, with Microsoft Entra sign-in for admins.</li>
+        <li>Certificates from Let's Encrypt on the VM, renewed automatically by certbot.</li></ul></div></div>
+      <div class="step"><div class="k lay">In plain words</div><div class="lay-box">The system has proper addresses with a padlock, and admins log in with their Microsoft account.</div></div>
+      <div class="step"><div class="k ins">Insights</div><div><p>Using a domain name instead of an IP means the server can move or be replaced without releasing a new app; only the DNS record changes.</p></div></div>
+    </div>
+  </article>
+
+  <article class="module" id="m5-6">
+    <h3>5.6 Monitoring, performance &amp; scaling <span class="code">Azure Monitor · stress test</span></h3>
+    <div class="steps">
+      <div class="step"><div class="k def">Definition</div><div><p><b>Monitoring</b> collects metrics (CPU, memory, response time). <b>Stress testing</b> pushes a system past normal load to find its limits. <b>Scaling</b> adds capacity: vertically (a bigger machine or tier) or horizontally (more machines).</p></div></div>
+      <div class="step"><div class="k rel">Why it matters here</div><div><p>The study must show the system works for real users, not just on one developer's phone.</p></div></div>
+      <div class="step"><div class="k app">How we applied it</div><div>
+        <div class="table-wrap" style="margin:6px 0"><table>
+          <thead><tr><th>Test</th><th>Result</th></tr></thead>
+          <tbody>
+            <tr><td>API, 5 → 40 players at once</td><td class="num">0 errors · 0.25 s → 1.6 s average</td></tr>
+            <tr><td>Database load (Azure Monitor)</td><td class="num">peak 91% DTU at 40 players</td></tr>
+            <tr><td>API VM CPU</td><td class="num">≤ ~12%</td></tr>
+            <tr><td>Phone (vivo V17 Pro), 22 min of play</td><td class="num">0 crashes · memory flat 146–153 MB</td></tr>
+            <tr><td>Cold start</td><td class="num">0.7 s phone · 2.6 s emulator</td></tr>
+            <tr><td>Idle server, first request</td><td class="num">5.4 s, then ~0.23 s</td></tr>
+          </tbody>
+        </table></div></div></div>
+      <div class="step"><div class="k lay">In plain words</div><div class="lay-box">We pretended 40 people played at once and watched the gauges. Nothing broke; the database was the part working hardest.</div></div>
+      <div class="step"><div class="k ins">Insights</div><div><p>Measuring, not guessing, found the real limit (the database, not the server) and two real fixes: the 1.26 startup change and the 1.27 image and animation changes. It also showed the Game Map is graphics-bound on a mid-range phone. The full workbook is <code>docs/testing/stress-mobile-2026-10-05/</code>.</p></div></div>
+    </div>
+  </article>
+
+  <p class="src">Sources: the Kusina Kode app repository (Kotlin, release 1.27), the KusinaKode-Web repository (ASP.NET + PHP API), the live API on <code>vm-kusinakode-api</code> (read-only inspection, 8 Oct 2026), <code>docs/testing/defects.csv</code>, and the 5 Oct 2026 stress test workbook.</p>
+</section>
+
+<!-- ======================= UNIT 6 ======================= -->
+<section class="unit" id="diagrams">
+  <div class="eyebrow">Unit 6</div>
+  <h2 class="unit-title">System diagrams</h2>
+  <p class="unit-intro">Six diagrams the panel will see in the paper, each checked against the live system on 13 Oct 2026. Learn to walk through each one in under a minute: start at the user, follow the arrows, and end at where the data is stored.</p>
+
+  <article class="module" id="m6-1">
+    <h3>6.1 Cloud architecture <span class="code">Azure · kusina-kode</span></h3>
+    <figure class="diagram"><img src="diagrams/cloud-architecture.png" alt="Kusina Kode cloud architecture on Azure"><figcaption>Every Azure resource in the <code>kusina-kode</code> resource group (Southeast Asia) and how they connect.</figcaption></figure>
+    <div class="steps">
+      <div class="step"><div class="k def">What it shows</div><div><p>Where each part of Kusina Kode runs on Microsoft Azure, and which part talks to which.</p></div></div>
+      <div class="step"><div class="k rel">How to read it</div><div>
+        <ul>
+          <li><b>Left:</b> admins use a web browser; players use the Android app. Both connect over <b>HTTPS</b>.</li>
+          <li><b>Admin path:</b> the <b>Admin Console</b> (App Service, <code>admin.kusinakode.com</code>) calls the API over REST and also reads Azure SQL and Blob Storage directly.</li>
+          <li><b>Player path:</b> the app reaches the <b>NSG</b> (firewall: only ports 443/80 open, SSH from one IP), then the <b>PHP REST API</b> on the VM (<code>api.kusinakode.com</code>) inside <code>vnet-kusinakode</code>.</li>
+          <li><b>Same VM:</b> the <b>PoA Reward Ledger</b> runs next to the API, with its SHA-256 hashes, ECDSA (secp256k1) signatures and AES-256-GCM wallet vault.</li>
+          <li><b>Right:</b> data lives in <b>Azure SQL</b> (players, dishes, rewards; encrypted at rest with AES-256 TDE) and <b>Blob Storage</b> (images, media).</li>
+          <li><b>Bottom:</b> supporting services. <b>Key Vault</b> holds the console's secrets; both the console and the VM read it through their <b>managed identities</b>. <b>Azure Monitor</b> tracks CPU, DTU and response time. <b>Microsoft Entra ID</b> signs admins in; players sign in with Google or email and a bcrypt-hashed password.</li>
+        </ul></div></div>
+      <div class="step"><div class="k app">Key points</div><div><p>It mixes service models: an <b>IaaS</b> VM for the API and ledger, and <b>PaaS</b> for the console, database and storage. There is no Front Door, Cosmos DB or separate blockchain VM; an earlier draft showed them, and they were removed because they don't exist.</p></div></div>
+      <div class="step"><div class="k lay">In plain words</div><div class="lay-box">One rented server runs the game's brain and its receipt book. Microsoft looks after the database and the photo album. A guard at the door only lets normal web traffic in, and the passwords sit in a locked safe that only our two services can open.</div></div>
+      <div class="step"><div class="k ins">Panel might ask</div><div>
+        <p><b>Why a VM for the API, not App Service?</b> The ledger keeps files on disk and needs scheduled jobs (finish stuck rewards every 15 minutes, verify the chain every hour), plus a private key folder. A VM gives that control.</p>
+        <p><b>Why is the blockchain on the same VM?</b> It's a private proof-of-authority ledger with one validator. A second VM would add cost without adding trust; the hourly integrity check is what proves nothing was changed.</p></div></div>
+    </div>
+  </article>
+
+  <article class="module" id="m6-2">
+    <h3>6.2 Cybersecurity architecture <span class="code">CIA triad</span></h3>
+    <figure class="diagram"><img src="diagrams/cybersecurity-architecture.png" alt="Kusina Kode cybersecurity architecture in three layers"><figcaption>Every request passes three layers: confidentiality, integrity and availability.</figcaption></figure>
+    <div class="steps">
+      <div class="step"><div class="k def">What it shows</div><div><p>The security controls, grouped by the <b>CIA triad</b>: <b>C</b>onfidentiality (keep data secret), <b>I</b>ntegrity (detect any change), <b>A</b>vailability (keep the service working for the right people).</p></div></div>
+      <div class="step"><div class="k rel">How to read it</div><div>
+        <ul>
+          <li><b>Layer 1, confidentiality:</b> <b>TLS</b> protects data in transit; <b>AES-256</b> protects it at rest in SQL and Blob; reward payloads are sealed with <b>AES-256-GCM</b>. The admin sign-in secret is in <b>Azure Key Vault</b>. The reward, validator and wallet keys sit in a vault folder on the API VM, outside the app code.</li>
+          <li><b>Layer 2, integrity:</b> each block carries the <b>SHA-256</b> hash of the one before (hash-linked), and the validator signs it with <b>ECDSA (secp256k1)</b>. The private PoA ledger checks each block as it is added and re-verifies the whole chain every hour.</li>
+          <li><b>Layer 3, availability and API security:</b> a <b>zero-trust API</b> (a bearer token is needed on protected endpoints), <b>role-based sign-in</b> (players: email + bcrypt or Google; admins: Microsoft Entra ID), and <b>endpoint protection</b> (rate limiting and input validation).</li>
+        </ul></div></div>
+      <div class="step"><div class="k app">Key points</div><div><p>The controls are real and testable: login locks after <b>3</b> wrong passwords for <b>15</b> minutes (HTTP 429); reset codes lock after <b>5</b> wrong tries; database queries use prepared statements; the phone stores its token encrypted (AES-256-GCM).</p></div></div>
+      <div class="step"><div class="k lay">In plain words</div><div class="lay-box">First, everything travels and rests in locked boxes. Second, every reward is written in a numbered, fingerprinted and stamped receipt book, so any change shows. Third, only people with a valid pass get in, and anyone hammering the door is made to wait.</div></div>
+      <div class="step"><div class="k ins">Panel might ask</div><div>
+        <p><b>What if someone edits a reward directly in the database?</b> The ledger's hashes and signatures no longer match, and the hourly check reports it.</p>
+        <p><b>Are passwords stored?</b> No. Only bcrypt hashes are stored, and only a hash of each login token.</p></div></div>
+    </div>
+  </article>
+
+  <article class="module" id="m6-3">
+    <h3>6.3 System architecture <span class="code">3 tiers</span></h3>
+    <figure class="diagram"><img src="diagrams/system-architecture.png" alt="Kusina Kode system architecture in three tiers"><figcaption>Client tier, middleware and cloud services tier, and blockchain ledger tier.</figcaption></figure>
+    <div class="steps">
+      <div class="step"><div class="k def">What it shows</div><div><p>The system split into <b>tiers</b>: layers that each have one job and talk only to the layer next to them.</p></div></div>
+      <div class="step"><div class="k rel">How to read it</div><div>
+        <ul>
+          <li><b>Client tier:</b> the <b>Admin Web Console</b> (ASP.NET Web Forms, Clean Architecture) and the <b>Android app</b> (MVVM, Clean Architecture). Both connect over HTTPS.</li>
+          <li><b>Middleware and cloud services tier:</b> the <b>PHP REST API</b> (Azure VM) and the <b>Admin Console</b> (App Service), the <b>data layer</b> (Azure SQL and Blob Storage), and the supporting services (Key Vault, Entra ID, Azure Monitor).</li>
+          <li><b>Blockchain ledger tier</b> (private PoA, on the API VM): the <b>KKCoin and KKBadge contract rules</b> decide what a reward is worth, the <b>ledger</b> records it as a signed, hash-linked block, and the <b>TxHash receipts</b> appear in the admin audit panel.</li>
+        </ul></div></div>
+      <div class="step"><div class="k app">Key points</div><div><p>The arrow labelled <b>reward transactions</b> is the only way into the ledger tier: the apps never write to the ledger themselves, they ask the API, and the API applies the contract rules first.</p></div></div>
+      <div class="step"><div class="k lay">In plain words</div><div class="lay-box">The front counter (apps) takes orders, the kitchen (API and database) prepares them, and the cashier's sealed book (ledger) records every payment. Customers never write in the book themselves.</div></div>
+      <div class="step"><div class="k ins">Panel might ask</div><div><p><b>Why separate tiers?</b> Each tier can change without breaking the others. For example, the database was normalized on 12–13 Oct without changing the app, because the API kept the same replies.</p></div></div>
+    </div>
+  </article>
+
+  <article class="module" id="m6-4">
+    <h3>6.4 Use case diagram <span class="code">UML</span></h3>
+    <figure class="diagram"><img src="diagrams/use-case.png" alt="Kusina Kode use case diagram"><figcaption>Who uses the system and what they can do, across the mobile app, the API and reward chain, and the admin console.</figcaption></figure>
+    <div class="steps">
+      <div class="step"><div class="k def">What it shows</div><div><p>The <b>actors</b> (people and outside systems) and the <b>use cases</b> (things they can do), drawn inside three system boundaries.</p></div></div>
+      <div class="step"><div class="k rel">How to read it</div><div>
+        <ul>
+          <li><b>Actors:</b> <b>Player</b>, <b>Admin</b> and <b>Super admin</b> (a kind of Admin: the hollow arrow is generalisation), plus <b>Google</b>, <b>Email service</b>, <b>Microsoft Entra</b> and the <b>Scheduler</b> (timed server jobs).</li>
+          <li><b>Solid lines</b> mean the actor uses that feature. <b>Dashed arrows</b> are «include» (always happens as part of it) or «extend» (optional add-on).</li>
+          <li>Examples: <i>Play a dish level</i> «include» <i>Earn KK &amp; badges</i>; <i>Use a hint / power-up</i> «extend» <i>Play a dish level</i>; every KK action «include» <i>Record transaction on the chain</i>.</li>
+          <li>The Scheduler runs <i>Finish stuck rewards</i> every 15 minutes and <i>Verify chain integrity</i> every hour.</li>
+        </ul></div></div>
+      <div class="step"><div class="k app">Key points</div><div><p><b>Note:</b> <i>Report a reward problem</i> (player) and <i>Resolve player reports</i> (admin) are drawn, but the feature is switched off in the app at the adviser's request. It is kept in the code and database so it can be restored.</p></div></div>
+      <div class="step"><div class="k lay">In plain words</div><div class="lay-box">A map of who does what: players play, learn, shop and earn; admins manage the content and check the books; the server's clock does the routine jobs.</div></div>
+      <div class="step"><div class="k ins">Panel might ask</div><div><p><b>Difference between «include» and «extend»?</b> «Include» always happens (solving a level always earns KK). «Extend» only sometimes happens (a hint is optional while playing).</p></div></div>
+    </div>
+  </article>
+
+  <article class="module" id="m6-5">
+    <h3>6.5 Data flow diagram, Level 0 <span class="code">Context</span></h3>
+    <figure class="diagram"><img src="diagrams/dfd-level0.png" alt="Kusina Kode data flow diagram level 0"><figcaption>The whole system as one process, and the outside parties that exchange data with it.</figcaption></figure>
+    <div class="steps">
+      <div class="step"><div class="k def">What it shows</div><div><p>A <b>context diagram</b>: the system as a single process (0), the <b>external entities</b> around it, and the data that flows in and out.</p></div></div>
+      <div class="step"><div class="k rel">How to read it</div><div>
+        <ul>
+          <li><b>Player</b> sends sign-up/login, guesses and purchases, and gets back levels, dish stories, results, KK balance, badges and rank.</li>
+          <li><b>Admin</b> sends levels, ingredients, equipment and publish decisions, and gets back analytics, the KK ledger, the audit log and chain integrity.</li>
+          <li><b>Google</b> and <b>Microsoft Entra</b> confirm identities; the <b>Email service</b> receives password reset codes to send.</li>
+        </ul></div></div>
+      <div class="step"><div class="k app">Key points</div><div><p>The "reports" and "report decisions" flows belong to the reports feature, which is switched off for now (see 6.4).</p></div></div>
+      <div class="step"><div class="k lay">In plain words</div><div class="lay-box">Treat Kusina Kode as one closed box and list only what goes in and what comes out, and who sends or receives it.</div></div>
+    </div>
+  </article>
+
+  <article class="module" id="m6-6">
+    <h3>6.6 Data flow diagram, Level 1 <span class="code">Processes &amp; stores</span></h3>
+    <figure class="diagram"><img src="diagrams/dfd-level1.png" alt="Kusina Kode data flow diagram level 1"><figcaption>The eight processes inside the system, the seven data stores, and the flows between them.</figcaption></figure>
+    <div class="steps">
+      <div class="step"><div class="k def">What it shows</div><div><p>Level 0's single box opened up: the <b>processes</b> (rounded boxes), the <b>data stores</b> (green, D1–D7) and the flows between them.</p></div></div>
+      <div class="step"><div class="k rel">How to read it</div><div>
+        <ul>
+          <li><b>1.0 Authenticate</b> uses D1 Users &amp; sessions. <b>2.0 Serve game content</b> reads D2 Levels &amp; content and D7 Media.</li>
+          <li><b>3.0 Record gameplay</b> writes D3 Gameplay and tells <b>4.0 Process KK rewards</b> (D4 Rewards) when a level is solved.</li>
+          <li><b>5.0 Manage pantry &amp; palayok</b> uses D5 Pantry. Every KK change goes through <b>6.0 Record &amp; verify reward chain</b> (D6, signed blocks).</li>
+          <li><b>7.0 Manage game content</b> and <b>8.0 Monitor &amp; audit</b> are the admin side.</li>
+          <li>A two-headed arrow means data flows both ways.</li>
+        </ul></div></div>
+      <div class="step"><div class="k app">Key points</div><div><p>The data stores group the database tables by purpose. Since the 12–13 Oct normalization, D2 also covers the new detail tables (for example <code>level_ingredients</code>, <code>level_steps</code>, <code>places</code>) and D4 covers <code>badge_definitions</code> and <code>shop_items</code>; the flows are unchanged.</p></div></div>
+      <div class="step"><div class="k lay">In plain words</div><div class="lay-box">Inside the box: who does each job, which drawer each job reads from or writes to, and what gets handed from one job to the next.</div></div>
+      <div class="step"><div class="k ins">Panel might ask</div><div><p><b>Where is the Scheduler?</b> It's not an outside party, so it isn't drawn as an entity: it's two timed jobs inside 4.0 (every 15 minutes) and 6.0 (every hour), noted under the diagram.</p></div></div>
+    </div>
+  </article>
+
+  <p class="src">Diagrams: cloud, cybersecurity and system architecture (draw.io, 13 Oct 2026); use case and data flow diagrams (30 Sep 2026). Checked against the Azure resources and the live database on 13 Oct 2026.</p>
+</section>
+
+</main>
+</div>
+<style>
+@page { size: A4; margin: 16mm 14mm 16mm 14mm; }
+@media print {
+  :root { color-scheme: light; }
+  html, body { background: #fff !important; }
+  .wrap { display: block; max-width: none; padding: 0; }
+  nav.index { display: none; }
+  body { font-size: 11pt; line-height: 1.5; }
+  article.module { break-inside: avoid-page; page-break-inside: avoid; box-shadow: none; padding: 14px 16px; margin-bottom: 14px; }
+  section.unit { break-before: page; page-break-before: always; margin-top: 0; }
+  .step { grid-template-columns: 120px minmax(0, 1fr); }
+  pre { white-space: pre-wrap; overflow: visible; }
+  .table-wrap { overflow: visible; }
+  a { color: inherit; text-decoration: none; }
+  h2.unit-title, article.module h3 { break-after: avoid; }
+  tr, .table-wrap { break-inside: avoid; page-break-inside: avoid; }
+  header.hero { margin-bottom: 18px; }
+  .lede { font-size: 13pt; }
+  section.plan { margin-top: 18px; }
+}
+</style></body></html>
