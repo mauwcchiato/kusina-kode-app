@@ -216,7 +216,6 @@ fun MyProfileScreen(
         Column(
             Modifier
                 .fillMaxSize()
-                .padding(bottom = inner.calculateBottomPadding())
                 .verticalScroll(rememberScrollState())
         ) {
             // No full-bleed header on this one, so the whole body is capped.
