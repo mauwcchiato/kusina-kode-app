@@ -170,6 +170,8 @@ fun RewardsScreen(
         Column(
             Modifier
                 .fillMaxSize()
+                // Clear of the bottom bar and its bump, so the last receipt is never hidden.
+                .padding(bottom = inner.calculateBottomPadding())
                 .verticalScroll(walletScroll)
                 .onGloballyPositioned { scrollOrigin = it.positionInWindow().y.toInt() }
         ) {
