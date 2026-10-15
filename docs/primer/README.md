@@ -11,103 +11,74 @@ A study module for the capstone defense. It explains how Kusina Kode is built, i
 
 Every concept follows the same steps: **definition**, **why it matters here**, **how we applied it**, **in plain words**, and **insights / what the panel might ask**.
 
-- 📄 **[Kusina-Kode-System-Primer.pdf](Kusina-Kode-System-Primer.pdf)**: the full primer, ready to print (40 pages).
+- 📄 **[Kusina-Kode-System-Primer.pdf](Kusina-Kode-System-Primer.pdf)**: the full primer, ready to print (54 pages).
 - 🌐 **[index.html](index.html)**: the same content as a web page. Download it together with the `diagrams/` folder and open it in a browser.
 
-The six diagrams from Unit 6 are below, each with a short explanation. They were checked against the Azure resources and the live database on 13 Oct 2026.
+
+Unit 6 is a refresher on each kind of diagram in the paper (what it is for, what every shape means, and how to read it), followed by our own diagram and a walk-through. The full lesson for each one is in [index.html](index.html#diagrams). Everything was checked against the code and the live system on 15 Oct 2026.
 
 ---
 
-## 6.1 Cloud architecture
+## 6.1 Data flow diagram (DFD)
 
-![Cloud architecture](diagrams/cloud-architecture.png)
+What it is: how **data moves** through the system: who sends it, which process changes it, and which store keeps it. Gane & Sarson symbols: external entity (rectangle), process (rounded box with its number), data store (open box with its ID), data flow (labelled arrow). Level 0 is the whole system as one process; Level 1 opens it into the main processes; Level 2 opens one of those.
 
-Where each part of Kusina Kode runs on Microsoft Azure (resource group `kusina-kode`, Southeast Asia).
+> **Waiting for the corrected version.** Kyla is fixing Levels 0, 1 and 2. When they are ready, save them as `diagrams/dfd-level0.png`, `diagrams/dfd-level1.png` and `diagrams/dfd-level2.png`, and add them here and in `index.html` (each slot has a ready-made figure in a comment).
 
-- **Clients:** admins use a web browser; players use the Android app. Both connect over **HTTPS**.
-- **Admin Console** (App Service, `admin.kusinakode.com`): calls the API over REST, and also reads Azure SQL and Blob Storage directly.
-- **Player path:** the app goes through the **NSG** firewall (only ports 443/80 open; SSH from one IP) to the **PHP REST API** on the VM (`api.kusinakode.com`, inside `vnet-kusinakode`).
-- **Ledger:** the **PoA Reward Ledger** runs on the same VM, using SHA-256, ECDSA (secp256k1) and an AES-256-GCM wallet vault.
-- **Data:** **Azure SQL** stores players, dishes and rewards (AES-256 at rest, TDE). **Blob Storage** stores images and media.
-- **Supporting services:**
-  - **Key Vault** holds the secrets; both the console and the VM read it through their managed identities.
-  - **Azure Monitor** tracks CPU, DTU and response time.
-  - **Microsoft Entra ID** signs admins in. Players sign in with Google, or with email and a bcrypt-hashed password.
+## 6.2 Entity relationship diagram (ERD)
 
-**In plain words:** one rented server runs the game's brain and its receipt book. Microsoft looks after the database and the photo album. A guard at the door only lets normal web traffic in.
+![ERD](diagrams/erd.png)
 
-**Panel might ask:**
-- **Why a VM for the API?** The ledger keeps files on disk, runs scheduled jobs (every 15 minutes and every hour) and has a private key folder. A VM gives that control.
-- **Why is the blockchain on the same VM?** It's a private proof-of-authority ledger with one validator. The hourly integrity check, not a second machine, is what proves nothing was changed.
+What it is: the **database design**: tables, columns, keys and relationships, in crow's foot notation (two bars = exactly one, circle and bar = zero or one, bar and crow's foot = one or many, circle and crow's foot = zero or many). All 35 tables match the Azure SQL schema. `reports` is left out because the feature is hidden on the adviser's advice.
 
-## 6.2 Cybersecurity architecture
+## 6.3 Process flow
 
-![Cybersecurity architecture](diagrams/cybersecurity-architecture.png)
+What it is: a **flowchart with swimlanes** that follows one scenario. Oval = start or end, rectangle = step, diamond = yes/no decision, cylinder = data store, double-sided box = a process explained elsewhere, lane = who does the step.
 
-The security controls, grouped by the **CIA triad**:
+> **PF1 is waiting for the corrected version** (`diagrams/pf1-solve-dish.png`): step 6 "Is the guess right?" belongs to the App lane, because the app checks the guess and the API only stores it.
 
-- **Confidentiality:**
-  - TLS protects data in transit; AES-256 protects it at rest (SQL, Blob); reward payloads use AES-256-GCM.
-  - The admin sign-in secret is in Key Vault. The reward, validator and wallet keys are in a vault folder on the API VM, outside the app code.
-- **Integrity:**
-  - Each block is linked to the one before by its SHA-256 hash, and signed by the validator with ECDSA (secp256k1).
-  - The ledger checks each block as it is added and re-verifies the whole chain every hour.
-- **Availability and API security:**
-  - **Zero-trust API:** a bearer token is needed on protected endpoints.
-  - **Role-based sign-in:** players use bcrypt or Google; admins use Microsoft Entra ID.
-  - **Endpoint protection:** login locks for 15 minutes after 3 wrong passwords, and inputs are validated.
+![PF2](diagrams/pf2-add-level.png)
+**PF2:** an administrator adds a level and it reaches the app.
 
-**In plain words:** everything travels and rests in locked boxes. Every reward is written in a numbered, fingerprinted and stamped receipt book. Only people with a valid pass get in.
+![PF3](diagrams/pf3-sign-in-lockout.png)
+**PF3:** a player signs in, with the lockout after three failed attempts in 15 minutes.
 
-## 6.3 System architecture
+![PF4](diagrams/pf4-unlock-reel.png)
+**PF4:** a player spends KK to unlock a reel; all four reward phases run before the reel is granted.
+
+## 6.4 Data pipeline
+
+What it is: the **stages** data passes through. The reward pipeline is a transaction lifecycle (one record through four phases); the reporting pipeline is batch ETL (extract, transform, load, serve) run on a schedule.
+
+![Reward pipeline](diagrams/pipeline-reward.png)
+![Reporting pipeline](diagrams/pipeline-reporting.png)
+
+## 6.5 Use case diagram
+
+![Use case](diagrams/use-case.png)
+
+What it is: **who** uses the system and **for what**. Stick figure = actor (a role), ellipse = use case (a goal), box = system boundary, solid line = takes part, dashed «include» = always happens, dashed «extend» = optional or conditional, hollow triangle = "is a kind of".
+
+## 6.6 System architecture
 
 ![System architecture](diagrams/system-architecture.png)
 
-The system is split into three tiers:
+What it is: the **main parts** and how they connect, in three tiers: client, middleware and cloud services, and the blockchain ledger. Only the API sends reward transactions into the ledger tier.
 
-- **Client tier:** the admin web console (ASP.NET Web Forms, Clean Architecture) and the Android app (MVVM, Clean Architecture).
-- **Middleware and cloud services tier:** the PHP REST API (VM), the admin console (App Service), the data layer (Azure SQL and Blob Storage) and the supporting services.
-- **Blockchain ledger tier** (private PoA, on the API VM):
-  1. The KKCoin and KKBadge contract rules decide what a reward is worth.
-  2. The ledger records it as a signed, hash-linked block.
-  3. The TxHash receipts appear in the admin audit panel.
+## 6.7 Activity diagram
 
-The apps never write to the ledger themselves. They ask the API, and the API applies the contract rules first.
+![Player](diagrams/activity-player.png)
+![Administrator](diagrams/activity-admin.png)
 
-## 6.4 Use case diagram
+What it is: **every path** one user can take (UML). Filled circle = start, bullseye = end, rounded box = action, diamond = decision or merge, thick bar = fork/join (steps that all happen), [guards] on the exits.
 
-![Use case diagram](diagrams/use-case.png)
+## 6.8 Other diagrams
 
-- **Actors:** Player, Admin and Super admin (a kind of Admin), plus Google, the Email service, Microsoft Entra and the Scheduler (timed server jobs).
-- **Lines:** solid lines mean the actor uses a feature. Dashed arrows are «include» (always happens as part of it) or «extend» (optional add-on).
-- **Examples:**
-  - *Play a dish level* «include» *Earn KK & badges*.
-  - *Use a hint* «extend» *Play a dish level*.
-  - Every KK action «include» *Record transaction on the chain*.
+![Cloud architecture](diagrams/cloud-architecture.png)
+**Cloud architecture:** the actual Azure resources (resource group, VNet, VM, NSG, App Service, SQL, Blob, Key Vault, Monitor, Entra ID) and the services outside Azure.
 
-> **Note:** *Report a reward problem* and *Resolve player reports* are switched off in the app at the adviser's request. The feature is kept in the code and database so it can be restored.
+![Cybersecurity architecture](diagrams/cybersecurity-architecture.png)
+**Cybersecurity architecture:** the controls grouped by the CIA triad: confidentiality, integrity (tamper evidence) and access control.
 
-## 6.5 Data flow diagram, Level 0 (context)
-
-![DFD Level 0](diagrams/dfd-level0.png)
-
-The whole system as one process, and the outside parties around it:
-
-- **Player:** sends logins, guesses and purchases; receives levels, dish stories, KK, badges and rank.
-- **Admin:** sends content and publish decisions; receives analytics, the KK ledger, the audit log and chain integrity.
-- **Google and Microsoft Entra:** confirm identities.
-- **Email service:** receives the password reset codes to send.
-
-## 6.6 Data flow diagram, Level 1
-
-![DFD Level 1](diagrams/dfd-level1.png)
-
-Level 0 opened up: 8 processes (1.0–8.0), 7 data stores (D1–D7) and the flows between them.
-
-- **Gameplay and rewards:** gameplay (3.0) tells reward processing (4.0) when a level is solved.
-- **The chain:** every KK change goes through the chain (6.0).
-- **Admin side:** content management (7.0) and monitoring and audit (8.0).
-
-Since the 12–13 Oct normalization, D2 also covers the new detail tables (`level_ingredients`, `level_steps`, `places`), and D4 covers `badge_definitions` and `shop_items`. The flows are unchanged.
-
-The Scheduler isn't an outside party, so it isn't drawn as an entity. It runs two timed jobs inside 4.0 (every 15 minutes) and 6.0 (every hour).
+![Conceptual framework](diagrams/conceptual-framework.png)
+**Conceptual framework:** the research model as Input → Process → Output.
