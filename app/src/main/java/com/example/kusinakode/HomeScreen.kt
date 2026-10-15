@@ -262,7 +262,9 @@ fun HomeScreen(
         Box(
             Modifier
                 .fillMaxSize()
-                .padding(bottom = maxOf(inner.calculateBottomPadding() - 34.dp, 0.dp))
+                // The bar's height includes the room for its bump, so the full
+                // padding keeps the last cards clear of the raised circle.
+                .padding(bottom = inner.calculateBottomPadding())
         ) {
             Column(
                 Modifier

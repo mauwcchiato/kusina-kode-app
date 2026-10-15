@@ -216,6 +216,8 @@ fun MyProfileScreen(
         Column(
             Modifier
                 .fillMaxSize()
+                // Clear of the bottom bar and its bump, so the last card is never hidden.
+                .padding(bottom = inner.calculateBottomPadding())
                 .verticalScroll(rememberScrollState())
         ) {
             // No full-bleed header on this one, so the whole body is capped.
