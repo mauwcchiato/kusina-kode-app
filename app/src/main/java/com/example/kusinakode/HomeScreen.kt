@@ -262,7 +262,7 @@ fun HomeScreen(
         Box(
             Modifier
                 .fillMaxSize()
-                .padding(bottom = inner.calculateBottomPadding())
+                .padding(bottom = maxOf(inner.calculateBottomPadding() - 34.dp, 0.dp))
         ) {
             Column(
                 Modifier
@@ -373,7 +373,7 @@ fun HomeScreen(
                     ) {
                         val cell = Modifier.weight(1f)
                         GuideCard(
-                            R.drawable.guide_story, "Story", "Why Kusina Kode Exists",
+                            R.drawable.guide_story, "Story", "Why Kusina Kode\nExists",
                             cell.coachAnchor("home_story", anchors), go(onStory)
                         )
                         GuideCard(
@@ -617,7 +617,7 @@ private fun GuideCard(
 ) {
     Surface(
         shape = RoundedCornerShape(18.dp),
-        color = Color(0xFFF3E6D0),
+        color = Color(0xFFECD1AE),
         shadowElevation = 2.dp,
         modifier = modifier.clickable { onClick() }
     ) {

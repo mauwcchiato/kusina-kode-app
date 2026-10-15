@@ -170,7 +170,6 @@ fun RewardsScreen(
         Column(
             Modifier
                 .fillMaxSize()
-                .padding(bottom = inner.calculateBottomPadding())
                 .verticalScroll(walletScroll)
                 .onGloballyPositioned { scrollOrigin = it.positionInWindow().y.toInt() }
         ) {
