@@ -2,6 +2,7 @@ package com.example.kusinakode.ui.explore
 
 import com.example.kusinakode.ui.components.readableWidth
 import com.example.kusinakode.ui.components.clickSfx
+import com.example.kusinakode.ui.components.isTabletDevice
 import androidx.annotation.DrawableRes
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.Crossfade
@@ -383,7 +384,7 @@ fun ExploreScreen(
             ) {
                 Column(Modifier.fillMaxSize()) {
                     // ---- The map: edge to edge, the whole screen ----
-                    Box(
+                    BoxWithConstraints(
                         Modifier
                             .weight(1f)
                             .fillMaxWidth()
@@ -392,14 +393,28 @@ fun ExploreScreen(
                             // the same browns as Home and the walkthrough cards.
                             .drawBehind { drawKitchenTable() }
                     ) {
+                        // The charts are portrait and fill their card. On an open
+                        // foldable or a tablet the card is wide and short, so the
+                        // archipelago was cropped (north Luzon and Mindanao cut off).
+                        // There the card takes the charts' own shape and sits
+                        // centred on the table; the islands use the same card.
+                        // Phones, in any orientation, keep the edge-to-edge card.
+                        val chartW = maxWidth - MapTableSide * 2
+                        val chartH = maxHeight - (mapArtTop + MapTableTop) - (navPad + MapCtaRoom)
+                        val fitW = chartH * (PhArtWidth / PhArtHeight)
+                        val mapSide = if (isTabletDevice() && chartH > 0.dp && chartW > fitW) {
+                            MapTableSide + (chartW - fitW) / 2
+                        } else {
+                            MapTableSide
+                        }
                         // The chart's parchment frame, a little larger than the art
                         // so its stitched border shows around it.
                         Box(
                             Modifier
                                 .matchParentSize()
                                 .padding(
-                                    start = MapTableSide - MapFrameBorder,
-                                    end = MapTableSide - MapFrameBorder,
+                                    start = mapSide - MapFrameBorder,
+                                    end = mapSide - MapFrameBorder,
                                     top = mapArtTop + MapTableTop - MapFrameBorder,
                                     bottom = navPad + MapCtaRoom - MapFrameBorder - MapFrameLedge
                                 )
@@ -418,8 +433,8 @@ fun ExploreScreen(
                             modifier = Modifier
                                 .matchParentSize()
                                 .padding(
-                                    start = MapTableSide,
-                                    end = MapTableSide,
+                                    start = mapSide,
+                                    end = mapSide,
                                     top = mapArtTop + MapTableTop,
                                     bottom = navPad + MapCtaRoom
                                 )
@@ -463,8 +478,8 @@ fun ExploreScreen(
                             Modifier
                                 .matchParentSize()
                                 .padding(
-                                    start = MapTableSide,
-                                    end = MapTableSide,
+                                    start = mapSide,
+                                    end = mapSide,
                                     top = mapArtTop + MapTableTop,
                                     bottom = navPad + MapCtaRoom
                                 )
@@ -675,6 +690,7 @@ fun ExploreScreen(
                                     onBack = { selectedRegion = null },
                                     topInset = 12.dp,
                                     bottomInset = navPad + MapCtaRoom,
+                                    sideInset = mapSide,
                                     onOpen = { lvl ->
                                         if (lvl.isSolved) onViewDish(lvl.globalId)
                                         else onPlayLevel(lvl.globalId)
@@ -1680,12 +1696,19 @@ private fun IslandLevelsLayer(
     topInset: Dp = 12.dp,
     /** Space kept clear at the foot for PLAY NOW and the bottom bar. */
     bottomInset: Dp = 76.dp,
+    /** Space from the screen edge to the chart; wider on large screens. */
+    sideInset: Dp = MapTableSide,
     /** Marks the next level's stop, for the walkthrough to spotlight. */
     nextLevelModifier: Modifier = Modifier
 ) {
     val solved = levels.count { it.isSolved }
     val total = levels.size
     val complete = total > 0 && solved == total
+    // On an open foldable or a tablet the chart fills a card centred on the
+    // table, and the plate would cover its first flags. There is wood to
+    // spare on either side, so the plate sits on the table beside the card.
+    // Phones keep the plate floating over the open sea at the top.
+    val plateBeside = sideInset >= PlateBesideMinSide
     Box(Modifier.fillMaxSize()) {
         // Each island uses the same card: the painted chart sits at the
         // bottom and the extra room above it is sea.
@@ -1744,8 +1767,8 @@ private fun IslandLevelsLayer(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(
-                        start = MapTableSide,
-                        end = MapTableSide,
+                        start = sideInset,
+                        end = sideInset,
                         top = MapTableTop,
                         bottom = bottomInset
                     )
@@ -1753,11 +1776,37 @@ private fun IslandLevelsLayer(
                     .background(sea)
             )
         }
+        val dishListTab: @Composable () -> Unit = {
+            // Stitched wooden tab for the full kitchen list.
+            Box(
+                dishesModifier
+                    .clip(RoundedCornerShape(50))
+                    .background(PlayNowBrown)
+                    .border(1.5.dp, PlateGold, RoundedCornerShape(50))
+                    .clickable(onClick = onDishList)
+                    .padding(horizontal = 12.dp, vertical = 7.dp)
+            ) {
+                Text(
+                    "Dish List ›",
+                    color = PlateCream,
+                    fontFamily = BeVietnamPro,
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 12.sp
+                )
+            }
+        }
         Column(
-            Modifier
-                .fillMaxSize()
-                // Bottom room for the PLAY NOW button floating on the map.
-                .padding(start = 12.dp, end = 12.dp, top = topInset, bottom = bottomInset)
+            if (plateBeside) {
+                // On the table, left of the card, level with its top edge.
+                Modifier
+                    .padding(start = MapTableSide, top = MapTableTop)
+                    .width(sideInset - MapTableSide * 2)
+            } else {
+                Modifier
+                    .fillMaxSize()
+                    // Bottom room for the PLAY NOW button floating on the map.
+                    .padding(start = 12.dp, end = 12.dp, top = topInset, bottom = bottomInset)
+            }
         ) {
             // The island's name plate, on the same parchment as the app's
             // dialogs and the walkthrough.
@@ -1804,32 +1853,27 @@ private fun IslandLevelsLayer(
                             fraction = if (total == 0) 0f else solved / total.toFloat(),
                             gold = complete
                         )
+                        if (plateBeside) {
+                            // The plate is narrow beside the card, so the tab
+                            // goes under the progress bar instead of next to it.
+                            Spacer(Modifier.height(10.dp))
+                            dishListTab()
+                        }
                         // Clear of the plate's stitched lower edge.
                         Spacer(Modifier.height(8.dp))
                     }
-                    Spacer(Modifier.width(10.dp))
-                    // Stitched wooden tab for the full kitchen list.
-                    Box(
-                        dishesModifier
-                            .clip(RoundedCornerShape(50))
-                            .background(PlayNowBrown)
-                            .border(1.5.dp, PlateGold, RoundedCornerShape(50))
-                            .clickable(onClick = onDishList)
-                            .padding(horizontal = 12.dp, vertical = 7.dp)
-                    ) {
-                        Text(
-                            "Dish List ›",
-                            color = PlateCream,
-                            fontFamily = BeVietnamPro,
-                            fontWeight = FontWeight.ExtraBold,
-                            fontSize = 12.sp
-                        )
+                    if (!plateBeside) {
+                        Spacer(Modifier.width(10.dp))
+                        dishListTab()
                     }
                 }
             }
         }
     }
 }
+
+/** Least table beside the map card that can hold an island's name plate. */
+private val PlateBesideMinSide = 200.dp
 
 /** Sea on the painted Luzon chart, so the fitted picture has no grey edge. */
 private val LuzonSea = Color(0xFF0CABD3)
