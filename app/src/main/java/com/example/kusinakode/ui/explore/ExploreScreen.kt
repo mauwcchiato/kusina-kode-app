@@ -1723,7 +1723,6 @@ private fun IslandLevelsLayer(
                 artW = artW,
                 artH = artH,
                 shields = shields,
-                comingSoonNumber = if (region == Region.LUZON) 15 else null,
                 readArrived = {
                     when (region) {
                         Region.LUZON -> luzonChefArrivedAt
@@ -1981,8 +1980,6 @@ private fun PaintedFlagPath(
     artW: Float,
     artH: Float,
     shields: Array<IntArray>,
-    /** A real level that still is not a dish, such as Luzon 15. */
-    comingSoonNumber: Int? = null,
     readArrived: () -> Int,
     writeArrived: (Int) -> Unit,
     /** Flag 1 sits under the header, so the chef rests on its left. */
@@ -2065,9 +2062,8 @@ private fun PaintedFlagPath(
             val hitR = faceR + faceW * 0.15f
             val hitB = faceB + faceH * 0.25f
             val isCurrent = lvl == current
-            val comingSoon = comingSoonNumber != null && lvl.displayNumber == comingSoonNumber
-            val solved = lvl.isSolved && !comingSoon
-            val needsSolve = isCurrent && !comingSoon
+            val solved = lvl.isSolved
+            val needsSolve = isCurrent
             // 120px on the measured phone, then the same share of the drawn chart.
             val gameCircle = pxDp(LuzonGameCirclePx * drawnW / LuzonCircleRefCardPx)
             val iconCx = (faceL + faceR) / 2f
@@ -2094,11 +2090,6 @@ private fun PaintedFlagPath(
                     .then(if (needsSolve) nextLevelModifier else Modifier)
                     .clickable {
                         when {
-                            comingSoon -> Toast.makeText(
-                                ctx,
-                                "Coming soon",
-                                Toast.LENGTH_SHORT
-                            ).show()
                             lvl.isSolved || lvl.isUnlocked -> onOpen(lvl)
                             else -> Toast.makeText(
                                 ctx,
