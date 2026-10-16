@@ -23,7 +23,9 @@ Unit 6 is a refresher on each kind of diagram in the paper (what it is for, what
 
 What it is: how **data moves** through the system: who sends it, which process changes it, and which store keeps it. Gane & Sarson symbols: external entity (rectangle), process (rounded box with its number), data store (open box with its ID), data flow (labelled arrow). Level 0 is the whole system as one process; Level 1 opens it into the main processes; Level 2 opens one of those.
 
-> **Waiting for the corrected version.** Kyla is fixing Levels 0, 1 and 2. When they are ready, save them as `diagrams/dfd-level0.png`, `diagrams/dfd-level1.png` and `diagrams/dfd-level2.png`, and add them here and in `index.html` (each slot has a ready-made figure in a comment).
+![DFD Level 0](diagrams/dfd-level0.png)
+![DFD Level 1](diagrams/dfd-level1.png)
+![DFD Level 2](diagrams/dfd-level2.png)
 
 ## 6.2 Entity relationship diagram (ERD)
 
@@ -35,7 +37,8 @@ What it is: the **database design**: tables, columns, keys and relationships, in
 
 What it is: a **flowchart with swimlanes** that follows one scenario. Oval = start or end, rectangle = step, diamond = yes/no decision, cylinder = data store, double-sided box = a process explained elsewhere, lane = who does the step.
 
-> **PF1 is waiting for the corrected version** (`diagrams/pf1-solve-dish.png`): step 6 "Is the guess right?" belongs to the App lane, because the app checks the guess and the API only stores it.
+![PF1](diagrams/pf1-solve-dish.png)
+**PF1:** a player solves a dish and receives KK. The app checks the guess; the API records every attempt and pays KK once per dish.
 
 ![PF2](diagrams/pf2-add-level.png)
 **PF2:** an administrator adds a level and it reaches the app.
