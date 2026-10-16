@@ -2,12 +2,14 @@ package com.example.kusinakode.ui.explore
 
 import com.example.kusinakode.ui.components.readableWidth
 import com.example.kusinakode.ui.components.clickSfx
+import com.example.kusinakode.ui.components.isTabletDevice
 import androidx.annotation.DrawableRes
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -85,6 +87,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.res.imageResource
 import androidx.compose.ui.res.painterResource
@@ -383,7 +386,7 @@ fun ExploreScreen(
             ) {
                 Column(Modifier.fillMaxSize()) {
                     // ---- The map: edge to edge, the whole screen ----
-                    Box(
+                    BoxWithConstraints(
                         Modifier
                             .weight(1f)
                             .fillMaxWidth()
@@ -392,14 +395,30 @@ fun ExploreScreen(
                             // the same browns as Home and the walkthrough cards.
                             .drawBehind { drawKitchenTable() }
                     ) {
+                        // The archipelago art is portrait and is cropped to fill
+                        // its card. On an open foldable or a tablet the card is
+                        // wider than the art, so the crop cut off north Luzon and
+                        // Mindanao. There the card narrows to the art's own shape
+                        // and sits centred on the table instead. Phones, in any
+                        // orientation, keep the edge-to-edge card.
+                        val chartW = maxWidth - MapTableSide * 2
+                        val chartH = maxHeight - (mapArtTop + MapTableTop) - (navPad + MapCtaRoom)
+                        val fitW = chartH * (PhArtWidth / PhArtHeight)
+                        val wideChart = isTabletDevice() && selectedRegion == null &&
+                            chartH > 0.dp && chartW > fitW
+                        val mapSide by animateDpAsState(
+                            targetValue = if (wideChart) MapTableSide + (chartW - fitW) / 2 else MapTableSide,
+                            animationSpec = tween(420),
+                            label = "map_side"
+                        )
                         // The chart's parchment frame, a little larger than the art
                         // so its stitched border shows around it.
                         Box(
                             Modifier
                                 .matchParentSize()
                                 .padding(
-                                    start = MapTableSide - MapFrameBorder,
-                                    end = MapTableSide - MapFrameBorder,
+                                    start = mapSide - MapFrameBorder,
+                                    end = mapSide - MapFrameBorder,
                                     top = mapArtTop + MapTableTop - MapFrameBorder,
                                     bottom = navPad + MapCtaRoom - MapFrameBorder - MapFrameLedge
                                 )
@@ -418,8 +437,8 @@ fun ExploreScreen(
                             modifier = Modifier
                                 .matchParentSize()
                                 .padding(
-                                    start = MapTableSide,
-                                    end = MapTableSide,
+                                    start = mapSide,
+                                    end = mapSide,
                                     top = mapArtTop + MapTableTop,
                                     bottom = navPad + MapCtaRoom
                                 )
@@ -463,8 +482,8 @@ fun ExploreScreen(
                             Modifier
                                 .matchParentSize()
                                 .padding(
-                                    start = MapTableSide,
-                                    end = MapTableSide,
+                                    start = mapSide,
+                                    end = mapSide,
                                     top = mapArtTop + MapTableTop,
                                     bottom = navPad + MapCtaRoom
                                 )
@@ -1686,6 +1705,17 @@ private fun IslandLevelsLayer(
     val solved = levels.count { it.isSolved }
     val total = levels.size
     val complete = total > 0 && solved == total
+    val density = LocalDensity.current
+    // On a phone the card is taller than the chart, so the name plate floats
+    // over open sea. On an open foldable or a tablet the card is short and
+    // wide, the chart reaches the top, and the plate hid the first flags.
+    // There the chart is kept below the plate; phones are left as they are.
+    var plateHeight by remember { mutableStateOf(0.dp) }
+    val chartTopReserve = if (isTabletDevice() && plateHeight > 0.dp) {
+        (topInset + plateHeight + PlateChartGap - MapTableTop).coerceAtLeast(0.dp)
+    } else {
+        0.dp
+    }
     Box(Modifier.fillMaxSize()) {
         // Each island uses the same card: the painted chart sits at the
         // bottom and the extra room above it is sea.
@@ -1740,6 +1770,7 @@ private fun IslandLevelsLayer(
                 restLeftOnFirst = region == Region.LUZON || region == Region.VISAYAS,
                 restRightOnSecond = region == Region.LUZON,
                 playLift = if (region == Region.LUZON) 0f else 0.15f,
+                topReserve = chartTopReserve,
                 nextLevelModifier = nextLevelModifier,
                 modifier = Modifier
                     .fillMaxSize()
@@ -1761,6 +1792,7 @@ private fun IslandLevelsLayer(
         ) {
             // The island's name plate, on the same parchment as the app's
             // dialogs and the walkthrough.
+            Box(Modifier.onSizeChanged { plateHeight = with(density) { it.height.toDp() } }) {
             ParchmentCard(contentPadding = 12.dp, ledge = false) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     // Wooden back medallion, centred on the island's name and
@@ -1827,9 +1859,13 @@ private fun IslandLevelsLayer(
                     }
                 }
             }
+            }
         }
     }
 }
+
+/** Water left between the island name plate and the chart on large screens. */
+private val PlateChartGap = 6.dp
 
 /** Sea on the painted Luzon chart, so the fitted picture has no grey edge. */
 private val LuzonSea = Color(0xFF0CABD3)
@@ -1991,6 +2027,8 @@ private fun PaintedFlagPath(
      * so the play circle is lifted to the middle of the shield.
      */
     playLift: Float = 0f,
+    /** Room kept clear above the chart, for the name plate on large screens. */
+    topReserve: Dp = 0.dp,
     modifier: Modifier = Modifier,
     nextLevelModifier: Modifier = Modifier
 ) {
@@ -2003,7 +2041,8 @@ private fun PaintedFlagPath(
     BoxWithConstraints(modifier) {
         val boxW = constraints.maxWidth.toFloat()
         val boxH = constraints.maxHeight.toFloat()
-        val scale = minOf(boxW / artW, boxH / artH)
+        val reservePx = with(density) { topReserve.toPx() }.coerceIn(0f, boxH * 0.5f)
+        val scale = minOf(boxW / artW, (boxH - reservePx) / artH)
         val drawnW = artW * scale
         val drawnH = artH * scale
         val ox = (boxW - drawnW) / 2f
