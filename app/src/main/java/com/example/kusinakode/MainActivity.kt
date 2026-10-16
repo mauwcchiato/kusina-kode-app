@@ -2,6 +2,7 @@
 package com.example.kusinakode
 
 import android.content.Intent
+import android.content.pm.ActivityInfo
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -89,6 +90,17 @@ private const val PASSWORD_RESET_DONE = "password_reset_done"
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Phones stay upright: every screen is laid out for portrait, and on a
+        // phone turned sideways the Game Map had only a thin strip left between
+        // the header, PLAY NOW and the bottom bar. Open foldables and tablets
+        // (smallest width 600dp and up) have room in both directions, so they
+        // still rotate. The activity is recreated on every fold and unfold, so
+        // this runs again whenever the screen changes size.
+        requestedOrientation = if (resources.configuration.smallestScreenWidthDp < 600) {
+            ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+        } else {
+            ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        }
         // Host first: LevelSync and every other call read it immediately.
         ServerConfig.load(this)
         SessionStore.load(this)
