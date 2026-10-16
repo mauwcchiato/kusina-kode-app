@@ -3,8 +3,11 @@ package com.example.kusinakode
 
 import android.content.Intent
 import android.content.pm.ActivityInfo
+import android.hardware.display.DisplayManager
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -90,17 +93,9 @@ private const val PASSWORD_RESET_DONE = "password_reset_done"
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // Phones stay upright: every screen is laid out for portrait, and on a
-        // phone turned sideways the Game Map had only a thin strip left between
-        // the header, PLAY NOW and the bottom bar. Open foldables and tablets
-        // (smallest width 600dp and up) have room in both directions, so they
-        // still rotate. The activity is recreated on every fold and unfold, so
-        // this runs again whenever the screen changes size.
-        requestedOrientation = if (resources.configuration.smallestScreenWidthDp < 600) {
-            ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-        } else {
-            ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-        }
+        applyOrientationForScreen()
+        getSystemService(DisplayManager::class.java)
+            .registerDisplayListener(displayListener, Handler(Looper.getMainLooper()))
         // Host first: LevelSync and every other call read it immediately.
         ServerConfig.load(this)
         SessionStore.load(this)
@@ -143,6 +138,44 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         PlayNudgeScheduler.markOpened(this)
         SoundFx.resumeBgm()
+    }
+
+    override fun onDestroy() {
+        getSystemService(DisplayManager::class.java).unregisterDisplayListener(displayListener)
+        super.onDestroy()
+    }
+
+    /** Folding or unfolding changes the display, so the choice is made again. */
+    private val displayListener = object : DisplayManager.DisplayListener {
+        override fun onDisplayAdded(displayId: Int) = Unit
+        override fun onDisplayRemoved(displayId: Int) = Unit
+        override fun onDisplayChanged(displayId: Int) = applyOrientationForScreen()
+    }
+
+    /**
+     * Phones stay upright: every screen is laid out for portrait, and on a
+     * phone turned sideways the Game Map had only a thin strip left between
+     * the header, PLAY NOW and the bottom bar. Open foldables and tablets
+     * (smallest width 600dp and up) have room in both directions, so they
+     * still rotate.
+     *
+     * The size is the whole screen, not this window. Once portrait is asked
+     * for, an open foldable shows the app in a narrow letterboxed window, and
+     * judging by that window would keep it locked after unfolding.
+     */
+    private fun applyOrientationForScreen() {
+        val smallestDp = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            val screen = windowManager.maximumWindowMetrics.bounds
+            minOf(screen.width(), screen.height()) / resources.displayMetrics.density
+        } else {
+            resources.configuration.smallestScreenWidthDp.toFloat()
+        }
+        val wanted = if (smallestDp < 600f) {
+            ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+        } else {
+            ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        }
+        if (requestedOrientation != wanted) requestedOrientation = wanted
     }
 }
 
