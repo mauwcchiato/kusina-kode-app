@@ -1,18 +1,19 @@
 # Kusina Kode System Primer
 
-A study module for the capstone defense. It starts with a summary of the manuscript, then explains how Kusina Kode is built, in six units:
+A study module for the capstone defense. It starts with a summary of the manuscript, then explains how Kusina Kode is built, in seven units:
 
 0. Manuscript summary: Chapters 1 to 5 in bullets, the numbers to know, and the appendix map (manuscript v2.30)
 1. OOP and architecture
 2. Data structures
 3. Algorithms
 4. Cybersecurity
-5. Cloud computing
-6. System diagrams
+5. Cloud computing (starts with a review of cloud basics: NIST definition, deployment and service models, virtualization, scaling, availability, shared responsibility, cost)
+6. System diagrams, each with a "how to present it" box (steps, a 40-second script, and what to avoid)
+7. Concept checks and panel drills: tap-to-reveal cards on research and statistics, engineering and testing, security and blockchain, and data and algorithms; skill drills to work out (SUS, weighted mean, tile scoring, XP, crow's foot); and the 45 panel questions with answers
 
 Every concept follows the same steps: **definition**, **why it matters here**, **how we applied it**, **in plain words**, and **insights / what the panel might ask**.
 
-- 📄 **[Kusina-Kode-System-Primer.pdf](Kusina-Kode-System-Primer.pdf)**: the full primer, ready to print (65 pages).
+- 📄 **[Kusina-Kode-System-Primer.pdf](Kusina-Kode-System-Primer.pdf)**: the full primer, ready to print (96 pages; the answer cards are printed open).
 - 🌐 **[index.html](index.html)**: the same content as a web page. Download it together with the `diagrams/` folder and open it in a browser.
 
 
