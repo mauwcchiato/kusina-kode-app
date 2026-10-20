@@ -1,7 +1,8 @@
 # Kusina Kode System Primer
 
-A study module for the capstone defense. It explains how Kusina Kode is built, in six units:
+A study module for the capstone defense. It starts with a summary of the manuscript, then explains how Kusina Kode is built, in six units:
 
+0. Manuscript summary: Chapters 1 to 5 in bullets, the numbers to know, and the appendix map (manuscript v2.30)
 1. OOP and architecture
 2. Data structures
 3. Algorithms
@@ -11,7 +12,7 @@ A study module for the capstone defense. It explains how Kusina Kode is built, i
 
 Every concept follows the same steps: **definition**, **why it matters here**, **how we applied it**, **in plain words**, and **insights / what the panel might ask**.
 
-- 📄 **[Kusina-Kode-System-Primer.pdf](Kusina-Kode-System-Primer.pdf)**: the full primer, ready to print (54 pages).
+- 📄 **[Kusina-Kode-System-Primer.pdf](Kusina-Kode-System-Primer.pdf)**: the full primer, ready to print (65 pages).
 - 🌐 **[index.html](index.html)**: the same content as a web page. Download it together with the `diagrams/` folder and open it in a browser.
 
 
