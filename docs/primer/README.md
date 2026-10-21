@@ -13,7 +13,7 @@ A study module for the capstone defense. It starts with a summary of the manuscr
 
 Every concept follows the same steps: **definition**, **why it matters here**, **how we applied it**, **in plain words**, and **insights / what the panel might ask**.
 
-- 📄 **[Kusina-Kode-System-Primer.pdf](Kusina-Kode-System-Primer.pdf)**: the full primer, ready to print (96 pages; the answer cards are printed open).
+- 📄 **[Kusina-Kode-System-Primer.pdf](Kusina-Kode-System-Primer.pdf)**: the full primer, ready to print (97 pages; the answer cards are printed open).
 - 🌐 **[index.html](index.html)**: the same content as a web page. Download it together with the `diagrams/` folder and open it in a browser.
 
 
