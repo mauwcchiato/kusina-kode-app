@@ -310,6 +310,24 @@ object IngredientCatalog {
     /** The panel's picture for [id], when it has one. */
     fun imageUrl(id: String): String? = state.imageUrls[id]
 
+    /**
+     * The panel's picture for the ingredient a dish lists as [name]. Dishes
+     * name their ingredients in words, not ids, so this matches the English
+     * or local name the same loose way IngredientArt does.
+     */
+    fun imageUrlForName(name: String): String? {
+        val key = normaliseName(name)
+        if (key.isEmpty()) return null
+        val current = state
+        val id = current.known.values.firstOrNull {
+            normaliseName(it.name) == key || normaliseName(it.localName) == key
+        }?.id ?: return null
+        return current.imageUrls[id]
+    }
+
+    private fun normaliseName(raw: String): String =
+        raw.lowercase().replace(Regex("[^a-z0-9]+"), " ").trim()
+
     fun ids(): List<String> = all.map { it.id }
 
     /**

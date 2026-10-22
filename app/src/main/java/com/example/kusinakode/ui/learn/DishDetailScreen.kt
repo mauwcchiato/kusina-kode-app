@@ -2,7 +2,9 @@ package com.example.kusinakode.ui.learn
 
 import com.example.kusinakode.ui.components.readableWidth
 import com.example.kusinakode.R
+import coil.compose.SubcomposeAsyncImage
 import com.example.kusinakode.data.levels.EquipmentSync
+import com.example.kusinakode.domain.pantry.IngredientCatalog
 import com.example.kusinakode.ui.components.clickSfx
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
@@ -974,11 +976,23 @@ private fun IngredientTile(name: String, modifier: Modifier = Modifier) {
             contentAlignment = Alignment.Center
         ) {
             // Photography where the dataset's ingredient name matches a shot;
-            // the drawn icon stays as the fallback so a newly added or
-            // mis-spelled ingredient still renders something sensible.
+            // otherwise the picture uploaded in the panel, so an ingredient
+            // added on the web after this build still shows its photo, the
+            // same order the equipment tiles and the pantry use. The drawn
+            // icon stays as the last fallback, and shows while the upload
+            // loads or if it cannot, so a mis-spelled name still renders.
             val photo = IngredientArt.forName(name)
-            if (photo != null) {
-                Image(
+            val uploaded = if (photo == null) IngredientCatalog.imageUrlForName(name) else null
+            val icon: @Composable () -> Unit = {
+                Icon(
+                    ingredientIcon(name),
+                    contentDescription = null,
+                    tint = LightOrange.copy(alpha = 0.92f),
+                    modifier = Modifier.size(46.dp)
+                )
+            }
+            when {
+                photo != null -> Image(
                     painter = painterResource(photo),
                     contentDescription = name,
                     contentScale = ContentScale.Fit,
@@ -986,13 +1000,17 @@ private fun IngredientTile(name: String, modifier: Modifier = Modifier) {
                         .fillMaxSize()
                         .padding(10.dp)
                 )
-            } else {
-                Icon(
-                    ingredientIcon(name),
-                    contentDescription = null,
-                    tint = LightOrange.copy(alpha = 0.92f),
-                    modifier = Modifier.size(46.dp)
+                uploaded != null -> SubcomposeAsyncImage(
+                    model = uploaded,
+                    contentDescription = name,
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(10.dp),
+                    loading = { Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { icon() } },
+                    error = { Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { icon() } }
                 )
+                else -> icon()
             }
         }
         Spacer(Modifier.height(7.dp))
