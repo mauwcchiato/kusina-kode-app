@@ -2,7 +2,7 @@
 
 A study module for the capstone defense. It starts with a summary of the manuscript, then explains how Kusina Kode is built, in seven units:
 
-0. Manuscript summary: Chapters 1 to 5 in bullets, the numbers to know, and the appendix map (manuscript v2.30)
+0. Manuscript summary: Chapters 1 to 5 in bullets, the numbers to know, and the appendix map (final manuscript, 2nd draft, October 23, 2026)
 1. OOP and architecture
 2. Data structures
 3. Algorithms
