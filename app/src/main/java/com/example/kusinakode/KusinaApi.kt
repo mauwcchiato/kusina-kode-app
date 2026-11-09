@@ -522,6 +522,30 @@ data class PantrySpinResponse(
 @Serializable
 data class PantryGrantRequest(val level_id: Int, val power_ups_used: Int = 0)
 
+/**
+ * The ingredient the player picked on a dish's trivia card. The ingredient
+ * lists live in the app, so the app says whether it was right; the server
+ * only enforces that a dish's first answer is the one that counts.
+ */
+@Serializable
+data class TriviaSpinRequest(val level_id: Int, val answer: String, val correct: Boolean)
+
+@Serializable
+data class TriviaSpinData(
+    /** True only when this answer banked a new spin. */
+    val granted: Boolean = false,
+    /** The player answered this dish's trivia before; only the first answer counts. */
+    val already_answered: Boolean = false,
+    val snapshot: PantrySnapshotData? = null
+)
+
+@Serializable
+data class TriviaSpinResponse(
+    val status: String,
+    val data: TriviaSpinData? = null,
+    val message: String? = null
+)
+
 @Serializable
 data class PantryGrantResponse(
     val status: String,
@@ -531,12 +555,18 @@ data class PantryGrantResponse(
 )
 
 @Serializable
-data class PantryDrawRequest(val level_id: Int? = null)
+data class PantryDrawRequest(
+    val level_id: Int? = null,
+    /** The next dish on the island, so the post-win palayok can hint at it. */
+    val hint_level_id: Int? = null
+)
 
 @Serializable
 data class PantryDrawData(
     val ingredient_id: String? = null,
     val is_duplicate: Boolean = false,
+    /** The server picked it from the next dish's ingredients. */
+    val is_hint: Boolean = false,
     val qty: Int = 0,
     val draws_left: Int = 0,
     val collected: Int = 0,
@@ -868,6 +898,29 @@ object KusinaApi {
         return parsed?.data ?: error("Could not buy a spin")
     }
 
+    /**
+     * Reports the first answer to a dish's trivia. The server banks one spin
+     * when that first answer is right; any later answer to the same dish,
+     * right or wrong, pays nothing.
+     *
+     * Returns null when the server has no such endpoint yet (404), so no
+     * wheel is opened for a spin that was never banked.
+     */
+    suspend fun pantryTriviaSpin(levelId: Int, answer: String, correct: Boolean): TriviaSpinData? {
+        val http: io.ktor.client.statement.HttpResponse =
+            KtorClient.client.post("${BASE}pantry/trivia_spin.php") {
+                expectSuccess = false
+                contentType(ContentType.Application.Json)
+                setBody(TriviaSpinRequest(levelId, answer, correct))
+            }
+        if (http.status.value == 404) return null
+        val parsed = runCatching { http.body<TriviaSpinResponse>() }.getOrNull()
+        if (http.status.value >= 400 || parsed?.status == "error") {
+            error(parsed?.message ?: "Could not claim the trivia spin")
+        }
+        return parsed?.data ?: error("Could not claim the trivia spin")
+    }
+
     /** Spends one banked spin. The prize is decided server-side. */
     suspend fun pantrySpin(): PantrySpinData {
         val http: io.ktor.client.statement.HttpResponse =
@@ -882,12 +935,12 @@ object KusinaApi {
         return parsed?.data ?: error("Could not spin the wheel")
     }
 
-    suspend fun pantryDraw(levelId: Int?): PantryDrawResponse {
+    suspend fun pantryDraw(levelId: Int?, hintLevelId: Int? = null): PantryDrawResponse {
         val http: io.ktor.client.statement.HttpResponse =
             KtorClient.client.post("${BASE}pantry/draw.php") {
                 expectSuccess = false
                 contentType(ContentType.Application.Json)
-                setBody(PantryDrawRequest(levelId))
+                setBody(PantryDrawRequest(levelId, hintLevelId))
             }
         val parsed = runCatching { http.body<PantryDrawResponse>() }.getOrNull()
         if (http.status.value >= 400 || parsed?.status == "error") {

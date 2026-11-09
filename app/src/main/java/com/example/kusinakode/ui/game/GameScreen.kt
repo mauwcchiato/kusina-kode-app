@@ -101,6 +101,7 @@ import com.example.kusinakode.R
 import com.example.kusinakode.domain.RoundScored
 import com.example.kusinakode.domain.gamification.PowerUp
 import com.example.kusinakode.domain.gamification.PowerUpRules
+import com.example.kusinakode.domain.engine.WordleEngine
 import com.example.kusinakode.domain.model.TileState
 import com.example.kusinakode.ui.theme.BeVietnamPro
 import com.example.kusinakode.ui.theme.CardSurface
@@ -118,6 +119,7 @@ import kotlin.random.Random
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.kusinakode.ui.gamification.BadgeArt
 import com.example.kusinakode.domain.pantry.PalayokGrantRules
+import com.example.kusinakode.ui.pantry.PALAYOK_HINTS_LIVE
 import com.example.kusinakode.ui.pantry.PantryDrawOverlay
 import com.example.kusinakode.ui.pantry.PantryViewModel
 import com.example.kusinakode.ui.settings.SfxVolumeSlider
@@ -685,6 +687,19 @@ fun GameScreen(
                 )
                 val tileSize = minOf(tileByWidth, tileByHeight)
                     .coerceIn(12.dp, tileCeiling)
+                // The first guess is a warm-up: its tiles take their colour as
+                // each letter is typed, before ENTER. Scored by the engine's
+                // own evaluate, with untyped cells left blank (' ' is never in
+                // an answer), so the live colours are exactly what ENTER would
+                // show. Rows after the first, and the keyboard, still wait.
+                val firstRowPreview: List<TileState>? =
+                    if (uiState.currentRow == 0 && uiState.isRoundActive) {
+                        val typed = uiState.grid.firstOrNull().orEmpty()
+                        if (typed.any { it != ' ' } && typed.size == uiState.level.answer.length) {
+                            val verdict = WordleEngine.evaluate(uiState.level.answer, typed.joinToString(""))
+                            typed.mapIndexed { c, ch -> if (ch == ' ') TileState.Empty else verdict[c] }
+                        } else null
+                    } else null
                 Column(verticalArrangement = Arrangement.spacedBy(gridGap)) {
                     uiState.grid.forEachIndexed { r, row ->
                         val isActive = r == uiState.currentRow && uiState.isRoundActive
@@ -697,10 +712,12 @@ fun GameScreen(
                                 .padding(1.dp)
                         ) {
                             row.forEachIndexed { c, letter ->
+                                val preview = if (r == 0) firstRowPreview?.getOrNull(c) else null
                                 PlayTile(
                                     letter = letter,
-                                    state = uiState.tileStates[r][c],
-                                    revealDelayMs = c * TILE_STAGGER_MS,
+                                    state = preview ?: uiState.tileStates[r][c],
+                                    // A live colour flips at once, not on the row's stagger.
+                                    revealDelayMs = if (preview != null) 0 else c * TILE_STAGGER_MS,
                                     revealBurst = r == uiState.currentRow && c == uiState.justRevealed,
                                     tileSize = tileSize,
                                     row = r,
@@ -1040,7 +1057,8 @@ fun GameScreen(
                 // The palayok opened straight after a win reveals a card the
                 // same way the pantry does, so it offers the same shortcut.
                 onSellNow = { drawn -> drawn.ingredient?.let { pantry.sell(it.id, 1) } },
-                sellingNow = pantryUi.sellingId != null
+                sellingNow = pantryUi.sellingId != null,
+                hintsNextDish = PALAYOK_HINTS_LIVE && pantry.hintLevelId != null
             )
             BackHandler { }
         }

@@ -140,7 +140,9 @@ fun PantryDrawOverlay(
      * The pots show anyway; this stops an empty count from closing them.
      */
     awaitingGrant: Boolean = false,
-    onDismissHaul: () -> Unit = {}
+    onDismissHaul: () -> Unit = {},
+    /** The palayok after this win hints at the next dish; the line under the pots says so. */
+    hintsNextDish: Boolean = false
 ) {
     HoldsTheScreen()
     var beat by remember { mutableStateOf(BaulBeat.Choose) }
@@ -324,6 +326,7 @@ fun PantryDrawOverlay(
                 oneShot = oneShot,
                 drawsAvailable = drawsAvailable,
                 earnedBauls = earnedBauls,
+                hintsNextDish = hintsNextDish,
                 drawingAll = drawingAll,
                 onLater = if (oneShot) onOpenLater?.let { later ->
                     {
@@ -427,6 +430,7 @@ private fun ChooseGrid(
     oneShot: Boolean,
     drawsAvailable: Int,
     earnedBauls: Int,
+    hintsNextDish: Boolean,
     drawingAll: Boolean,
     onOpenAll: (() -> Unit)?,
     /** Keeps the palayok for the Pantry instead of opening it now; null hides the choice. */
@@ -524,6 +528,7 @@ private fun ChooseGrid(
             Spacer(Modifier.height(10.dp))
             Text(
                 when {
+                    earnedBauls <= 1 && hintsNextDish -> "Pick the one you like — Hint for your next dish"
                     earnedBauls <= 1 -> "Pick the one you like — it opens right now"
                     earnedBauls == 2 -> "Pick one to open now. The other is waiting on your pantry shelf"
                     else -> "Pick one to open now. The other ${earnedBauls - 1} are waiting on your pantry shelf"
@@ -1286,18 +1291,30 @@ private fun HaulStackCard(
     }
     IngredientTradingCard(
         ingredient = ingredient,
-        headline = if (result.isDuplicate) "DUPLICATE" else "INGREDIENT UNLOCKED!",
+        headline = result.headline(),
         body = ingredient.lore,
         footer = if (result.isDuplicate) {
             "YOU NOW HOLD ${result.qty} · SPARES SELL FOR ${ingredient.rarity.sellValue} KK"
         } else {
-            "SHELVED IN YOUR PANTRY"
+            "SHELVED IN YOUR PANTRY · WORTH ${ingredient.rarity.sellValue} KK"
+        },
+        footerKk = if (result.isDuplicate) {
+            "SPARES SELL FOR ${ingredient.rarity.sellValue} KK"
+        } else {
+            "WORTH ${ingredient.rarity.sellValue} KK"
         },
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp)
     )
 }
+
+/**
+ * The card's banner line. A hint keeps the usual wording; the line under the
+ * pots is what says the palayok was a hint for the next dish.
+ */
+private fun DrawResult.headline(): String =
+    if (isDuplicate) "DUPLICATE" else "INGREDIENT UNLOCKED!"
 
 /**
  * The drawn ingredient, as the same collectible card the haul deals — so the
@@ -1325,12 +1342,17 @@ fun PantryRevealCard(
         ) {
             IngredientTradingCard(
                 ingredient = ingredient,
-                headline = if (result.isDuplicate) "DUPLICATE" else "INGREDIENT UNLOCKED!",
+                headline = result.headline(),
                 body = ingredient.lore,
                 footer = if (result.isDuplicate) {
                     "YOU NOW HOLD ${result.qty} · SPARES SELL FOR ${rarity.sellValue} KK"
                 } else {
-                    "SHELVED IN YOUR PANTRY"
+                    "SHELVED IN YOUR PANTRY · WORTH ${rarity.sellValue} KK"
+                },
+                footerKk = if (result.isDuplicate) {
+                    "SPARES SELL FOR ${rarity.sellValue} KK"
+                } else {
+                    "WORTH ${rarity.sellValue} KK"
                 },
                 modifier = Modifier
                     .fillMaxWidth()

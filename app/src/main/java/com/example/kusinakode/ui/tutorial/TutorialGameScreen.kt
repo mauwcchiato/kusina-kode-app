@@ -76,6 +76,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.kusinakode.CustomKeyboard
 import com.example.kusinakode.KusinaSettings
+import com.example.kusinakode.R
 import com.example.kusinakode.SoundFx
 import com.example.kusinakode.domain.engine.WordleEngine
 import com.example.kusinakode.domain.model.TileState
@@ -170,6 +171,8 @@ fun TutorialGameScreen(
         guesses.isEmpty() && current.isEmpty() -> "open"
         else -> null
     }
+    // Each line's clip is the chef's recorded voice (res/raw/chef_<beat>_<n>),
+    // so a reworded line needs its clip recorded again to match.
     val beat = remember(beatKey) {
         when (beatKey) {
             "open" -> ChefBeat(
@@ -177,31 +180,36 @@ fun TutorialGameScreen(
                     "Welcome to the practice kitchen. Nothing here is scored, so there's nothing to lose.",
                     "All I'm giving you is the region. Luzon.",
                     "Type any five-letter word to begin."
-                )
+                ),
+                listOf(R.raw.chef_open_1, R.raw.chef_open_2, R.raw.chef_open_3)
             )
             "first_enter" -> ChefBeat(
-                listOf("Now press ENTER. I'll colour in whatever you got right.")
+                listOf("Now press ENTER. I'll colour in whatever you got right."),
+                listOf(R.raw.chef_first_enter_1)
             )
-            "flip" -> ChefBeat(listOf("Watch the tiles."))
+            "flip" -> ChefBeat(listOf("Watch the tiles."), listOf(R.raw.chef_flip_1))
             "legend" -> ChefBeat(
                 listOf(
                     "Green means the letter is right, and it's in the right spot.",
                     "Yellow means the letter belongs to the dish, but you've put it in the wrong place.",
                     "Brown means it isn't in the dish at all.",
                     "Now use them. Guess again."
-                )
+                ),
+                listOf(R.raw.chef_legend_1, R.raw.chef_legend_2, R.raw.chef_legend_3, R.raw.chef_legend_4)
             )
             "solved" -> ChefBeat(
                 listOf(
                     "That's the loop.",
                     "Lugaw — and your badge is already minted."
-                )
+                ),
+                listOf(R.raw.chef_solved_1, R.raw.chef_solved_2)
             )
             "lost" -> ChefBeat(
                 listOf(
                     "Round over. But nothing's lost — this one was never scored.",
                     "The dish was lugaw."
-                )
+                ),
+                listOf(R.raw.chef_lost_1, R.raw.chef_lost_2)
             )
             else -> null
         }
@@ -466,8 +474,6 @@ fun TutorialGameScreen(
             ChefDialogue(
                 beat = beat,
                 reduceMotion = reduceMotion,
-                // Nothing left to play once the round is over.
-                finalLabel = if (finished) "TAP TO SEE THE BOARD" else "TAP TO PLAY",
                 onFinished = { spokenBeats = spokenBeats + beatKey }
             )
         }
@@ -651,6 +657,13 @@ private fun TutorialBoard(
         lo + (hi - lo) * pulse
     }
 
+    // As on the real board, the first guess colours each letter as it is
+    // typed, before ENTER, scored by the same engine (blank cells are ' ',
+    // which is never in the answer). Later rows still wait for ENTER.
+    val firstRowPreview: List<TileState>? =
+        if (guesses.isEmpty() && current.isNotEmpty() && current.length <= answerLength) {
+            WordleEngine.evaluate(TUTORIAL_WORD, current.padEnd(answerLength, ' '))
+        } else null
     Column(
         Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -681,7 +694,7 @@ private fun TutorialBoard(
                         }
                         isActive && col < current.length -> {
                             letter = current[col]
-                            state = TileState.Empty
+                            state = firstRowPreview?.getOrNull(col) ?: TileState.Empty
                         }
                         else -> {
                             letter = ' '

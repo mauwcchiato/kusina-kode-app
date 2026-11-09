@@ -25,7 +25,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.text.style.TextOverflow
@@ -122,6 +125,9 @@ private const val BANNER_INSET = 0.16f
 private const val BODY_INSET = 0.105f
 private const val BADGE_SIZE = 0.19f
 
+/** The KK coin's gold, the same the reward receipts use for KK amounts. */
+private val KkCoinGold = Color(0xFFD9A227)
+
 /**
  * A drawn ingredient as a collectible card. [headline] is the banner line at
  * the top of the body panel, [footer] the small line at its foot.
@@ -137,7 +143,9 @@ internal fun IngredientTradingCard(
     footerColor: Color? = null,
     headlineSizeFraction: Float = 0.030f,
     footerSizeFraction: Float = 0.026f,
-    headlineHalo: Boolean = false
+    headlineHalo: Boolean = false,
+    /** A part of [footer] drawn in KK coin gold, such as the card's value. */
+    footerKk: String? = null
 ) {
     val face = cardFaceFor(ingredient.rarity)
     // Sized to fit the space on BOTH axes.
@@ -211,7 +219,17 @@ internal fun IngredientTradingCard(
             FittedBodyText(body, face.bodyInk, w)
             Spacer(Modifier.height(h * 0.012f))
             Text(
-                footer,
+                buildAnnotatedString {
+                    val kk = footerKk
+                    val at = if (kk.isNullOrEmpty()) -1 else footer.indexOf(kk)
+                    if (kk == null || at < 0) {
+                        append(footer)
+                    } else {
+                        append(footer.substring(0, at))
+                        withStyle(SpanStyle(color = KkCoinGold)) { append(kk) }
+                        append(footer.substring(at + kk.length))
+                    }
+                },
                 color = footerColor ?: face.accentInk,
                 fontFamily = BeVietnamPro,
                 fontWeight = FontWeight.Bold,

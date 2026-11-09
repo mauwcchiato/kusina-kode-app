@@ -59,7 +59,9 @@ data class DrawResult(
     val isDuplicate: Boolean,
     val qty: Int,
     val drawsLeft: Int,
-    val collected: Int
+    val collected: Int,
+    /** Drawn from the next dish's ingredients, as a hint at it. */
+    val isHint: Boolean = false
 )
 
 data class SellResult(

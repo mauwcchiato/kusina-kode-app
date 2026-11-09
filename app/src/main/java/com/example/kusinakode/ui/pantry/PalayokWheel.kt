@@ -50,6 +50,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.kusinakode.PlayNowBrown
 import com.example.kusinakode.R
 import com.example.kusinakode.SoundFx
 import com.example.kusinakode.ui.theme.BeVietnamPro
@@ -129,7 +130,11 @@ internal fun PalayokWheelOverlay(
     spinning: Boolean,
     won: Int?,
     onSpin: () -> Unit,
-    onDone: () -> Unit
+    onDone: () -> Unit,
+    /** Heading before the wheel lands; the daily login's unless a caller earned it otherwise. */
+    title: String = "DAILY SPIN",
+    /** The line under it while a single spin waits. */
+    oneSpinLine: String = "One free spin from today's login. It pays 3, 5 or 8 palayoks."
 ) {
     HoldsTheScreen()
     val ctx = LocalContext.current
@@ -182,7 +187,7 @@ internal fun PalayokWheelOverlay(
             verticalArrangement = Arrangement.Center
         ) {
             Text(
-                if (settled) "THE WHEEL STOPS" else "DAILY SPIN",
+                if (settled) "THE WHEEL STOPS" else title,
                 color = WheelGold,
                 fontFamily = BeVietnamPro,
                 fontWeight = FontWeight.ExtraBold,
@@ -196,7 +201,7 @@ internal fun PalayokWheelOverlay(
                     settled && won != null -> "You won $won palayoks. They are on your shelf."
                     spinning || won != null -> "Round and round…"
                     spinsAvailable > 1 -> "$spinsAvailable spins banked. Each one pays 3, 5 or 8 palayoks."
-                    else -> "One free spin from today's login. It pays 3, 5 or 8 palayoks."
+                    else -> oneSpinLine
                 },
                 color = Color(0xFFE8C9A0),
                 fontFamily = BeVietnamPro,
@@ -265,7 +270,9 @@ internal fun PalayokWheelOverlay(
 
                 else -> Surface(
                     shape = RoundedCornerShape(50),
-                    color = SliceDeep,
+                    // The app's Play Now brown, so SPIN reads as the same
+                    // kind of button as every other call to play.
+                    color = PlayNowBrown,
                     shadowElevation = 6.dp,
                     modifier = Modifier.clickable(onClick = onSpin)
                 ) {
@@ -283,8 +290,10 @@ internal fun PalayokWheelOverlay(
             if (!settled && !spinning && won == null) {
                 Spacer(Modifier.height(12.dp))
                 Text(
-                    "Not now",
-                    color = Color(0xFFD4B48A),
+                    "NOT NOW",
+                    // The palayok reveal's "TAP THE SCREEN TO KEEP IT" gold, so
+                    // the quiet way out reads the same on both overlays.
+                    color = Color(0xFFFFD24A).copy(alpha = 0.75f),
                     fontFamily = BeVietnamPro,
                     fontSize = 11.sp,
                     modifier = Modifier
