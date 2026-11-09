@@ -139,6 +139,10 @@ fun LoginScreen(
                 action = "Sign up",
                 onClick = onGoToSignUp
             )
+            // Read-only here: agreeing happens when an account is created.
+            var showTerms by remember { mutableStateOf(false) }
+            TermsLink(onOpenTerms = { showTerms = true })
+            if (showTerms) TermsDialog(onDismiss = { showTerms = false })
             Spacer(Modifier.height(8.dp))
         }
     }
