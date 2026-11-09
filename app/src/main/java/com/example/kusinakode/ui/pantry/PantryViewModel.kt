@@ -94,7 +94,7 @@ data class PantryUiState(
  * needs no switch: it only says "HINT FOR YOUR NEXT DISH" when the server
  * reports one.
  */
-const val PALAYOK_HINTS_LIVE = false
+const val PALAYOK_HINTS_LIVE = true
 
 class PantryViewModel(
     private val repository: PantryRepository,
