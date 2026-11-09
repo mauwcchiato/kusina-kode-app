@@ -535,9 +535,7 @@ private fun ChooseGrid(
             Spacer(Modifier.height(10.dp))
             Text(
                 when {
-                    earnedBauls <= 1 && hintsNextDish ->
-                        "It holds an ingredient from your next dish" +
-                            (nextDishLabel?.let { ", $it" } ?: "") + ". Pick one to see your clue"
+                    earnedBauls <= 1 && hintsNextDish -> "A clue for " + (nextDishLabel ?: "your next dish")
                     earnedBauls <= 1 -> "Pick the one you like — it opens right now"
                     earnedBauls == 2 -> "Pick one to open now. The other is waiting on your pantry shelf"
                     else -> "Pick one to open now. The other ${earnedBauls - 1} are waiting on your pantry shelf"
