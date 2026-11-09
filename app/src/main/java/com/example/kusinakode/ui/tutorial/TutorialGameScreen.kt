@@ -657,11 +657,11 @@ private fun TutorialBoard(
         lo + (hi - lo) * pulse
     }
 
-    // As on the real board, the first guess colours each letter as it is
-    // typed, before ENTER, scored by the same engine (blank cells are ' ',
-    // which is never in the answer). Later rows still wait for ENTER.
-    val firstRowPreview: List<TileState>? =
-        if (guesses.isEmpty() && current.isNotEmpty() && current.length <= answerLength) {
+    // As on the real board, every guess colours each letter as it is typed,
+    // before ENTER, scored by the same engine (blank cells are ' ', which is
+    // never in the answer). ENTER still sends the guess.
+    val rowPreview: List<TileState>? =
+        if (current.isNotEmpty() && current.length <= answerLength) {
             WordleEngine.evaluate(TUTORIAL_WORD, current.padEnd(answerLength, ' '))
         } else null
     Column(
@@ -694,7 +694,7 @@ private fun TutorialBoard(
                         }
                         isActive && col < current.length -> {
                             letter = current[col]
-                            state = firstRowPreview?.getOrNull(col) ?: TileState.Empty
+                            state = rowPreview?.getOrNull(col) ?: TileState.Empty
                         }
                         else -> {
                             letter = ' '
