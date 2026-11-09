@@ -6,6 +6,7 @@ import coil.compose.SubcomposeAsyncImage
 import com.example.kusinakode.data.levels.EquipmentSync
 import com.example.kusinakode.domain.pantry.IngredientCatalog
 import com.example.kusinakode.ui.components.clickSfx
+import com.example.kusinakode.ui.components.ReadAloudButton
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -979,96 +980,7 @@ private fun StepsReadAloudButton(slug: String, steps: List<CookingStep>) {
             "Step ${i + 1}. $text"
         }
     }
-    ReadAloudButton(key = "steps_$slug", parts = parts, clip = null, what = "the steps")
-}
-
-/**
- * The speaker button both read-alouds share: plays [clip] if given, otherwise
- * speaks each of [parts] in turn. Music sits lower while it reads, and leaving
- * the tab or the dish stops it.
- */
-@Composable
-private fun ReadAloudButton(key: String, parts: List<String>, clip: Int?, what: String) {
-    val ctx = LocalContext.current
-    val voice = remember { ChefVoice(ctx) }
-    var playing by remember(key) { mutableStateOf(false) }
-    val scope = rememberCoroutineScope()
-    var job by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
-
-    DisposableEffect(voice) {
-        onDispose {
-            job?.cancel()
-            voice.shutdown()
-            SoundFx.duckBgm(false)
-        }
-    }
-
-    val toggle: () -> Unit = {
-        if (playing) {
-            job?.cancel()
-        } else if (SoundFx.sfxGain() > 0f) {
-            job = scope.launch {
-                playing = true
-                SoundFx.duckBgm(true)
-                try {
-                    val volume = SoundFx.sfxGain()
-                    if (clip == null || !voice.playClip(clip, volume)) {
-                        for (part in parts) {
-                            if (!voice.speak(part, volume)) break
-                            // A breath between steps, as a cook would pause.
-                            delay(450)
-                        }
-                    }
-                } finally {
-                    SoundFx.duckBgm(false)
-                    playing = false
-                }
-            }
-        }
-    }
-
-    // While it reads, a ring breathes out from the button so it is plain
-    // something is playing even with the sound low.
-    val pulse = rememberInfiniteTransition(label = "read_aloud_pulse")
-    val ring by pulse.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(1100)),
-        label = "story_ring"
-    )
-
-    Box(Modifier.size(38.dp), contentAlignment = Alignment.Center) {
-        if (playing) {
-            Box(
-                Modifier
-                    .size(38.dp)
-                    .graphicsLayer {
-                        scaleX = 1f + ring * 0.35f
-                        scaleY = 1f + ring * 0.35f
-                        alpha = (1f - ring) * 0.45f
-                    }
-                    .clip(CircleShape)
-                    .background(PlayNowBrown)
-            )
-        }
-        Box(
-            Modifier
-                .size(34.dp)
-                .shadow(3.dp, CircleShape)
-                .clip(CircleShape)
-                .background(PlayNowBrown)
-                .border(1.5.dp, Color(0xFFFFD24A).copy(alpha = 0.55f), CircleShape)
-                .clickable(onClick = clickSfx(toggle)),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                if (playing) Icons.Default.Stop else Icons.AutoMirrored.Filled.VolumeUp,
-                contentDescription = if (playing) "Stop reading $what" else "Read $what aloud",
-                tint = Color.White,
-                modifier = Modifier.size(if (playing) 18.dp else 19.dp)
-            )
-        }
-    }
+    ReadAloudButton(key = "steps_$slug", parts = parts, what = "the steps")
 }
 
 /** Story text with spacing and line breaks evened out, for "is this the same story" checks. */
@@ -1136,13 +1048,24 @@ private fun InformationTab(
     }
 
     Spacer(Modifier.height(14.dp))
-    Text(
-        "INGREDIENTS IN ${dishName.uppercase()}",
-        color = HintGray,
-        fontSize = 12.sp,
-        fontWeight = FontWeight.Bold,
-        letterSpacing = 2.sp
-    )
+    val ingredientNames = content?.ingredients.orEmpty().toIngredientList()
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            "INGREDIENTS IN ${dishName.uppercase()}",
+            color = HintGray,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 2.sp,
+            modifier = Modifier.weight(1f)
+        )
+        if (ingredientNames.isNotEmpty()) {
+            ReadAloudButton(
+                key = "ingredients_$slug",
+                parts = listOf("Ingredients in $dishName.", ingredientNames.joinToString(", ") + "."),
+                what = "the ingredients"
+            )
+        }
+    }
     Spacer(Modifier.height(8.dp))
 
     // The sheet interleaves section headers ("For the dough:", "Other Souring
@@ -1561,14 +1484,26 @@ private fun TriviaCard(
                 )
                 .padding(18.dp)
         ) {
-            Text(
-                "TRIVIA QUESTION",
-                color = LightOrange.copy(alpha = 0.85f),
-                fontSize = 9.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 2.sp
-            )
-            Spacer(Modifier.height(8.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    "TRIVIA QUESTION",
+                    color = LightOrange.copy(alpha = 0.85f),
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 2.sp,
+                    modifier = Modifier.weight(1f)
+                )
+                ReadAloudButton(
+                    key = "trivia_${question.prompt}",
+                    parts = listOf(
+                        question.prompt,
+                        "Is it " + question.options.dropLast(1).joinToString(", ") +
+                            (if (question.options.size > 1) ", or " else "") + question.options.last() + "?"
+                    ),
+                    what = "the trivia question"
+                )
+            }
+            Spacer(Modifier.height(4.dp))
             Text(
                 question.prompt,
                 color = Color.White,
@@ -1685,6 +1620,16 @@ private fun EquipmentTab(content: DishContent?, reference: String) {
         )
         if (tools.isNotEmpty()) {
             Text("${tools.size} Essential Tools", color = PlayNowBrown, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.width(8.dp))
+            ReadAloudButton(
+                key = "equipment_$reference",
+                parts = listOf("Kitchen equipment.") + tools.map { tool ->
+                    val name = tool.name.toolLabel()
+                    val about = tool.description.trim()
+                    if (about.isEmpty()) "$name." else "$name. $about"
+                },
+                what = "the equipment"
+            )
         }
     }
     Spacer(Modifier.height(10.dp))

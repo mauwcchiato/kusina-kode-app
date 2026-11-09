@@ -1,5 +1,6 @@
 package com.example.kusinakode.ui.learn
 
+import com.example.kusinakode.ui.components.ReadAloudButton
 import com.example.kusinakode.ui.components.readableWidth
 import com.example.kusinakode.ui.components.clickSfx
 import androidx.annotation.DrawableRes
@@ -417,20 +418,32 @@ fun KodexHubScreen(
             properties = DialogProperties(usePlatformDefaultWidth = false)
         ) {
             val darkPanel = cardFaceFor(entry.ingredient.rarity).bodyInk.luminance() > 0.6f
-            IngredientTradingCard(
-                ingredient = entry.ingredient,
-                headline = entry.ingredient.origin,
-                body = entry.ingredient.lore,
-                footer = if (entry.qty == 1) "1 ON THE SHELF" else "${entry.qty} ON THE SHELF",
-                headlineColor = Color(0xFF6B3A1F),
-                footerColor = if (darkPanel) Color(0xFFFFF6EA) else Color(0xFF111111),
-                headlineSizeFraction = 0.040f,
-                footerSizeFraction = 0.030f,
-                headlineHalo = true,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 44.dp)
-            )
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                IngredientTradingCard(
+                    ingredient = entry.ingredient,
+                    headline = entry.ingredient.origin,
+                    body = entry.ingredient.lore,
+                    footer = if (entry.qty == 1) "1 ON THE SHELF" else "${entry.qty} ON THE SHELF",
+                    headlineColor = Color(0xFF6B3A1F),
+                    footerColor = if (darkPanel) Color(0xFFFFF6EA) else Color(0xFF111111),
+                    headlineSizeFraction = 0.040f,
+                    footerSizeFraction = 0.030f,
+                    headlineHalo = true,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 44.dp)
+                )
+                Spacer(Modifier.height(12.dp))
+                // The card reads itself: name, Filipino name, and its story.
+                ReadAloudButton(
+                    key = "ingredient_${entry.ingredient.id}",
+                    parts = listOf(
+                        entry.ingredient.name + (if (entry.ingredient.localName.isNotBlank() && !entry.ingredient.localName.equals(entry.ingredient.name, true)) ", or " + entry.ingredient.localName else "") + ".",
+                        entry.ingredient.lore
+                    ),
+                    what = "this ingredient"
+                )
+            }
         }
     }
     }
