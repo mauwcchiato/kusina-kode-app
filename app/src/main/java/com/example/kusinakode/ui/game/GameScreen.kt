@@ -1020,6 +1020,8 @@ fun GameScreen(
                 cardRes = uiState.level.cardRes,
                 cardUrl = uiState.level.cardUrl,
                 alreadyClaimed = cardAlreadyClaimed,
+                regionName = uiState.level.region.displayName,
+                about = uiState.level.trivia,
                 onClaim = {
                     showCardReveal = false
                     // The pots show straight away, even while the palayok is
