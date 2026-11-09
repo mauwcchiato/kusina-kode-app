@@ -1058,7 +1058,12 @@ fun GameScreen(
                 // same way the pantry does, so it offers the same shortcut.
                 onSellNow = { drawn -> drawn.ingredient?.let { pantry.sell(it.id, 1) } },
                 sellingNow = pantryUi.sellingId != null,
-                hintsNextDish = PALAYOK_HINTS_LIVE && pantry.hintLevelId != null
+                hintsNextDish = PALAYOK_HINTS_LIVE && pantry.hintLevelId != null,
+                nextDishLabel = pantry.hintLevelId?.takeIf { PALAYOK_HINTS_LIVE }?.let { next ->
+                    runCatching {
+                        "${LevelProvider.forLevel(next).region.displayName} Level ${LevelProvider.regionLevelNumber(next)}"
+                    }.getOrNull()
+                }
             )
             BackHandler { }
         }
