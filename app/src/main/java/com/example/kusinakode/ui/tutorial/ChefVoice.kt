@@ -7,6 +7,7 @@ import androidx.annotation.RawRes
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.speech.tts.Voice
+import android.util.Log
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -114,13 +115,18 @@ class ChefVoice(context: Context) {
             if (lang == TextToSpeech.LANG_MISSING_DATA || lang == TextToSpeech.LANG_NOT_SUPPORTED) {
                 return false
             }
-            // The chef is a male narrator. A male voice speaks at its natural
-            // pitch; without one, the default voice is pitched down to stand in.
+            // The chef is a male narrator, so a male voice is used when the phone
+            // has one. Every voice speaks at its natural pitch: pitching the
+            // default voice down to stand in for a male one made it sound
+            // muffled, and a slowed rate made it drag.
             val male = pickMaleVoice()
             if (male != null) tts.setVoice(male)
-            tts.setPitch(if (male != null) 0.95f else 0.75f)
-            // Unhurried, the pace of someone telling a story.
-            tts.setSpeechRate(0.9f)
+            tts.setPitch(1.0f)
+            tts.setSpeechRate(0.97f)
+            Log.i(
+                "ChefVoice",
+                "voice=" + (runCatching { tts.voice?.name }.getOrNull() ?: "default") + " male=" + (male != null)
+            )
             tts.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
                 override fun onStart(utteranceId: String) = Unit
                 override fun onDone(utteranceId: String) = finish(utteranceId, true)

@@ -243,7 +243,7 @@ object SoundFx {
      * usual level: low enough that the chef's words carry, high enough that
      * the kitchen does not go dead quiet.
      */
-    private const val BGM_DUCKED = 0.35f
+    private const val BGM_DUCKED = 0.15f   // was 0.35: speech over the music sounded muffled
 
     @Volatile private var bgmDuck = 1f
 
