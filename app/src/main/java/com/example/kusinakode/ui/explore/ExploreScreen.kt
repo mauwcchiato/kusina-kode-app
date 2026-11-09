@@ -229,8 +229,11 @@ fun ExploreScreen(
             }
         }
     }
+    // Progress counts finished work only: an island counts once every dish on
+    // it is solved, not as soon as the first one is.
     val regionsExplored = Region.entries.count { r ->
-        allLevels.any { it.region == r && it.isSolved }
+        val here = allLevels.filter { it.region == r }
+        here.isNotEmpty() && here.all { it.isSolved }
     }
 
     var selectedRegion by remember(initialRegion) { mutableStateOf(initialRegion) }
@@ -619,15 +622,14 @@ fun ExploreScreen(
                             if (selectedRegion == null) pinSpots.forEachIndexed { i, (region, _, _) ->
                                 val inRegion = allLevels.filter { it.region == region }
                                 val solvedHere = inRegion.count { it.isSolved }
-                                // The level the player is on, not how many are already done.
-                                // Nine solved means Luzon Level 10, so the pin reads 10/14.
-                                val onLevel = inRegion.firstOrNull { !it.isSolved }?.displayNumber
-                                    ?: inRegion.size
+                                // How many dishes are finished, not the level being
+                                // played: five solved reads 5/14, and an island not
+                                // started reads 0, never the unlocked Level 1.
                                 RegionPin(
                                     region = region,
                                     selected = tripTo == region,
                                     solvedCount = solvedHere,
-                                    levelNumber = onLevel,
+                                    levelNumber = solvedHere,
                                     totalCount = inRegion.size,
                                     isNext = region == nextRegion,
                                     // The suggestion rides on the island's own label,
@@ -1272,7 +1274,7 @@ private fun MapProgressCard(
             Spacer(Modifier.height(6.dp))
             Row {
                 Text(
-                    "$completedUpTo / $totalLevels dishes explored",
+                    "$completedUpTo / $totalLevels dishes solved",
                     color = HintGray,
                     fontSize = 11.sp
                 )
@@ -1455,7 +1457,7 @@ private fun RegionPin(
     region: Region,
     selected: Boolean,
     solvedCount: Int,
-    /** The level the player is on in this region. Shown as level/total. */
+    /** The number shown as number/total: dishes solved in this region. */
     levelNumber: Int = solvedCount,
     totalCount: Int,
     isNext: Boolean,

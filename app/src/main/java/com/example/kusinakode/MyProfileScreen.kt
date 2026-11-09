@@ -150,8 +150,13 @@ fun MyProfileScreen(
     val totalLevels = LevelProvider.visibleCount
     val completed = game.progress.roundsCompleted
     val solvedLevels = game.progress.solvedLevels
+    // Islands with every visible dish solved — progress counts finished work
+    // only, so an island in progress does not count yet.
     val regionsExplored = remember(solvedLevels) {
-        solvedLevels.map { LevelProvider.forLevel(it).region }.distinct().size
+        Region.entries.count { region ->
+            val levels = LevelProvider.visibleIds.filter { LevelProvider.forLevel(it).region == region }
+            levels.isNotEmpty() && levels.all { it in solvedLevels }
+        }
     }
     // Load once per account, then follow the flow so saving the picker
     // repaints the shelf without leaving the screen.
