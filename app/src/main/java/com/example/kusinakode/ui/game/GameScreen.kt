@@ -687,15 +687,14 @@ fun GameScreen(
                 )
                 val tileSize = minOf(tileByWidth, tileByHeight)
                     .coerceIn(12.dp, tileCeiling)
-                // Every guess colours its tiles as each letter is typed, before
-                // ENTER. Scored by the engine's own evaluate, with untyped cells
-                // left blank (' ' is never in an answer), so the live colours are
-                // exactly what ENTER would show. ENTER still sends the guess: it
-                // spends the attempt, scores it and moves to the next row. The
-                // keyboard keeps its colours for sent guesses only.
-                val rowPreview: List<TileState>? =
-                    if (uiState.isRoundActive) {
-                        val typed = uiState.grid.getOrNull(uiState.currentRow).orEmpty()
+                // The first guess is a warm-up: its tiles take their colour as
+                // each letter is typed, before ENTER. Scored by the engine's
+                // own evaluate, with untyped cells left blank (' ' is never in
+                // an answer), so the live colours are exactly what ENTER would
+                // show. Rows after the first, and the keyboard, still wait.
+                val firstRowPreview: List<TileState>? =
+                    if (uiState.currentRow == 0 && uiState.isRoundActive) {
+                        val typed = uiState.grid.firstOrNull().orEmpty()
                         if (typed.any { it != ' ' } && typed.size == uiState.level.answer.length) {
                             val verdict = WordleEngine.evaluate(uiState.level.answer, typed.joinToString(""))
                             typed.mapIndexed { c, ch -> if (ch == ' ') TileState.Empty else verdict[c] }
@@ -713,7 +712,7 @@ fun GameScreen(
                                 .padding(1.dp)
                         ) {
                             row.forEachIndexed { c, letter ->
-                                val preview = if (r == uiState.currentRow) rowPreview?.getOrNull(c) else null
+                                val preview = if (r == 0) firstRowPreview?.getOrNull(c) else null
                                 PlayTile(
                                     letter = letter,
                                     state = preview ?: uiState.tileStates[r][c],
