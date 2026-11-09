@@ -331,7 +331,9 @@ fun PantryDrawOverlay(
                 hintsNextDish = hintsNextDish,
                 nextDishLabel = nextDishLabel,
                 drawingAll = drawingAll,
-                onLater = if (oneShot) onOpenLater?.let { later ->
+                // A hint palayok cannot wait: the hint is asked for only right after
+                // the win, and the same palayok opened from the pantry later is random.
+                onLater = if (oneShot && !hintsNextDish) onOpenLater?.let { later ->
                     {
                         if (chosen < 0 && !drawing) {
                             SoundFx.play(ctx, SoundFx.Cue.Nav)
@@ -605,7 +607,7 @@ private fun ChooseGrid(
                 }
                 Spacer(Modifier.height(6.dp))
                 Text(
-                    if (hintsNextDish) "The hint will wait on your pantry shelf" else "It will wait on your pantry shelf",
+                    "It will wait on your pantry shelf",
                     color = Color(0xFFE8C9A0).copy(alpha = 0.7f),
                     fontFamily = BeVietnamPro,
                     fontSize = 11.sp
@@ -1354,7 +1356,9 @@ fun PantryRevealCard(
             IngredientTradingCard(
                 ingredient = ingredient,
                 headline = result.headline(),
-                body = ingredient.lore,
+                // A hint card keeps its lore to itself: it often names the very
+                // dish the hint is for ("chopped fine for authentic sisig").
+                body = if (result.isHint) "" else ingredient.lore,
                 footer = if (result.isDuplicate) {
                     "YOU NOW HOLD ${result.qty} · SPARES SELL FOR ${rarity.sellValue} KK"
                 } else {
