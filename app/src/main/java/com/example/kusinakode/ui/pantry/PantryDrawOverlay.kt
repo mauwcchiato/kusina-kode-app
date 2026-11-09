@@ -310,7 +310,6 @@ fun PantryDrawOverlay(
                         )
                         PantryRevealCard(
                             result = reveal,
-                            nextDishLabel = nextDishLabel,
                             onSellNow = onSellNow?.let {
                                 {
                                     reveal.ingredient?.let { ing ->
@@ -1338,8 +1337,6 @@ private fun DrawResult.headline(): String = when {
 @Composable
 fun PantryRevealCard(
     result: DrawResult,
-    /** Where the next dish is, for the line under a hint card. */
-    nextDishLabel: String? = null,
     /** Null hides the shortcut — the shelf is the only place to sell. */
     onSellNow: (() -> Unit)? = null,
     selling: Boolean = false
@@ -1374,20 +1371,6 @@ fun PantryRevealCard(
                     .fillMaxWidth()
                     .padding(horizontal = 44.dp)
             )
-            if (result.isHint) {
-                // The link to what comes next: the clue names where it is used.
-                Spacer(Modifier.height(14.dp))
-                Text(
-                    "Your next dish uses this. Find out which one in " +
-                        (nextDishLabel ?: "the next level") + ".",
-                    color = OverlayGold,
-                    fontFamily = BeVietnamPro,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 13.sp,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(horizontal = 36.dp)
-                )
-            }
             // Cashing a card in should not mean hunting for it on a shelf of
             // a hundred jars, so the offer stands on every draw. A first copy
             // says so on the button — the shelf already allows selling the
