@@ -33,6 +33,10 @@ class KusinaKodeApp : Application() {
         // is already classified correctly rather than guessed at.
         NetworkStatus.warm(this)
 
+        // The chef's voice engine takes seconds to start. Starting it now means
+        // the first guided-tour card is spoken, not only the cards after it.
+        com.example.kusinakode.ui.tutorial.ChefVoice.warmUp(this)
+
         // Disk and system work off the main thread, so the first screen draws
         // without waiting on it. On a busy low-memory phone these reads used to
         // stall startup into "isn't responding" (stress test, 5 Oct).
