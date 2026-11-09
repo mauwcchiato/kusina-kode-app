@@ -687,10 +687,19 @@ fun GameScreen(
                 )
                 val tileSize = minOf(tileByWidth, tileByHeight)
                     .coerceIn(12.dp, tileCeiling)
-                // Colours come only with ENTER, a row at a time. Colouring the
-                // first row while typing let a player test one letter at a time,
-                // delete it and try another, and find the whole word without
-                // spending a single attempt.
+                // The first guess is a warm-up: its tiles take their colour as
+                // each letter is typed, before ENTER. Scored by the engine's
+                // own evaluate, with untyped cells left blank (' ' is never in
+                // an answer), so the live colours are exactly what ENTER would
+                // show. Rows after the first, and the keyboard, still wait.
+                val firstRowPreview: List<TileState>? =
+                    if (uiState.currentRow == 0 && uiState.isRoundActive) {
+                        val typed = uiState.grid.firstOrNull().orEmpty()
+                        if (typed.any { it != ' ' } && typed.size == uiState.level.answer.length) {
+                            val verdict = WordleEngine.evaluate(uiState.level.answer, typed.joinToString(""))
+                            typed.mapIndexed { c, ch -> if (ch == ' ') TileState.Empty else verdict[c] }
+                        } else null
+                    } else null
                 Column(verticalArrangement = Arrangement.spacedBy(gridGap)) {
                     uiState.grid.forEachIndexed { r, row ->
                         val isActive = r == uiState.currentRow && uiState.isRoundActive
@@ -703,10 +712,12 @@ fun GameScreen(
                                 .padding(1.dp)
                         ) {
                             row.forEachIndexed { c, letter ->
+                                val preview = if (r == 0) firstRowPreview?.getOrNull(c) else null
                                 PlayTile(
                                     letter = letter,
-                                    state = uiState.tileStates[r][c],
-                                    revealDelayMs = c * TILE_STAGGER_MS,
+                                    state = preview ?: uiState.tileStates[r][c],
+                                    // A live colour flips at once, not on the row's stagger.
+                                    revealDelayMs = if (preview != null) 0 else c * TILE_STAGGER_MS,
                                     revealBurst = r == uiState.currentRow && c == uiState.justRevealed,
                                     tileSize = tileSize,
                                     row = r,
@@ -775,8 +786,8 @@ fun GameScreen(
                 }
             )
 
-            // The first full row of a round says what to do next: the colours
-            // only come with ENTER. Later rows have learned it.
+            // The first full row of a round says what to do next: a guess only
+            // counts once it is sent with ENTER. Later rows have learned it.
             Box(
                 Modifier
                     .fillMaxWidth()
@@ -785,7 +796,7 @@ fun GameScreen(
             ) {
                 if (rowFull && uiState.currentRow == 0) {
                     Text(
-                        "Press ENTER to check your guess",
+                        "Press ENTER to submit your guess",
                         color = Color(0xFFFFD24A),
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,

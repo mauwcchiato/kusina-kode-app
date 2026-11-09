@@ -657,8 +657,13 @@ private fun TutorialBoard(
         lo + (hi - lo) * pulse
     }
 
-    // As on the real board, colours come only with ENTER - which is what the
-    // chef's "press ENTER, I'll colour what you got right" teaches.
+    // As on the real board, the first guess colours each letter as it is
+    // typed, before ENTER, scored by the same engine (blank cells are ' ',
+    // which is never in the answer). Later rows still wait for ENTER.
+    val firstRowPreview: List<TileState>? =
+        if (guesses.isEmpty() && current.isNotEmpty() && current.length <= answerLength) {
+            WordleEngine.evaluate(TUTORIAL_WORD, current.padEnd(answerLength, ' '))
+        } else null
     Column(
         Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -689,7 +694,7 @@ private fun TutorialBoard(
                         }
                         isActive && col < current.length -> {
                             letter = current[col]
-                            state = TileState.Empty
+                            state = firstRowPreview?.getOrNull(col) ?: TileState.Empty
                         }
                         else -> {
                             letter = ' '
