@@ -759,12 +759,17 @@ fun GameScreen(
             }
 
             // ---- Power-up dock: a satchel that springs open ----
-            // The hint card shares its row, at the left edge, so the deck
-            // stays centred.
-            Box(Modifier.fillMaxWidth()) {
             PowerUpDock(
                 expanded = dockOpen,
                 previewKey = level,
+                // The hint palayok's card joins the deck as a fourth, free card.
+                hintAvailable = hintIngredient != null && !uiState.hasWon && !uiState.isGameOver,
+                onHint = {
+                    SoundFx.play(ctx, SoundFx.Cue.PowerUpOpen)
+                    SoundFx.vibrate(ctx, 14)
+                    dockOpen = false
+                    hintOpen = true
+                },
                 onToggle = {
                     SoundFx.play(ctx, SoundFx.Cue.PowerUpOpen)
                     SoundFx.vibrate(ctx, 10)
@@ -797,23 +802,6 @@ fun GameScreen(
                     onSolve()
                 }
             )
-            if (hintIngredient != null && !uiState.hasWon && !uiState.isGameOver) {
-                HintCard(
-                    ingredient = hintIngredient,
-                    open = hintOpen,
-                    reduceMotion = reduceMotion,
-                    onToggle = {
-                        SoundFx.play(ctx, SoundFx.Cue.PowerUpOpen)
-                        SoundFx.vibrate(ctx, 10)
-                        hintOpen = !hintOpen
-                    },
-                    modifier = Modifier
-                        .align(Alignment.BottomStart)
-                        .padding(start = 14.dp, bottom = 30.dp)
-                        .zIndex(2f)
-                )
-            }
-            }
 
             // The first full row of a round says what to do next: the colours
             // only come with ENTER. Later rows have learned it.
@@ -868,6 +856,15 @@ fun GameScreen(
                 KusinaToast.show(ctx, message)
                 onDismissPowerUpMessage()
             }
+        }
+
+        // ---- The hint card, played from the power-up deck ----
+        if (hintOpen && hintIngredient != null && !uiState.hasWon) {
+            HintReveal(
+                ingredient = hintIngredient,
+                reduceMotion = prefs.reduceMotion,
+                onClose = { hintOpen = false }
+            )
         }
 
         // ---- Pause veil over the board: no studying the grid off the clock ----
@@ -1961,106 +1958,92 @@ private fun RewardChip(
  * the game's two card metaphors match.
  */
 @Composable
-private fun HintCard(
+private fun HintReveal(
     ingredient: Ingredient,
-    open: Boolean,
     reduceMotion: Boolean,
-    onToggle: () -> Unit,
-    modifier: Modifier = Modifier
+    onClose: () -> Unit
 ) {
-    // Closed: a face-down card, tilted like the power-up deck, with the
-    // palayok on its back. Open: it rises, straightens and grows to show the
-    // ingredient the hint palayok drew from this dish.
-    val t by animateFloatAsState(
-        targetValue = if (open) 1f else 0f,
-        animationSpec = if (reduceMotion) tween(0) else spring(
-            dampingRatio = Spring.DampingRatioLowBouncy,
-            stiffness = Spring.StiffnessLow
-        ),
-        label = "hint_card"
-    )
-    val idle by rememberInfiniteTransition(label = "hint_idle").animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(1600), RepeatMode.Reverse),
-        label = "hint_idle_lift"
-    )
-    val width = 50.dp + (150.dp - 50.dp) * t
-    val height = 66.dp + (200.dp - 66.dp) * t
-    val bob = if (!open && !reduceMotion) (idle * 3f).dp else 0.dp
+    // The hint card leaves the deck and turns face up over a dimmed board:
+    // the ingredient the hint palayok drew from this dish. Tap anywhere to
+    // put it back; it stays in the deck until the dish is solved.
+    val shown = remember { Animatable(if (reduceMotion) 1f else 0f) }
+    LaunchedEffect(Unit) {
+        if (!reduceMotion) {
+            shown.animateTo(
+                1f,
+                spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessLow)
+            )
+        }
+    }
+    val t = shown.value
     val frame = TileSemiYellow
 
     Box(
-        modifier
-            .offset(y = -bob)
-            .graphicsLayer {
-                rotationZ = -9f * (1f - t)
-                transformOrigin = TransformOrigin(0f, 1f)
-            }
-            .size(width, height)
-            .clip(RoundedCornerShape(10.dp))
-            .background(Color(0xFF3B2416))
-            .border(2.dp, frame.copy(alpha = 0.9f), RoundedCornerShape(10.dp))
-            .clickable(onClick = onToggle),
+        Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.55f * t.coerceIn(0f, 1f)))
+            .clickable(onClick = onClose),
         contentAlignment = Alignment.Center
     ) {
-        if (t < 0.5f) {
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = Color(0xFF3B2416),
+            border = BorderStroke(3.dp, frame),
+            shadowElevation = 18.dp,
+            modifier = Modifier
+                .graphicsLayer {
+                    val s = 0.4f + 0.6f * t
+                    scaleX = s
+                    scaleY = s
+                    rotationZ = -12f * (1f - t)
+                    translationY = (1f - t) * 600f
+                }
+                .width(220.dp)
+        ) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.alpha(1f - t * 2f)
-            ) {
-                Image(
-                    painter = painterResource(R.drawable.baul_closed),
-                    contentDescription = "Hint card from your palayok",
-                    modifier = Modifier.size(32.dp)
-                )
-                Text(
-                    "HINT",
-                    color = frame,
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 1.sp
-                )
-            }
-        } else {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier
-                    .alpha((t - 0.5f) * 2f)
-                    .padding(8.dp)
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)
             ) {
                 Text(
                     "HINT FOR THIS DISH",
                     color = frame,
-                    fontSize = 9.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 0.8.sp,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = 1.sp,
                     textAlign = TextAlign.Center
                 )
-                Spacer(Modifier.height(4.dp))
+                Spacer(Modifier.height(10.dp))
                 IngredientPhoto(
                     ingredient = ingredient,
-                    modifier = Modifier.size(84.dp)
+                    modifier = Modifier.size(120.dp)
                 )
-                Spacer(Modifier.height(4.dp))
+                Spacer(Modifier.height(10.dp))
                 Text(
                     ingredient.name,
                     color = Color.White,
-                    fontSize = 13.sp,
+                    fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center,
-                    maxLines = 2
+                    textAlign = TextAlign.Center
                 )
                 Text(
                     "is in this dish",
-                    color = LightOrange.copy(alpha = 0.85f),
-                    fontSize = 10.sp,
+                    color = LightOrange.copy(alpha = 0.9f),
+                    fontSize = 13.sp,
                     textAlign = TextAlign.Center
                 )
+                Spacer(Modifier.height(6.dp))
                 ReadAloudButton(
                     key = "hint_${ingredient.id}",
                     parts = listOf("A hint for this dish. ${ingredient.name} is in this dish."),
                     what = "the hint"
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "TAP ANYWHERE TO CLOSE",
+                    color = LightOrange.copy(alpha = 0.6f),
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.sp
                 )
             }
         }
@@ -2072,6 +2055,9 @@ private fun PowerUpDock(
     expanded: Boolean,
     previewKey: Int,
     onToggle: () -> Unit,
+    /** The hint palayok's card is in the deck for this dish. */
+    hintAvailable: Boolean = false,
+    onHint: () -> Unit = {},
     pointsBalance: Int,
     roundActive: Boolean,
     fullyRevealed: Boolean,
@@ -2123,7 +2109,18 @@ private fun PowerUpDock(
 
     val onCooldown = cooldownMs > 0L
     val waitLabel = if (onCooldown) PowerUpRules.formatCooldown(cooldownMs) else null
-    val slots = listOf(
+    val hintSlot = if (hintAvailable) PowerUpSlot(
+        art = R.drawable.baul_closed,
+        label = "Hint",
+        costKk = 0,
+        status = null,
+        accent = Color(0xFFB5651D),
+        enabled = roundActive,
+        free = true,
+        onClick = onHint
+    ) else null
+    val slots = listOfNotNull(
+        hintSlot,
         PowerUpSlot(
             art = R.drawable.powerup_reveal,
             label = PowerUp.REVEAL_LETTER.title,
@@ -2171,7 +2168,7 @@ private fun PowerUpDock(
         Modifier.fillMaxWidth(),
         contentAlignment = Alignment.BottomCenter
     ) {
-        val cardWidth = (maxWidth * 0.17f).coerceIn(50.dp, 68.dp)
+        val cardWidth = (maxWidth * (if (slots.size > 3) 0.155f else 0.17f)).coerceIn(48.dp, 68.dp)
         val cardHeight = cardWidth * 1.3f
         val spreadOpen = cardWidth * 1.08f
         val spreadClosed = cardWidth * 0.19f
@@ -2185,16 +2182,18 @@ private fun PowerUpDock(
                 .height(dockHeight),
             contentAlignment = Alignment.BottomCenter
         ) {
+        val centre = (slots.size - 1) / 2f
         slots.forEachIndexed { index, slot ->
-            val fromCentre = index - 1
+            val fromCentre = index - centre
+            val middle = kotlin.math.abs(fromCentre) < 1f
             // Closed: a fanned deck you can see three cards in.
             // Open: splayed wide like a dealt hand.
             val tilt = fromCentre * (7f + 14f * spread)
             val slideX = (spreadClosed + (spreadOpen - spreadClosed) * spread) * fromCentre
-            val lift = if (index == 1) cardHeight * 0.34f else cardHeight * 0.22f
+            val lift = if (middle) cardHeight * 0.34f else cardHeight * 0.22f
             val idleLift = if (spread < 0.05f && !reduceMotion) (idle * 4f).dp else 0.dp
             val dealtBob = if (spread > 0.5f && !reduceMotion) {
-                (idle * (3f + index) * (if (index == 1) 1.2f else 0.8f)).dp
+                (idle * (3f + index) * (if (middle) 1.2f else 0.8f)).dp
             } else 0.dp
 
             PowerUpCard(
@@ -2212,7 +2211,7 @@ private fun PowerUpDock(
                         transformOrigin = TransformOrigin(0.5f, 1f)
                     }
                     // Centre card rides on top of the deck.
-                    .zIndex(if (index == 1) 1f else 0f),
+                    .zIndex(-kotlin.math.abs(fromCentre)),
                 onClick = { if (expanded && open > 0.5f) slot.onClick() else onToggle() }
             )
         }
@@ -2288,6 +2287,8 @@ private data class PowerUpSlot(
     val accent: Color,
     val enabled: Boolean,
     val soon: Boolean = false,
+    /** Costs nothing: the plate says FREE instead of a KK price. */
+    val free: Boolean = false,
     val onClick: () -> Unit
 )
 
@@ -2405,17 +2406,19 @@ private fun PowerUpCard(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.Center
                     ) {
-                        Image(
-                            painter = painterResource(R.drawable.ic_kk_pixel),
-                            contentDescription = null,
-                            contentScale = ContentScale.Fit,
-                            modifier = Modifier
-                                .size((12 * unit).dp)
-                                .alpha(if (slot.enabled) 1f else 0.6f)
-                        )
-                        Spacer(Modifier.width(3.dp))
+                        if (!slot.free) {
+                            Image(
+                                painter = painterResource(R.drawable.ic_kk_pixel),
+                                contentDescription = null,
+                                contentScale = ContentScale.Fit,
+                                modifier = Modifier
+                                    .size((12 * unit).dp)
+                                    .alpha(if (slot.enabled) 1f else 0.6f)
+                            )
+                            Spacer(Modifier.width(3.dp))
+                        }
                         Text(
-                            "${slot.costKk}",
+                            if (slot.free) "FREE" else "${slot.costKk}",
                             color = Color.White,
                             fontSize = (11 * unit).sp,
                             fontWeight = FontWeight.Black,
