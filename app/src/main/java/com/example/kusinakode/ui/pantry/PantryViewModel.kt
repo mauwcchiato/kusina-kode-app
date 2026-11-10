@@ -301,6 +301,9 @@ class PantryViewModel(
             .onSuccess { (result, snap, balance) ->
                 PantrySnapshotBus.publish(snap, balance)
                 result.ingredient?.id?.let { RecentPotDraws.note(it) }
+                if (result.isHint) {
+                    NextDishHints.save(Session.userId, hintLevelId, result.ingredient?.id)
+                }
                 _uiState.update {
                     it.copy(
                         drawing = false,

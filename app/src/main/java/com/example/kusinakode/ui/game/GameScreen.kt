@@ -122,6 +122,12 @@ import com.example.kusinakode.domain.pantry.PalayokGrantRules
 import com.example.kusinakode.ui.pantry.PALAYOK_HINTS_LIVE
 import com.example.kusinakode.ui.pantry.PantryDrawOverlay
 import com.example.kusinakode.ui.pantry.PantryViewModel
+import com.example.kusinakode.ui.pantry.NextDishHints
+import com.example.kusinakode.ui.pantry.IngredientPhoto
+import com.example.kusinakode.domain.pantry.Ingredient
+import com.example.kusinakode.domain.pantry.IngredientCatalog
+import com.example.kusinakode.ui.components.ReadAloudButton
+import com.example.kusinakode.Session
 import com.example.kusinakode.ui.settings.SfxVolumeSlider
 import com.example.kusinakode.ui.components.LevelImage
 
@@ -203,6 +209,20 @@ fun GameScreen(
     /** Guards the way out: the round's clock is running and leaving abandons it. */
     var showConfirmExit by remember { mutableStateOf(false) }
     var dockOpen by remember { mutableStateOf(false) }
+
+    // The hint palayok opened after the previous dish drew from this one's
+    // ingredients. It is dealt here as a card beside the power-ups, free and
+    // reusable, until this dish is solved.
+    val hintIngredient: Ingredient? = remember(level) {
+        NextDishHints.forLevel(Session.userId, level)?.let { IngredientCatalog.getOrStub(it) }
+    }
+    var hintOpen by remember(level) { mutableStateOf(false) }
+    LaunchedEffect(uiState.hasWon, level) {
+        if (uiState.hasWon) {
+            hintOpen = false
+            NextDishHints.clear(Session.userId, level)
+        }
+    }
 
     // Let the winning row finish flipping to green (and the losing row finish
     // revealing) before any overlay covers the board.
@@ -739,6 +759,9 @@ fun GameScreen(
             }
 
             // ---- Power-up dock: a satchel that springs open ----
+            // The hint card shares its row, at the left edge, so the deck
+            // stays centred.
+            Box(Modifier.fillMaxWidth()) {
             PowerUpDock(
                 expanded = dockOpen,
                 previewKey = level,
@@ -774,6 +797,23 @@ fun GameScreen(
                     onSolve()
                 }
             )
+            if (hintIngredient != null && !uiState.hasWon && !uiState.isGameOver) {
+                HintCard(
+                    ingredient = hintIngredient,
+                    open = hintOpen,
+                    reduceMotion = reduceMotion,
+                    onToggle = {
+                        SoundFx.play(ctx, SoundFx.Cue.PowerUpOpen)
+                        SoundFx.vibrate(ctx, 10)
+                        hintOpen = !hintOpen
+                    },
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(start = 14.dp, bottom = 30.dp)
+                        .zIndex(2f)
+                )
+            }
+            }
 
             // The first full row of a round says what to do next: the colours
             // only come with ENTER. Later rows have learned it.
@@ -1920,6 +1960,113 @@ private fun RewardChip(
  * the way a held hand splays. Echoes the heritage cards in the KODEX, so
  * the game's two card metaphors match.
  */
+@Composable
+private fun HintCard(
+    ingredient: Ingredient,
+    open: Boolean,
+    reduceMotion: Boolean,
+    onToggle: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    // Closed: a face-down card, tilted like the power-up deck, with the
+    // palayok on its back. Open: it rises, straightens and grows to show the
+    // ingredient the hint palayok drew from this dish.
+    val t by animateFloatAsState(
+        targetValue = if (open) 1f else 0f,
+        animationSpec = if (reduceMotion) tween(0) else spring(
+            dampingRatio = Spring.DampingRatioLowBouncy,
+            stiffness = Spring.StiffnessLow
+        ),
+        label = "hint_card"
+    )
+    val idle by rememberInfiniteTransition(label = "hint_idle").animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(1600), RepeatMode.Reverse),
+        label = "hint_idle_lift"
+    )
+    val width = 50.dp + (150.dp - 50.dp) * t
+    val height = 66.dp + (200.dp - 66.dp) * t
+    val bob = if (!open && !reduceMotion) (idle * 3f).dp else 0.dp
+    val frame = TileSemiYellow
+
+    Box(
+        modifier
+            .offset(y = -bob)
+            .graphicsLayer {
+                rotationZ = -9f * (1f - t)
+                transformOrigin = TransformOrigin(0f, 1f)
+            }
+            .size(width, height)
+            .clip(RoundedCornerShape(10.dp))
+            .background(Color(0xFF3B2416))
+            .border(2.dp, frame.copy(alpha = 0.9f), RoundedCornerShape(10.dp))
+            .clickable(onClick = onToggle),
+        contentAlignment = Alignment.Center
+    ) {
+        if (t < 0.5f) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.alpha(1f - t * 2f)
+            ) {
+                Image(
+                    painter = painterResource(R.drawable.baul_closed),
+                    contentDescription = "Hint card from your palayok",
+                    modifier = Modifier.size(32.dp)
+                )
+                Text(
+                    "HINT",
+                    color = frame,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.sp
+                )
+            }
+        } else {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier
+                    .alpha((t - 0.5f) * 2f)
+                    .padding(8.dp)
+            ) {
+                Text(
+                    "HINT FOR THIS DISH",
+                    color = frame,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.8.sp,
+                    textAlign = TextAlign.Center
+                )
+                Spacer(Modifier.height(4.dp))
+                IngredientPhoto(
+                    ingredient = ingredient,
+                    modifier = Modifier.size(84.dp)
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    ingredient.name,
+                    color = Color.White,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center,
+                    maxLines = 2
+                )
+                Text(
+                    "is in this dish",
+                    color = LightOrange.copy(alpha = 0.85f),
+                    fontSize = 10.sp,
+                    textAlign = TextAlign.Center
+                )
+                ReadAloudButton(
+                    key = "hint_${ingredient.id}",
+                    parts = listOf("A hint for this dish. ${ingredient.name} is in this dish."),
+                    what = "the hint"
+                )
+            }
+        }
+    }
+}
+
 @Composable
 private fun PowerUpDock(
     expanded: Boolean,
