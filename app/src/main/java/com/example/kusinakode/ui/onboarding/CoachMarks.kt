@@ -31,6 +31,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
@@ -56,7 +57,10 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import com.example.kusinakode.SoundFx
+import com.example.kusinakode.ui.tutorial.ChefVoice
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -125,6 +129,26 @@ fun CoachMarkOverlay(
     var index by rememberSaveable { mutableIntStateOf(0) }
     val step = steps.getOrNull(index) ?: return
     LaunchedEffect(index) { onStepChange(step) }
+
+    // Every tour narrates itself: each card is read aloud as it appears, with
+    // no button to press. Moving to the next card cuts the last one off, and
+    // Skip or finishing the tour stops the voice. Music sits lower meanwhile.
+    val ctx = LocalContext.current
+    val voice = remember { ChefVoice(ctx) }
+    DisposableEffect(voice) {
+        SoundFx.duckBgm(true)
+        onDispose {
+            voice.shutdown()
+            SoundFx.duckBgm(false)
+        }
+    }
+    LaunchedEffect(index) {
+        val volume = SoundFx.sfxGain()
+        if (volume > 0f) {
+            val title = step.title.trim().trimEnd('.', '!', '?')
+            voice.speak("$title. ${step.body.trim()}", volume)
+        }
+    }
     val target = anchors[step.anchorKey]
 
     var overlayOrigin by remember { mutableStateOf(Offset.Zero) }

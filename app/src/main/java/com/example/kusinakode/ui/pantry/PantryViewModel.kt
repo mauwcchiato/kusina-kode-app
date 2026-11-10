@@ -3,6 +3,7 @@ package com.example.kusinakode.ui.pantry
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.example.kusinakode.LevelProvider
 import com.example.kusinakode.Session
 import com.example.kusinakode.SoundFx
 import com.example.kusinakode.data.repository.KkBalance
@@ -85,6 +86,16 @@ data class PantryUiState(
         snapshot.entries.filter { it.ingredient.rarity == rarity }.sumOf { it.qty }
 }
 
+/**
+ * Whether the live server picks the post-win palayok from the next dish.
+ * The app already asks for it, but until the updated pantry/draw.php and
+ * lib/pantry.php are uploaded the server rolls at random, so the line under
+ * the pots must not promise a hint. Set to true once they are live. The card
+ * needs no switch: it only says "HINT FOR YOUR NEXT DISH" when the server
+ * reports one.
+ */
+const val PALAYOK_HINTS_LIVE = true
+
 class PantryViewModel(
     private val repository: PantryRepository,
     private val levelId: Int?
@@ -92,6 +103,14 @@ class PantryViewModel(
 
     private val _uiState = MutableStateFlow(PantryUiState(isGuest = Session.userId == null))
     val uiState: StateFlow<PantryUiState> = _uiState.asStateFlow()
+
+    /**
+     * The dish the NEXT LEVEL button leads to from [levelId], on the same
+     * island. The palayok opened straight after that win draws from its
+     * ingredients as a hint. Null away from a round, or on an island's last
+     * dish, where there is nothing next to hint at.
+     */
+    val hintLevelId: Int? = levelId?.takeIf { it > 0 }?.let { LevelProvider.nextInRegion(it) }
 
     init {
         load()
@@ -278,10 +297,13 @@ class PantryViewModel(
     /** The draw itself. The caller has already set [PantryUiState.drawing]. */
     private suspend fun performDraw() {
         val before = _uiState.value.snapshot.drawsAvailable
-        repository.draw(levelId)
+        repository.draw(levelId, hintLevelId)
             .onSuccess { (result, snap, balance) ->
                 PantrySnapshotBus.publish(snap, balance)
                 result.ingredient?.id?.let { RecentPotDraws.note(it) }
+                if (result.isHint) {
+                    NextDishHints.save(Session.userId, hintLevelId, result.ingredient?.id)
+                }
                 _uiState.update {
                     it.copy(
                         drawing = false,

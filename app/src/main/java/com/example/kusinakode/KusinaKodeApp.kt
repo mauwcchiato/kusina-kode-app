@@ -8,6 +8,7 @@ import com.example.kusinakode.data.repository.LocalGamificationRepository
 import com.example.kusinakode.data.repository.RemoteGamificationSync
 import com.example.kusinakode.domain.gamification.GamificationCoordinator
 import com.example.kusinakode.domain.repository.GamificationRepository
+import com.example.kusinakode.ui.pantry.NextDishHints
 import com.example.kusinakode.ui.pantry.RecentPotDraws
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -32,6 +33,10 @@ class KusinaKodeApp : Application() {
         // Before anything that can make a request, so the very first failure
         // is already classified correctly rather than guessed at.
         NetworkStatus.warm(this)
+
+        // The chef's voice engine takes seconds to start. Starting it now means
+        // the first guided-tour card is spoken, not only the cards after it.
+        com.example.kusinakode.ui.tutorial.ChefVoice.warmUp(this)
 
         // Disk and system work off the main thread, so the first screen draws
         // without waiting on it. On a busy low-memory phone these reads used to
@@ -66,6 +71,7 @@ class KusinaKodeApp : Application() {
 
         SoundFx.warm(this)
         RecentPotDraws.install(this)
+        NextDishHints.install(this)
 
         // Module 3's half of that seam: a badge announced by the gamification
         // layer is minted straight away rather than waiting for the player to

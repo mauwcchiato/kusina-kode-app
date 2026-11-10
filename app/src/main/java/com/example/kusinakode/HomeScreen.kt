@@ -198,7 +198,9 @@ fun HomeScreen(
             Triple(region, levels.count { it in game.progress.solvedLevels }, levels.size)
         }.filter { it.third > 0 }
     }
-    val regionsExplored = regionProgress.count { it.second > 0 }
+    // Progress counts finished work only: an island counts once every dish on
+    // it is solved, not as soon as one is.
+    val regionsExplored = regionProgress.count { it.second == it.third }
 
     // Only dishes already solved: leading with the next level's photo would
     // hand the player the answer before they had guessed a letter.

@@ -1,6 +1,7 @@
 package com.example.kusinakode.ui.game
 
 import androidx.compose.ui.draw.clip
+import com.example.kusinakode.ui.components.ReadAloudButton
 import com.example.kusinakode.ui.components.clickSfx
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -57,6 +58,9 @@ fun HeritageCardReveal(
      * leaves this false and claims as always.
      */
     alreadyClaimed: Boolean = false,
+    /** The dish's island and its short story, read aloud with the name. */
+    regionName: String? = null,
+    about: String? = null,
     onClaim: () -> Unit
 ) {
     val flip = remember { Animatable(90f) }
@@ -89,18 +93,31 @@ fun HeritageCardReveal(
         contentAlignment = Alignment.Center
     ) {
         val ratio = 522f / 924f                   // the packaged cards' shape
-        val chrome = 104.dp                       // label + both spacers + button
+        val chrome = 126.dp                       // label row (with speaker) + both spacers + button
         val room = (maxHeight - chrome).coerceAtLeast(0.dp)
         val cardWidth = minOf(maxWidth, room * ratio)
 
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(
-                if (alreadyClaimed) "HERITAGE CARD" else "HERITAGE CARD UNLOCKED",
-                color = Color(0xFFD9A227),
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 2.sp
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    if (alreadyClaimed) "HERITAGE CARD" else "HERITAGE CARD UNLOCKED",
+                    color = Color(0xFFD9A227),
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 2.sp
+                )
+                Spacer(Modifier.width(10.dp))
+                // The card is a picture, so the speaker reads what it stands for:
+                // the dish, its island, and its short story.
+                ReadAloudButton(
+                    key = "heritage_$dishName",
+                    parts = listOf(
+                        "$dishName heritage card" + (regionName?.let { ", from $it." } ?: "."),
+                        about.orEmpty()
+                    ),
+                    what = "the heritage card"
+                )
+            }
             Spacer(Modifier.height(12.dp))
 
             LevelImage(

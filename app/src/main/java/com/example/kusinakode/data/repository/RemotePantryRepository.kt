@@ -9,6 +9,7 @@ import com.example.kusinakode.domain.pantry.PantryEntry
 import com.example.kusinakode.domain.pantry.PantrySnapshot
 import com.example.kusinakode.domain.pantry.SellResult
 import com.example.kusinakode.domain.repository.PantryRepository
+import com.example.kusinakode.domain.repository.TriviaSpinOutcome
 
 class RemotePantryRepository : PantryRepository {
 
@@ -22,8 +23,8 @@ class RemotePantryRepository : PantryRepository {
         KusinaApi.pantryGrant(levelId, powerUpsUsed)
     }
 
-    override suspend fun draw(levelId: Int?): Result<Triple<DrawResult, PantrySnapshot, Long>> = runCatching {
-        val resp = KusinaApi.pantryDraw(levelId)
+    override suspend fun draw(levelId: Int?, hintLevelId: Int?): Result<Triple<DrawResult, PantrySnapshot, Long>> = runCatching {
+        val resp = KusinaApi.pantryDraw(levelId, hintLevelId)
         val data = resp.data ?: error(resp.message ?: "The palayok was empty")
         val ingredient = data.ingredient_id?.let { IngredientCatalog.getOrStub(it) }
         val snap = (data.snapshot ?: error("Missing pantry snapshot")).toSnapshot()
@@ -33,7 +34,8 @@ class RemotePantryRepository : PantryRepository {
                 isDuplicate = data.is_duplicate,
                 qty = data.qty,
                 drawsLeft = data.draws_left,
-                collected = data.collected
+                collected = data.collected,
+                isHint = data.is_hint
             ),
             snap,
             data.balance_kk
@@ -55,6 +57,20 @@ class RemotePantryRepository : PantryRepository {
         // has the charge taken off the balance.
         val data = ChainQueue.serialized { KusinaApi.pantryBuySpin() }
         data.toSnapshot() to data.balance_kk
+    }
+
+    override suspend fun triviaSpin(levelId: Int, answer: String, correct: Boolean): Result<TriviaSpinOutcome> = runCatching {
+        // Serialized with every other chain write, the same as buying a spin:
+        // banking one goes through the pantry the wheel reads from.
+        val data = ChainQueue.serialized { KusinaApi.pantryTriviaSpin(levelId, answer, correct) }
+            ?: return@runCatching TriviaSpinOutcome.NotAvailable
+        val snap = data.snapshot
+        when {
+            data.granted && snap != null -> TriviaSpinOutcome.Granted(snap.toSnapshot(), snap.balance_kk)
+            data.granted -> error("Missing pantry snapshot")
+            data.already_answered -> TriviaSpinOutcome.AlreadyAnswered
+            else -> TriviaSpinOutcome.NotGranted
+        }
     }
 
     override suspend fun sell(ingredientId: String, qty: Int): Result<Triple<SellResult, PantrySnapshot, Long>> = runCatching {

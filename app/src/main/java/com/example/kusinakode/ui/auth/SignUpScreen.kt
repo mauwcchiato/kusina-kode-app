@@ -14,6 +14,7 @@ import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
@@ -35,6 +36,9 @@ fun SignUpScreen(
 ) {
     val ui by viewModel.uiState.collectAsState()
     var passVisible by remember { mutableStateOf(false) }
+    // No account, by form or by Google, until the terms are agreed to.
+    var agreed by rememberSaveable { mutableStateOf(false) }
+    var showTerms by remember { mutableStateOf(false) }
 
     ui.success?.let { session ->
         viewModel.consumeSuccess()
@@ -49,6 +53,7 @@ fun SignUpScreen(
             usernameError == null &&
             ui.email.isNotBlank() &&
             passwordStrong &&
+            agreed &&
             !ui.isLoading
 
     AuthSheetScaffold(headerHeightFraction = 0.33f, sheetGradient = true) {
@@ -110,7 +115,20 @@ fun SignUpScreen(
                 ErrorNotice(error = err, onRetry = { viewModel.signUp() })
             }
 
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(12.dp))
+            TermsAgreementRow(
+                checked = agreed,
+                onCheckedChange = { agreed = it },
+                onOpenTerms = { showTerms = true }
+            )
+            if (showTerms) {
+                TermsDialog(
+                    onDismiss = { showTerms = false },
+                    onAgree = { agreed = true; showTerms = false }
+                )
+            }
+
+            Spacer(Modifier.height(12.dp))
             AuthPrimaryButton(
                 text = "SIGN UP",
                 enabled = canSubmit,
@@ -131,7 +149,7 @@ fun SignUpScreen(
                 label = "Sign up with Google",
                 // Sign up: the tap was the answer. Create it.
                 onSignIn = { viewModel.signInWithGoogle(it, createDirectly = true) },
-                enabled = !ui.isLoading
+                enabled = !ui.isLoading && agreed
             )
             Spacer(Modifier.height(14.dp))
             AuthSwitchLink(

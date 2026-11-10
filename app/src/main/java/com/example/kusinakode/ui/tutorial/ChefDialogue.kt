@@ -27,6 +27,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -36,72 +37,123 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.kusinakode.KusinaSettings
+import com.example.kusinakode.SoundFx
 import com.example.kusinakode.R
 import com.example.kusinakode.ui.components.DialogueGold
 import com.example.kusinakode.ui.components.DialogueInk
 import com.example.kusinakode.ui.components.DialogueNamePlate
 import com.example.kusinakode.ui.components.dialoguePlate
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /**
- * A beat the chef speaks: one or more lines the player taps through.
+ * A beat the chef speaks: one or more lines he reads out in turn.
  *
  * Held as a list rather than a string because the teaching moments are
  * genuinely several sentences, and a visual novel earns its pacing by letting
  * the reader turn each one over before the next arrives.
  */
-data class ChefBeat(val lines: List<String>)
+data class ChefBeat(
+    val lines: List<String>,
+    /** The recorded clip for each line, by position; a missing one is spoken by TTS. */
+    val clips: List<Int> = emptyList()
+)
+
+/** Breath between one spoken line and the next. */
+private const val LINE_PAUSE_MS = 1_200L
 
 /**
- * Visual-novel dialogue layer: the chef stands over the board and speaks,
- * and the player taps to move him along.
+ * Visual-novel dialogue layer: the chef stands over the board and speaks.
  *
- * A tap does what a tap does in any VN — first it finishes the line being
- * typed, then it advances to the next one, and on the last line it hands the
- * screen back via [onFinished]. Nothing here decides *when* to speak; the
- * caller owns that.
+ * Each line plays its recorded clip (or, without one, is read aloud by
+ * text-to-speech) through [ChefVoice] and the chef moves on by
+ * himself once it lands; after the last line the screen is handed back via
+ * [onFinished]. A tap still skips ahead for anyone who reads faster than he
+ * talks. With sound off he stays quiet and lines advance at reading pace.
+ * Nothing here decides *when* to speak; the caller owns that.
  */
 @Composable
 fun ChefDialogue(
     beat: ChefBeat,
     reduceMotion: Boolean,
     onFinished: () -> Unit,
-    /** What the last line offers to do — play on, or move to the next screen. */
-    finalLabel: String = "TAP TO PLAY",
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    val voice = remember { ChefVoice(context) }
+    DisposableEffect(voice) { onDispose { voice.shutdown() } }
+    // Music under the voice: quieter for as long as the chef is on screen,
+    // back to its usual level the moment he hands the board back.
+    DisposableEffect(Unit) {
+        SoundFx.duckBgm(true)
+        onDispose { SoundFx.duckBgm(false) }
+    }
+
     var cursor by remember(beat) { mutableIntStateOf(0) }
     val line = beat.lines.getOrElse(cursor) { "" }
 
     var typed by remember(beat, cursor) { mutableIntStateOf(0) }
-    val done = typed >= line.length
+    var talking by remember(beat, cursor) { mutableStateOf(false) }
+    // Auto-advance and a tap can land together on the last line; hand the
+    // screen back only once.
+    var handedBack by remember(beat) { mutableStateOf(false) }
 
-    LaunchedEffect(line, reduceMotion) {
-        if (reduceMotion) {
-            typed = line.length
-            return@LaunchedEffect
-        }
-        typed = 0
-        for (i in 1..line.length) {
-            typed = i
-            delay(if (line[i - 1] == ' ') 12L else 22L)
+    val advance: () -> Unit = {
+        when {
+            cursor < beat.lines.lastIndex -> cursor += 1
+            !handedBack -> {
+                handedBack = true
+                onFinished()
+            }
         }
     }
 
-    // Talking pose while the words are still arriving, resting pose once the
-    // line has landed — the sprite swap is the mouth animation.
-    val pose = if (done) R.drawable.tutorial_chef_idle else R.drawable.tutorial_chef_guide
+    LaunchedEffect(beat, cursor, reduceMotion) {
+        val typing = launch {
+            if (reduceMotion) {
+                typed = line.length
+                return@launch
+            }
+            typed = 0
+            for (i in 1..line.length) {
+                typed = i
+                delay(if (line[i - 1] == ' ') 12L else 22L)
+            }
+        }
+
+        val prefs = KusinaSettings.prefs.value
+        talking = true
+        val clip = beat.clips.getOrNull(cursor)
+        val spoke = prefs.soundEffects && (
+            (clip != null && voice.playClip(clip, prefs.sfxVolume)) ||
+                voice.speak(line, prefs.sfxVolume)
+            )
+        if (!spoke) {
+            // No voice to pace by, so give the eye roughly what the ear would get.
+            delay((line.length * 55L).coerceAtLeast(1_500L))
+        }
+        typing.join()
+        talking = false
+
+        delay(LINE_PAUSE_MS)
+        advance()
+    }
+
+    // Talking pose while he is speaking, resting pose once the line has
+    // landed — the sprite swap is the mouth animation.
+    val pose = if (talking) R.drawable.tutorial_chef_guide else R.drawable.tutorial_chef_idle
 
     val bob by rememberInfiniteTransition(label = "chef_bob").animateFloat(
         initialValue = 0f,
@@ -109,25 +161,10 @@ fun ChefDialogue(
         animationSpec = infiniteRepeatable(tween(1600), RepeatMode.Reverse),
         label = "chef_bob_y"
     )
-    val chevron by rememberInfiniteTransition(label = "chef_chevron").animateFloat(
-        initialValue = 0f,
-        targetValue = if (reduceMotion) 0f else 4f,
-        animationSpec = infiniteRepeatable(tween(620), RepeatMode.Reverse),
-        label = "chef_chevron_y"
-    )
-
-    val advance: () -> Unit = {
-        when {
-            !done -> typed = line.length
-            cursor < beat.lines.lastIndex -> cursor += 1
-            else -> onFinished()
-        }
-    }
-
     Box(
         modifier
             .fillMaxSize()
-            // The whole layer is the tap target, the way a VN screen is — a
+            // The whole layer is the skip target, the way a VN screen is — a
             // small "next" button would be a worse version of the same thing.
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
@@ -194,44 +231,6 @@ fun ChefDialogue(
                         lineHeight = 24.sp,
                         fontWeight = FontWeight.Medium
                     )
-                }
-
-                if (done) {
-                    Row(
-                        Modifier.align(Alignment.BottomEnd),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            if (cursor < beat.lines.lastIndex) "TAP" else finalLabel,
-                            color = DialogueGold.copy(alpha = 0.8f),
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Black,
-                            letterSpacing = 1.4.sp
-                        )
-                        Spacer(Modifier.width(6.dp))
-                        Box(
-                            Modifier
-                                .size(12.dp)
-                                .graphicsLayer { translationY = chevron }
-                                .drawBehind {
-                                    // A downward chevron, the VN "there's more".
-                                    val w = size.width
-                                    val h = size.height
-                                    drawLine(
-                                        DialogueGold,
-                                        Offset(w * 0.1f, h * 0.3f),
-                                        Offset(w * 0.5f, h * 0.75f),
-                                        strokeWidth = w * 0.16f
-                                    )
-                                    drawLine(
-                                        DialogueGold,
-                                        Offset(w * 0.9f, h * 0.3f),
-                                        Offset(w * 0.5f, h * 0.75f),
-                                        strokeWidth = w * 0.16f
-                                    )
-                                }
-                        )
-                    }
                 }
             }
         }

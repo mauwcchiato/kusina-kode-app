@@ -2,9 +2,15 @@ package com.example.kusinakode.ui.learn
 
 import com.example.kusinakode.ui.components.readableWidth
 import com.example.kusinakode.R
+import coil.compose.SubcomposeAsyncImage
 import com.example.kusinakode.data.levels.EquipmentSync
+import com.example.kusinakode.domain.pantry.IngredientCatalog
 import com.example.kusinakode.ui.components.clickSfx
+import com.example.kusinakode.ui.components.ReadAloudButton
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
@@ -23,6 +29,7 @@ import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Eco
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
@@ -51,6 +58,7 @@ import androidx.compose.material.icons.filled.Straighten
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -91,10 +99,20 @@ import com.example.kusinakode.LevelData
 import com.example.kusinakode.LevelProvider
 import com.example.kusinakode.PlayNowBrown
 import com.example.kusinakode.Session
+import com.example.kusinakode.SoundFx
+import com.example.kusinakode.TriviaAnswersManager
+import com.example.kusinakode.data.repository.RemotePantryRepository
+import com.example.kusinakode.domain.repository.TriviaSpinOutcome
+import com.example.kusinakode.ui.pantry.ConfettiBurst
+import com.example.kusinakode.ui.tutorial.ChefVoice
+import com.example.kusinakode.ui.pantry.PalayokWheelOverlay
+import com.example.kusinakode.ui.pantry.PantrySnapshotBus
+import com.example.kusinakode.ui.pantry.PantryViewModel
 import com.example.kusinakode.data.dishes.DishCatalog
 import com.example.kusinakode.data.dishes.DishEntry
 import com.example.kusinakode.data.repository.LocalDishContentRepository
 import com.example.kusinakode.ui.gamification.GamificationViewModel
+import com.example.kusinakode.domain.model.CookingStep
 import com.example.kusinakode.domain.model.DishContent
 import com.example.kusinakode.domain.model.Region
 import com.example.kusinakode.domain.repository.DishContentRepository
@@ -108,6 +126,7 @@ import com.example.kusinakode.ui.theme.OutlineDefault
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.random.Random
 import androidx.compose.runtime.LaunchedEffect
@@ -120,6 +139,18 @@ private val TextDark = Color(0xFF3E2723)
 private val ValidatedGreen = Color(0xFF3D6B3A)
 /** Same gold stroke as the inbox rows (Palayok Spin, dish receipts). */
 private val CardEdge = Color(0xFFE0C48A)
+
+/** Gold, orange, cream and the trivia's own right-answer green. */
+private val TriviaConfetti = listOf(
+    Color(0xFFE8C36A),
+    Color(0xFFCC6B1F),
+    Color(0xFFF3E2C2),
+    Color(0xFF2F7A38),
+    Color(0xFFFFD24A)
+)
+
+/** How long the confetti falls on its own before the bonus wheel opens. */
+private const val WHEEL_AFTER_CONFETTI_MS = 1_200L
 
 class DishDetailViewModel(
     levelId: Int,
@@ -202,8 +233,53 @@ fun DishDetailScreen(
     // Seeded by level so the same dish always asks the same question with the
     // options in the same order.
     val trivia = remember(level) { triviaFor(level, data.dish) }
-    var triviaChoice by remember(level) { mutableStateOf<Int?>(null) }
+    // A dish answered before opens already answered, the way it was left.
+    var triviaChoice by remember(level) {
+        mutableStateOf(
+            trivia?.let { q ->
+                TriviaAnswersManager.answer(ctx, Session.userId, level)
+                    ?.let { saved -> q.options.indexOf(saved).takeIf { it >= 0 } }
+            }
+        )
+    }
+    var showWheel by remember { mutableStateOf(false) }
+    // Counts right answers this visit; each one throws a fresh burst.
+    var confettiBurst by remember(level) { mutableIntStateOf(0) }
+    val scope = rememberCoroutineScope()
 
+    // The colour change already says right or wrong; the sound, the buzz and
+    // (for a right answer) the confetti make it land. The spin is the server's
+    // call — it judges the answer and pays only a dish's first one — so the
+    // wheel opens only once a spin has actually been banked, never onto an
+    // empty wheel, and never before the confetti has had its moment.
+    val answerTrivia: (Int) -> Unit = answer@{ index ->
+        val question = trivia ?: return@answer
+        if (triviaChoice != null) return@answer
+        triviaChoice = index
+        TriviaAnswersManager.save(ctx, Session.userId, level, question.options[index])
+        val correct = index == question.correctIndex
+        if (correct) {
+            SoundFx.play(ctx, SoundFx.Cue.Coin)
+            SoundFx.vibrate(ctx, 40)
+            confettiBurst++
+        } else {
+            SoundFx.play(ctx, SoundFx.Cue.Invalid)
+            SoundFx.vibrate(ctx, 18)
+        }
+        if (Session.userId == null) return@answer
+        // A wrong answer is still reported, so it counts as the dish's first.
+        scope.launch {
+            val askedAt = System.currentTimeMillis()
+            val outcome = RemotePantryRepository().triviaSpin(level, question.options[index], correct)
+            val granted = outcome.getOrNull() as? TriviaSpinOutcome.Granted ?: return@launch
+            PantrySnapshotBus.publish(granted.snapshot, granted.balanceKk)
+            // Let the confetti fall a while before the wheel covers it.
+            delay((WHEEL_AFTER_CONFETTI_MS - (System.currentTimeMillis() - askedAt)).coerceAtLeast(0L))
+            showWheel = true
+        }
+    }
+
+    Box(Modifier.fillMaxSize()) {
     Column(
         Modifier
             .fillMaxSize()
@@ -337,7 +413,7 @@ fun DishDetailScreen(
                     )
                     VerticalStatDivider()
                     StatCell(
-                        "TIME",
+                        "COOKING TIME",
                         cookingTimeLabel(data.dish.cookingTime),
                         Icons.Default.Schedule,
                         Modifier.weight(1f)
@@ -411,12 +487,12 @@ fun DishDetailScreen(
 
             when (tab) {
                 DetailTab.INFORMATION ->
-                    InformationTab(data.name, data.region, content, data.dish.reference)
+                    InformationTab(data.name, data.region, content, data.dish.reference, data.dish.slug)
                 DetailTab.STEPS -> StepsTab(
                     data = data,
                     trivia = trivia,
                     chosen = triviaChoice,
-                    onChoose = { triviaChoice = it },
+                    onChoose = answerTrivia,
                     content = content
                 )
                 DetailTab.EQUIPMENT -> EquipmentTab(content, data.dish.reference)
@@ -542,6 +618,30 @@ fun DishDetailScreen(
         }
 }
 
+    // ---- Confetti for a right trivia answer ----
+    // Drawn over the whole page but only drawn: a Canvas takes no touches,
+    // so the page underneath stays scrollable while it falls.
+    if (confettiBurst > 0) {
+        key(confettiBurst) {
+            ConfettiBurst(
+                colors = TriviaConfetti,
+                count = 60,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+    }
+    }
+
+    // ---- Palayok wheel, opened when a right trivia answer banks a spin ----
+    if (showWheel) {
+        Dialog(
+            onDismissRequest = { showWheel = false },
+            properties = DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            TriviaWheel(onClose = { showWheel = false })
+        }
+    }
+
     // ---- Full-bleed dish photo ----
     if (showPhoto) {
         Dialog(onDismissRequest = { showPhoto = false }) {
@@ -603,7 +703,8 @@ fun DishDetailScreen(
                 Spacer(Modifier.height(10.dp))
                 Text(
                     "Tap the card to close",
-                    color = Color.White.copy(alpha = 0.85f),
+                    // Same gold as the wheel's NOT NOW: the quiet way out.
+                    color = Color(0xFFFFD24A).copy(alpha = 0.75f),
                     fontSize = 12.sp
                 )
             }
@@ -835,22 +936,84 @@ private fun VerticalStatDivider() {
     )
 }
 
+/**
+ * Reads the Origin Story aloud. A dish whose story was recorded in the chef's
+ * ElevenLabs voice plays res/raw/story_<slug>.mp3; any other dish is read by
+ * the device's male text-to-speech voice.
+ *
+ * A clip is only played while the story on screen is still the packaged text
+ * it was recorded from. Once the admin panel edits a story the recording no
+ * longer matches, so that dish falls back to text-to-speech until its clip is
+ * made again — the voice never reads out a different story from the page.
+ *
+ * Music sits lower while it reads, and leaving the tab or the dish stops it.
+ */
+@Composable
+private fun StoryReadAloudButton(slug: String, story: String) {
+    val ctx = LocalContext.current
+    val clip = remember(slug, story) {
+        val recordedFrom = DishCatalog.all.firstOrNull { it.slug == slug }?.story
+        val id = ctx.resources.getIdentifier("story_$slug", "raw", ctx.packageName)
+        id.takeIf { it != 0 && recordedFrom != null && recordedFrom.storyKey() == story.storyKey() }
+    }
+    ReadAloudButton(
+        key = "story_$slug",
+        parts = listOf(story.withParagraphStops()),
+        clip = clip,
+        what = "the story"
+    )
+}
+
+/**
+ * Reads the Cooking Steps aloud, one after another — "Step one. In a large
+ * pan. …" through to the last — so the player can cook along without looking
+ * at the screen. Read by text-to-speech; tapping again stops it.
+ */
+@Composable
+private fun StepsReadAloudButton(slug: String, steps: List<CookingStep>) {
+    val parts = remember(steps) {
+        steps.mapIndexed { i, s ->
+            val title = s.title.trim().trimEnd('.', ':')
+            val body = s.description.trim()
+            // Many steps open by repeating their title; say it once.
+            val text = if (body.startsWith(title, ignoreCase = true)) body else "$title. $body"
+            "Step ${i + 1}. $text"
+        }
+    }
+    ReadAloudButton(key = "steps_$slug", parts = parts, what = "the steps")
+}
+
+/** Story text with spacing and line breaks evened out, for "is this the same story" checks. */
+private fun String.storyKey(): String = replace(Regex("\\s+"), " ").trim()
+
 @Composable
 private fun InformationTab(
     dishName: String,
     region: Region,
     content: DishContent?,
-    reference: String
+    reference: String,
+    slug: String
 ) {
+    val story = content?.history
     ContentCard {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                "The Origin Story",
-                style = MaterialTheme.typography.titleLarge.copy(
-                    fontWeight = FontWeight.Bold, color = TextDark
-                ),
+            // The speaker sits right after the title it reads, not off by the
+            // region badge, so it reads as "listen to this".
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.weight(1f)
-            )
+            ) {
+                Text(
+                    "The Origin Story",
+                    style = MaterialTheme.typography.titleLarge.copy(
+                        fontWeight = FontWeight.Bold, color = TextDark
+                    )
+                )
+                if (!story.isNullOrBlank()) {
+                    Spacer(Modifier.width(10.dp))
+                    StoryReadAloudButton(slug = slug, story = story)
+                }
+            }
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Image(
                     painter = painterResource(regionIcon(region)),
@@ -885,13 +1048,24 @@ private fun InformationTab(
     }
 
     Spacer(Modifier.height(14.dp))
-    Text(
-        "INGREDIENTS IN ${dishName.uppercase()}",
-        color = HintGray,
-        fontSize = 12.sp,
-        fontWeight = FontWeight.Bold,
-        letterSpacing = 2.sp
-    )
+    val ingredientNames = content?.ingredients.orEmpty().toIngredientList()
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            "INGREDIENTS IN ${dishName.uppercase()}",
+            color = HintGray,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 2.sp,
+            modifier = Modifier.weight(1f)
+        )
+        if (ingredientNames.isNotEmpty()) {
+            ReadAloudButton(
+                key = "ingredients_$slug",
+                parts = listOf("Ingredients in $dishName.", ingredientNames.joinToString(", ") + "."),
+                what = "the ingredients"
+            )
+        }
+    }
     Spacer(Modifier.height(8.dp))
 
     // The sheet interleaves section headers ("For the dough:", "Other Souring
@@ -974,11 +1148,23 @@ private fun IngredientTile(name: String, modifier: Modifier = Modifier) {
             contentAlignment = Alignment.Center
         ) {
             // Photography where the dataset's ingredient name matches a shot;
-            // the drawn icon stays as the fallback so a newly added or
-            // mis-spelled ingredient still renders something sensible.
+            // otherwise the picture uploaded in the panel, so an ingredient
+            // added on the web after this build still shows its photo, the
+            // same order the equipment tiles and the pantry use. The drawn
+            // icon stays as the last fallback, and shows while the upload
+            // loads or if it cannot, so a mis-spelled name still renders.
             val photo = IngredientArt.forName(name)
-            if (photo != null) {
-                Image(
+            val uploaded = if (photo == null) IngredientCatalog.imageUrlForName(name) else null
+            val icon: @Composable () -> Unit = {
+                Icon(
+                    ingredientIcon(name),
+                    contentDescription = null,
+                    tint = LightOrange.copy(alpha = 0.92f),
+                    modifier = Modifier.size(46.dp)
+                )
+            }
+            when {
+                photo != null -> Image(
                     painter = painterResource(photo),
                     contentDescription = name,
                     contentScale = ContentScale.Fit,
@@ -986,13 +1172,17 @@ private fun IngredientTile(name: String, modifier: Modifier = Modifier) {
                         .fillMaxSize()
                         .padding(10.dp)
                 )
-            } else {
-                Icon(
-                    ingredientIcon(name),
-                    contentDescription = null,
-                    tint = LightOrange.copy(alpha = 0.92f),
-                    modifier = Modifier.size(46.dp)
+                uploaded != null -> SubcomposeAsyncImage(
+                    model = uploaded,
+                    contentDescription = name,
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(10.dp),
+                    loading = { Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { icon() } },
+                    error = { Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { icon() } }
                 )
+                else -> icon()
             }
         }
         Spacer(Modifier.height(7.dp))
@@ -1068,11 +1258,19 @@ private fun StepsTab(
 ) {
     val steps = content?.procedure.orEmpty()
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(
-            "Cooking Steps",
-            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = TextDark),
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.weight(1f)
-        )
+        ) {
+            Text(
+                "Cooking Steps",
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = TextDark)
+            )
+            if (steps.isNotEmpty()) {
+                Spacer(Modifier.width(10.dp))
+                StepsReadAloudButton(slug = data.dish.slug, steps = steps)
+            }
+        }
         if (steps.isNotEmpty()) {
             Text("${steps.size} Steps Total", color = PlayNowBrown, fontFamily = BeVietnamPro, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
         }
@@ -1144,18 +1342,31 @@ private fun triviaFor(level: Int, dish: DishEntry): TriviaQuestion? {
     val own = dish.ingredients.toIngredientList()
     if (own.isEmpty()) return null
 
-    val ownKeys = own.map { it.lowercase() }.toSet()
     val random = Random(level)
     val answer = own.random(random)
-    val distractors = DishCatalog.all
+
+    // A wrong option must not be something the dish does use under another
+    // name: "Vinegar" was offered against Adobo's "White vinegar" and marked
+    // wrong. Exact matching misses that, so options are compared by their
+    // words, and one that shares a word with any of the dish's own
+    // ingredients — or with a wrong option already chosen ("Beef" and "Beef
+    // Chuck") — is skipped.
+    val taken = own.flatMap { it.triviaWords() }.toMutableSet()
+    val distractors = mutableListOf<String>()
+    DishCatalog.all
         .asSequence()
         .filter { it.slug != dish.slug }
         .flatMap { it.ingredients.toIngredientList().asSequence() }
-        .filter { it.lowercase() !in ownKeys }
         .distinctBy { it.lowercase() }
         .toList()
         .shuffled(random)
-        .take(3)
+        .forEach { candidate ->
+            if (distractors.size == 3) return@forEach
+            val words = candidate.triviaWords()
+            if (words.isEmpty() || words.any { it in taken }) return@forEach
+            distractors += candidate
+            taken += words
+        }
     if (distractors.size < 3) return null
 
     val options = (distractors + answer).shuffled(random).map { it.triviaOptionLabel() }
@@ -1167,14 +1378,46 @@ private fun triviaFor(level: Int, dish: DishEntry): TriviaQuestion? {
     )
 }
 
-/** Title-case each word and drop a trailing colon from sheet headers. */
+/** Describing words that say nothing about which ingredient it is. */
+private val TriviaFillerWords = setOf(
+    "white", "black", "red", "green", "yellow", "brown", "fresh", "dried", "ground",
+    "whole", "minced", "chopped", "sliced", "thinly", "large", "small", "young",
+    "ripe", "native", "cut", "into", "pieces", "and", "the", "for", "optional", "taste"
+)
+
+/**
+ * The words that name an ingredient, singular and lower-case, so "Chicken/Pork"
+ * gives {chicken, pork} and "Dried bay leaves" gives {bay, leave}.
+ */
+private fun String.triviaWords(): Set<String> =
+    lowercase()
+        .split(Regex("[^a-z]+"))
+        .filter { it.length > 2 && it !in TriviaFillerWords }
+        .map { w ->
+            when {
+                w.endsWith("ies") -> w.dropLast(3) + "y"
+                w.endsWith("oes") -> w.dropLast(2)
+                w.endsWith("s") && !w.endsWith("ss") -> w.dropLast(1)
+                else -> w
+            }
+        }
+        .toSet()
+
+/**
+ * Title-case each word and drop a trailing colon from sheet headers. A
+ * bracketed local name gets a space before it and its own capital, so the
+ * sheet's "Milkfish(bangus)" reads "Milkfish (Bangus)".
+ */
 private fun String.triviaOptionLabel(): String =
     trim().trimEnd(':').trim()
+        .replace(Regex("\\s*\\(\\s*"), " (")
         .split(Regex("\\s+"))
         .filter { it.isNotBlank() }
         .joinToString(" ") { word ->
             word.split('-').joinToString("-") { part ->
-                part.lowercase().replaceFirstChar { ch ->
+                // Skip a leading bracket so "(bangus)" capitalises its letter.
+                val lead = part.takeWhile { it == '(' }
+                lead + part.drop(lead.length).lowercase().replaceFirstChar { ch ->
                     if (ch.isLowerCase()) ch.titlecase() else ch.toString()
                 }
             }
@@ -1241,14 +1484,26 @@ private fun TriviaCard(
                 )
                 .padding(18.dp)
         ) {
-            Text(
-                "TRIVIA QUESTION",
-                color = LightOrange.copy(alpha = 0.85f),
-                fontSize = 9.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 2.sp
-            )
-            Spacer(Modifier.height(8.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    "TRIVIA QUESTION",
+                    color = LightOrange.copy(alpha = 0.85f),
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 2.sp,
+                    modifier = Modifier.weight(1f)
+                )
+                ReadAloudButton(
+                    key = "trivia_${question.prompt}",
+                    parts = listOf(
+                        question.prompt,
+                        "Is it " + question.options.dropLast(1).joinToString(", ") +
+                            (if (question.options.size > 1) ", or " else "") + question.options.last() + "?"
+                    ),
+                    what = "the trivia question"
+                )
+            }
+            Spacer(Modifier.height(4.dp))
             Text(
                 question.prompt,
                 color = Color.White,
@@ -1329,6 +1584,29 @@ private fun TriviaCard(
     }
 }
 
+/**
+ * The daily-login wheel, opened by itself once a right trivia answer banks
+ * a spin, so it can be turned without leaving the dish. Its view model is only
+ * built once the wheel opens, so reading a dish never loads the pantry.
+ */
+@Composable
+private fun TriviaWheel(onClose: () -> Unit) {
+    val pantry: PantryViewModel = viewModel(factory = PantryViewModel.factory())
+    val ui by pantry.uiState.collectAsState()
+    PalayokWheelOverlay(
+        spinsAvailable = ui.snapshot.spinsAvailable,
+        spinning = ui.spinning,
+        won = ui.spinWon,
+        onSpin = pantry::spin,
+        onDone = {
+            pantry.dismissSpin()
+            onClose()
+        },
+        title = "BONUS SPIN",
+        oneSpinLine = "Earned for your right answer. It pays 3, 5 or 8 palayoks."
+    )
+}
+
 @Composable
 private fun EquipmentTab(content: DishContent?, reference: String) {
     // The sheet lists "Optional:" as its own line before the tool it applies
@@ -1342,6 +1620,16 @@ private fun EquipmentTab(content: DishContent?, reference: String) {
         )
         if (tools.isNotEmpty()) {
             Text("${tools.size} Essential Tools", color = PlayNowBrown, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.width(8.dp))
+            ReadAloudButton(
+                key = "equipment_$reference",
+                parts = listOf("Kitchen equipment.") + tools.map { tool ->
+                    val name = tool.name.toolLabel()
+                    val about = tool.description.trim()
+                    if (about.isEmpty()) "$name." else "$name. $about"
+                },
+                what = "the equipment"
+            )
         }
     }
     Spacer(Modifier.height(10.dp))

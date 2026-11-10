@@ -232,10 +232,31 @@ object SoundFx {
 
     /** Push the current gain onto the looping bed without restarting it. */
     fun applyVolume() {
-        val gain = sfxGain()
+        val gain = bgmGain()
         main.post {
-            bgmPlayer?.setVolume(0.45f * gain, 0.45f * gain)
+            bgmPlayer?.setVolume(gain, gain)
         }
+    }
+
+    /**
+     * How loud the music bed sits under a spoken voice, as a share of its
+     * usual level: low enough that the chef's words carry, high enough that
+     * the kitchen does not go dead quiet.
+     */
+    private const val BGM_DUCKED = 0.15f   // was 0.35: speech over the music sounded muffled
+
+    @Volatile private var bgmDuck = 1f
+
+    /** The bed sits under the effects, and further down while a voice speaks. */
+    private fun bgmGain(): Float = 0.45f * sfxGain() * bgmDuck
+
+    /**
+     * Lowers the music while someone is talking ([on]) and restores it after.
+     * The chef's dialogue holds it down for as long as it is on screen.
+     */
+    fun duckBgm(on: Boolean) {
+        bgmDuck = if (on) BGM_DUCKED else 1f
+        applyVolume()
     }
 
     fun tap(context: Context) {
@@ -263,8 +284,8 @@ object SoundFx {
             bgmPaused = false
             val player = MediaPlayer.create(app, bgm.res) ?: return@post
             player.isLooping = bgm.loop
-            val gain = sfxGain()
-            player.setVolume(0.45f * gain, 0.45f * gain)
+            val gain = bgmGain()
+            player.setVolume(gain, gain)
             if (!bgm.loop) {
                 player.setOnCompletionListener {
                     if (currentBgm == bgm) releaseBgm()

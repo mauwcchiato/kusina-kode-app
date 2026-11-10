@@ -39,8 +39,8 @@ android {
         applicationId = "ph.kusinakode.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 32
-        versionName = "1.31"
+        versionCode = 34
+        versionName = "1.33"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

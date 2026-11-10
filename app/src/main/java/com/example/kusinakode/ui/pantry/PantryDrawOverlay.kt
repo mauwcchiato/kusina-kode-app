@@ -140,7 +140,11 @@ fun PantryDrawOverlay(
      * The pots show anyway; this stops an empty count from closing them.
      */
     awaitingGrant: Boolean = false,
-    onDismissHaul: () -> Unit = {}
+    onDismissHaul: () -> Unit = {},
+    /** The palayok after this win hints at the next dish; the line under the pots says so. */
+    hintsNextDish: Boolean = false,
+    /** Where that next dish is, such as "Luzon Level 3". Named, never the dish itself. */
+    nextDishLabel: String? = null
 ) {
     HoldsTheScreen()
     var beat by remember { mutableStateOf(BaulBeat.Choose) }
@@ -324,8 +328,12 @@ fun PantryDrawOverlay(
                 oneShot = oneShot,
                 drawsAvailable = drawsAvailable,
                 earnedBauls = earnedBauls,
+                hintsNextDish = hintsNextDish,
+                nextDishLabel = nextDishLabel,
                 drawingAll = drawingAll,
-                onLater = if (oneShot) onOpenLater?.let { later ->
+                // A hint palayok cannot wait: the hint is asked for only right after
+                // the win, and the same palayok opened from the pantry later is random.
+                onLater = if (oneShot && !hintsNextDish) onOpenLater?.let { later ->
                     {
                         if (chosen < 0 && !drawing) {
                             SoundFx.play(ctx, SoundFx.Cue.Nav)
@@ -427,6 +435,8 @@ private fun ChooseGrid(
     oneShot: Boolean,
     drawsAvailable: Int,
     earnedBauls: Int,
+    hintsNextDish: Boolean,
+    nextDishLabel: String?,
     drawingAll: Boolean,
     onOpenAll: (() -> Unit)?,
     /** Keeps the palayok for the Pantry instead of opening it now; null hides the choice. */
@@ -511,8 +521,11 @@ private fun ChooseGrid(
                 shadowElevation = 6.dp
             ) {
                 Text(
-                    if (earnedBauls == 1) "YOU EARNED A PALAYOK"
-                    else "YOU EARNED $earnedBauls PALAYOKS",
+                    when {
+                        earnedBauls <= 1 && hintsNextDish -> "YOU EARNED A HINT PALAYOK"
+                        earnedBauls == 1 -> "YOU EARNED A PALAYOK"
+                        else -> "YOU EARNED $earnedBauls PALAYOKS"
+                    },
                     color = Color.White,
                     fontFamily = BeVietnamPro,
                     fontWeight = FontWeight.ExtraBold,
@@ -524,6 +537,7 @@ private fun ChooseGrid(
             Spacer(Modifier.height(10.dp))
             Text(
                 when {
+                    earnedBauls <= 1 && hintsNextDish -> "A clue for " + (nextDishLabel ?: "your next dish")
                     earnedBauls <= 1 -> "Pick the one you like — it opens right now"
                     earnedBauls == 2 -> "Pick one to open now. The other is waiting on your pantry shelf"
                     else -> "Pick one to open now. The other ${earnedBauls - 1} are waiting on your pantry shelf"
@@ -1286,17 +1300,33 @@ private fun HaulStackCard(
     }
     IngredientTradingCard(
         ingredient = ingredient,
-        headline = if (result.isDuplicate) "DUPLICATE" else "INGREDIENT UNLOCKED!",
+        headline = result.headline(),
         body = ingredient.lore,
         footer = if (result.isDuplicate) {
             "YOU NOW HOLD ${result.qty} · SPARES SELL FOR ${ingredient.rarity.sellValue} KK"
         } else {
-            "SHELVED IN YOUR PANTRY"
+            "SHELVED IN YOUR PANTRY · WORTH ${ingredient.rarity.sellValue} KK"
+        },
+        footerKk = if (result.isDuplicate) {
+            "SPARES SELL FOR ${ingredient.rarity.sellValue} KK"
+        } else {
+            "WORTH ${ingredient.rarity.sellValue} KK"
         },
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp)
     )
+}
+
+/**
+ * The card's banner line. A hint says so on the card itself, so the clue reads
+ * as a clue even after the pots are gone; a duplicate hint still shows its
+ * count in the footer.
+ */
+private fun DrawResult.headline(): String = when {
+    isHint -> "HINT FOR YOUR NEXT DISH"
+    isDuplicate -> "DUPLICATE"
+    else -> "INGREDIENT UNLOCKED!"
 }
 
 /**
@@ -1325,12 +1355,19 @@ fun PantryRevealCard(
         ) {
             IngredientTradingCard(
                 ingredient = ingredient,
-                headline = if (result.isDuplicate) "DUPLICATE" else "INGREDIENT UNLOCKED!",
-                body = ingredient.lore,
+                headline = result.headline(),
+                // A hint card keeps its lore to itself: it often names the very
+                // dish the hint is for ("chopped fine for authentic sisig").
+                body = if (result.isHint) "" else ingredient.lore,
                 footer = if (result.isDuplicate) {
                     "YOU NOW HOLD ${result.qty} · SPARES SELL FOR ${rarity.sellValue} KK"
                 } else {
-                    "SHELVED IN YOUR PANTRY"
+                    "SHELVED IN YOUR PANTRY · WORTH ${rarity.sellValue} KK"
+                },
+                footerKk = if (result.isDuplicate) {
+                    "SPARES SELL FOR ${rarity.sellValue} KK"
+                } else {
+                    "WORTH ${rarity.sellValue} KK"
                 },
                 modifier = Modifier
                     .fillMaxWidth()
